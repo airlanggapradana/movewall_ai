@@ -53,12 +53,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# SQLite Database files (Local Session data)
-*.db
-*.db-journal
-*.db-shm
-*.db-wal
-
 # MediaPipe Task Models (Downloaded dynamically at runtime, ~10MB to ~30MB)
 models/
 *.task

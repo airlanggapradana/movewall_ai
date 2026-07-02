@@ -1,14 +1,15 @@
 """
 Database connection and session management.
 
-Uses SQLAlchemy with async SQLite (aiosqlite) for non-blocking database operations
-alongside the FastAPI async endpoints. A synchronous engine is also provided for
-use in synchronous contexts (e.g., game loop thread).
+Uses SQLAlchemy with asyncpg (PostgreSQL) for non-blocking database
+operations alongside FastAPI async endpoints. A synchronous psycopg2
+engine is also provided for the game loop thread.
 """
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from ai_engine.config import DATABASE_URL, DATABASE_URL_SYNC
 
@@ -28,6 +29,9 @@ async_engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     future=True,
+    # NullPool is recommended for asyncpg to avoid connection pool conflicts
+    # when running alongside a sync engine in the same process.
+    poolclass=NullPool,
 )
 
 AsyncSessionLocal = sessionmaker(
@@ -44,18 +48,8 @@ sync_engine = create_engine(
     DATABASE_URL_SYNC,
     echo=False,
     future=True,
+    pool_pre_ping=True,  # Verify connections are alive before use
 )
-
-
-def _enable_sqlite_fk(dbapi_conn, connection_record):
-    """Enable foreign key enforcement for SQLite connections."""
-    cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
-
-
-event.listen(sync_engine, "connect", _enable_sqlite_fk)
-
 
 SyncSessionLocal = sessionmaker(
     bind=sync_engine,

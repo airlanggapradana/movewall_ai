@@ -14,7 +14,6 @@ from pathlib import Path
 # Paths
 # ──────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "smart_wall_climbing.db"
 
 
 # ──────────────────────────────────────────────
@@ -139,10 +138,16 @@ FONT_SIZE_TARGET = 48
 
 
 # ──────────────────────────────────────────────
-# Database
+# Database (PostgreSQL)
 # ──────────────────────────────────────────────
-DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
-DATABASE_URL_SYNC = f"sqlite:///{DB_PATH}"
+_PG_BASE = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://postgres:admin123@localhost:5432/smart-climbing",
+)
+# asyncpg driver for FastAPI async endpoints
+DATABASE_URL = _PG_BASE.replace("postgresql://", "postgresql+asyncpg://")
+# psycopg2 driver for synchronous game-loop thread
+DATABASE_URL_SYNC = _PG_BASE.replace("postgresql://", "postgresql+psycopg2://")
 
 
 # ──────────────────────────────────────────────

@@ -11,6 +11,11 @@
   --amber: #f2ad45;
   --red: #d94b4b;
   --violet: #6c55d9;
+  --apple-red: #e03c3c;
+  --apple-green: #6db34a;
+  --bark: #6b4226;
+  --leaf: #3a8c3f;
+  --golden: #f5c842;
   --shadow: 0 24px 70px rgba(21, 45, 58, 0.18);
 }
 
@@ -45,7 +50,7 @@ button {
   min-height: 0;
   border: 1px solid rgba(255, 255, 255, 0.84);
   border-radius: 8px;
-  background: #dff4ef;
+  background: #e8f0d4;
   box-shadow: var(--shadow);
 }
 
@@ -386,4 +391,15 @@ button {
     flex: 1;
     min-width: 0;
   }
+}
+
+@keyframes apple-sparkle {
+  0% { transform: scale(0) rotate(0deg); opacity: 1; }
+  60% { transform: scale(1.3) rotate(180deg); opacity: 0.8; }
+  100% { transform: scale(0) rotate(360deg); opacity: 0; }
+}
+
+@keyframes leaf-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(80px) rotate(120deg); opacity: 0; }
 }

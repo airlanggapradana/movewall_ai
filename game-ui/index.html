@@ -3,7 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MoveWall AI - Apple Archer</title>
+    <title>MoveWall AI – Apple Archer</title>
+    <meta name="description" content="MOVEWALL-AI Mission 1 – Pick the Apple. Interactive shoulder rehabilitation game." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -17,25 +21,6 @@
           <strong>Apple Archer</strong>
         </div>
 
-        <div class="hud hud-top">
-          <div>
-            <span>Score</span>
-            <strong id="score">0</strong>
-          </div>
-          <div>
-            <span>Time</span>
-            <strong id="time">01:30</strong>
-          </div>
-          <div>
-            <span>Level</span>
-            <strong id="level">1</strong>
-          </div>
-          <div>
-            <span>Hits</span>
-            <strong><span id="reps">0</span>/12</strong>
-          </div>
-        </div>
-
         <div class="rom-meter" aria-label="ROM meter">
           <span>ROM</span>
           <strong id="rom">0</strong>
@@ -46,8 +31,6 @@
           <strong id="feedbackTitle">Ready</strong>
           <span id="feedbackText">Start camera to draw the bow</span>
         </div>
-
-        <button id="painButton" class="pain-button" type="button">Stop</button>
       </section>
 
       <section class="control-band" aria-label="Game controls">
@@ -57,10 +40,31 @@
           <button id="resetButton" type="button">Reset</button>
         </div>
 
+        <div class="stats-bar" aria-label="Game statistics">
+          <div class="stat-chip">
+            <span>Score</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="stat-chip">
+            <span>Time</span>
+            <strong id="time">01:30</strong>
+          </div>
+          <div class="stat-chip">
+            <span>Level</span>
+            <strong id="level">1</strong>
+          </div>
+          <div class="stat-chip">
+            <span>Hits</span>
+            <strong><span id="reps">0</span>/12</strong>
+          </div>
+        </div>
+
         <div class="rom-status">
           <span>ROM Check</span>
           <strong id="romStatus">Waiting for camera</strong>
         </div>
+
+        <button id="painButton" class="pain-button" type="button">Stop</button>
       </section>
     </main>
 

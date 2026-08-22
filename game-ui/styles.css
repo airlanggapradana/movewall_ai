@@ -1,57 +1,80 @@
+/* ── Google Fonts ─────────────────────────────────── */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
+/* ── Design tokens ───────────────────────────────── */
 :root {
   color-scheme: light;
-  --ink: #10202b;
-  --muted: #60707b;
-  --glass: rgba(255, 255, 255, 0.78);
-  --glass-strong: rgba(255, 255, 255, 0.92);
-  --line: rgba(21, 45, 58, 0.12);
-  --green: #26a66a;
-  --teal: #1e9f9a;
-  --sky: #4aa9d6;
-  --amber: #f2ad45;
-  --red: #d94b4b;
-  --violet: #6c55d9;
-  --apple-red: #e03c3c;
-  --apple-green: #6db34a;
-  --bark: #6b4226;
-  --leaf: #3a8c3f;
-  --golden: #f5c842;
-  --shadow: 0 24px 70px rgba(21, 45, 58, 0.18);
+
+  /* glass surfaces */
+  --glass:         rgba(255, 255, 255, 0.70);
+  --glass-strong:  rgba(255, 255, 255, 0.85);
+  --glass-subtle:  rgba(255, 255, 255, 0.45);
+
+  /* borders */
+  --border:        rgba(255, 255, 255, 0.85);
+  --border-inner:  rgba(0, 0, 0, 0.07);
+
+  /* text */
+  --text-primary:   #0f1c28;
+  --text-secondary: #3d5166;
+  --text-muted:     #7a95aa;
+
+  /* accents — warm orchard palette */
+  --accent-violet: #5b3fd4;
+  --accent-green:  #1a9e55;
+  --accent-amber:  #d97706;
+  --accent-sky:    #0e7abe;
+  --accent-red:    #c62828;
+
+  /* feedback */
+  --good:   #16a34a;
+  --warn:   #d97706;
+  --bad:    #dc2626;
+
+  --shadow-sm: 0 2px 12px rgba(10, 30, 50, 0.10);
+  --shadow-md: 0 8px 28px rgba(10, 30, 50, 0.14);
+  --shadow-lg: 0 20px 60px rgba(10, 30, 50, 0.18);
+
+  --radius-sm:  8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --transition: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-* {
-  box-sizing: border-box;
-}
+/* ── Reset ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  margin: 0;
   min-height: 100vh;
-  color: var(--ink);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  /* neutral warm-light backdrop outside the canvas */
   background:
-    radial-gradient(circle at 20% 10%, rgba(74, 169, 214, 0.18), transparent 32%),
-    linear-gradient(135deg, #eef8f7, #f9fbf3 48%, #eef5ff);
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(134, 198, 232, 0.30), transparent 55%),
+    linear-gradient(160deg, #e8f4f0 0%, #f0f7ec 45%, #edf3fa 100%);
 }
 
-button {
-  font: inherit;
-}
+button { font: inherit; cursor: pointer; }
 
+/* ── Shell ───────────────────────────────────────── */
 .shell {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   min-height: 100vh;
-  padding: 14px;
+  padding: 12px;
 }
 
+/* ── Projection area ─────────────────────────────── */
 .projection {
   position: relative;
   overflow: hidden;
   min-height: 0;
-  border: 1px solid rgba(255, 255, 255, 0.84);
-  border-radius: 8px;
-  background: #e8f0d4;
-  box-shadow: var(--shadow);
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--border);
+  background: #c8e8f0;
+  box-shadow: var(--shadow-lg);
 }
 
 .projection::after {
@@ -59,355 +82,482 @@ button {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow: inset 0 0 0 1px rgba(16, 32, 43, 0.08), inset 0 -90px 120px rgba(16, 75, 74, 0.12);
+  border-radius: inherit;
+  /* inner vignette to push canvas edges back */
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    inset 0 -60px 80px rgba(20, 60, 40, 0.08);
 }
 
 #gameCanvas {
   display: block;
   width: 100%;
-  height: calc(100vh - 112px);
-  min-height: 540px;
+  height: calc(100vh - 88px);
+  min-height: 520px;
 }
 
+/* ── Shared backdrop blur for overlays ───────────── */
 .mission-card,
-.hud,
 .rom-meter,
 .feedback,
 .camera-preview,
 .control-band {
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
+/* ════════════════════════════════════════════════════
+   MISSION CARD
+   ════════════════════════════════════════════════════ */
 .mission-card {
   position: absolute;
-  left: 18px;
+  left: 16px;
   top: 16px;
-  width: min(270px, calc(100% - 48px));
-  padding: 10px 13px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--glass);
-  box-shadow: 0 18px 40px rgba(21, 45, 58, 0.12);
+  width: min(248px, calc(100% - 44px));
+  padding: 10px 14px 12px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.90);
+  overflow: hidden;
 }
 
-.mission-card span,
-.hud span,
-.rom-meter span,
-.rom-meter small,
-.rom-status span {
-  display: block;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 850;
-  letter-spacing: 0;
+/* coloured left rule */
+.mission-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(180deg, var(--accent-violet), var(--accent-sky));
+}
+
+.mission-card span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+/* live indicator dot */
+.mission-card span::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 0 2px rgba(26, 158, 85, 0.20);
+  animation: pulse-dot 2s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
 .mission-card strong {
   display: block;
-  margin-top: 3px;
-  font-size: clamp(20px, 1.8vw, 26px);
-  line-height: 1.04;
+  margin-top: 4px;
+  font-size: clamp(17px, 1.65vw, 22px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
-.camera-preview {
-  position: absolute;
-  left: 18px;
-  top: 96px;
-  display: none;
-  width: min(160px, calc(100% - 178px));
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  background: #10202b;
-  box-shadow: 0 14px 34px rgba(16, 32, 43, 0.2);
-  opacity: 0.88;
-  transform: scaleX(-1);
-}
+/* ROM meter stays — no old hud/hud-top needed */
 
-.camera-preview.visible {
-  display: block;
-}
-
-.hud {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  background: var(--glass);
-  border: 1px solid var(--line);
-}
-
-.hud-top {
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(560px, calc(100% - 370px));
-  min-width: 430px;
-  justify-content: space-between;
-  border-radius: 8px;
-  box-shadow: 0 18px 40px rgba(21, 45, 58, 0.12);
-}
-
-.hud-top div {
-  width: 25%;
-  min-width: 0;
-  padding: 9px 13px;
-  text-align: center;
-  border-right: 1px solid var(--line);
-}
-
-.hud-top div:last-child {
-  border-right: 0;
-}
-
-.hud strong {
-  display: block;
-  margin-top: 3px;
-  font-size: clamp(20px, 1.75vw, 25px);
-  line-height: 1;
-}
-
-.hud strong span {
-  display: inline;
-  color: inherit;
-  font: inherit;
-  text-transform: none;
-}
-
+/* ════════════════════════════════════════════════════
+   ROM METER — top-right, smaller since no HUD bar
+   ════════════════════════════════════════════════════ */
 .rom-meter {
   position: absolute;
-  right: 22px;
-  top: 18px;
-  display: grid;
-  place-items: center;
-  width: 128px;
+  right: 16px;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 104px;
   aspect-ratio: 1;
-  border: 7px solid rgba(38, 166, 106, 0.72);
   border-radius: 50%;
+  border: 3px solid transparent;
   background:
-    radial-gradient(circle at center, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.76)),
-    var(--glass);
-  box-shadow: inset 0 0 0 1px var(--line), 0 18px 42px rgba(21, 45, 58, 0.18);
+    linear-gradient(var(--glass-strong), var(--glass-strong)) padding-box,
+    linear-gradient(135deg, var(--accent-green), #57c9b0) border-box;
+  box-shadow:
+    var(--shadow-md),
+    inset 0 1px 0 rgba(255,255,255,0.90),
+    0 0 0 4px rgba(26, 158, 85, 0.10);
+  gap: 0;
+}
+
+.rom-meter span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .rom-meter strong {
-  font-size: 36px;
-  line-height: 0.9;
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--accent-green);
 }
 
+.rom-meter small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 600;
+  margin-top: 1px;
+  letter-spacing: 0.04em;
+}
+
+/* ════════════════════════════════════════════════════
+   CAMERA PREVIEW
+   ════════════════════════════════════════════════════ */
+.camera-preview {
+  position: absolute;
+  left: 16px;
+  top: 82px; /* just below mission card */
+  display: none;
+  width: min(148px, calc(100% - 178px));
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  background: #10202b;
+  box-shadow: var(--shadow-md);
+  transform: scaleX(-1);
+  opacity: 0.92;
+}
+
+.camera-preview.visible { display: block; }
+
+/* ════════════════════════════════════════════════════
+   FEEDBACK BANNER
+   ════════════════════════════════════════════════════ */
 .feedback {
   position: absolute;
-  left: 18px;
-  bottom: 18px;
-  width: min(430px, calc(100% - 128px));
-  padding: 13px 15px;
-  border: 1px solid var(--line);
-  border-left: 8px solid var(--sky);
-  border-radius: 8px;
+  left: 16px;
+  bottom: 16px;
+  width: min(390px, calc(100% - 116px));
+  padding: 11px 15px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  border-left-width: 3px;
+  border-left-color: var(--accent-sky);
   background: var(--glass-strong);
-  box-shadow: 0 18px 44px rgba(21, 45, 58, 0.14);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.90);
+  transition: border-left-color var(--transition);
 }
 
 .feedback strong,
-.feedback span {
-  display: block;
-}
+.feedback span { display: block; }
 
 .feedback strong {
-  font-size: clamp(20px, 1.9vw, 26px);
-  line-height: 1.04;
+  font-size: clamp(15px, 1.5vw, 19px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
 .feedback span {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 16px;
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
-.feedback.good {
-  border-left-color: var(--green);
-}
+.feedback.good    { border-left-color: var(--good); }
+.feedback.warn    { border-left-color: var(--warn); }
+.feedback.bad     { border-left-color: var(--bad); }
+.feedback.neutral { border-left-color: var(--accent-sky); }
 
-.feedback.warn {
-  border-left-color: var(--amber);
-}
-
-.feedback.bad {
-  border-left-color: var(--red);
-}
-
+/* ════════════════════════════════════════════════════
+   STOP / PAIN BUTTON — now inside control-band
+   ════════════════════════════════════════════════════ */
 .pain-button {
-  position: absolute;
-  right: 24px;
-  bottom: 24px;
-  width: 88px;
-  height: 58px;
-  border: 0;
-  border-radius: 8px;
-  color: white;
-  background: linear-gradient(180deg, #ef6666, #ca3b3b);
-  font-weight: 900;
-  box-shadow: 0 16px 34px rgba(217, 75, 75, 0.35);
-  cursor: pointer;
+  height: 38px;
+  min-width: 72px;
+  padding: 0 16px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(198, 40, 40, 0.28);
+  color: var(--accent-red);
+  background: rgba(220, 38, 38, 0.09);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
 }
 
+.pain-button:hover {
+  background: rgba(220, 38, 38, 0.18);
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.26);
+  transform: translateY(-1px);
+}
+
+.pain-button:active { transform: translateY(0); }
+
+/* ════════════════════════════════════════════════════
+   CONTROL BAND — bottom strip: controls | stats | rom | stop
+   ════════════════════════════════════════════════════ */
 .control-band {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 72px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.84);
-  box-shadow: 0 14px 32px rgba(21, 45, 58, 0.1);
+  gap: 10px;
+  min-height: 60px;
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--border);
+  background: var(--glass-strong);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.90);
 }
 
 .control-group {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
+  flex-shrink: 0;
 }
 
+/* vertical divider between sections */
+.control-band > .control-group::after,
+.control-band > .stats-bar::after {
+  content: "";
+  display: block;
+  width: 1px;
+  height: 28px;
+  background: var(--border-inner);
+  margin-left: 10px;
+}
+
+/* ── Stats bar inside control-band ── */
+.stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-chip {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border-right: 1px solid var(--border-inner);
+  transition: background var(--transition);
+}
+
+.stat-chip:last-child { border-right: 0; }
+
+.stat-chip:hover { background: rgba(255, 255, 255, 0.45); }
+
+.stat-chip span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.stat-chip strong {
+  display: block;
+  font-size: clamp(15px, 1.4vw, 20px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.stat-chip strong span {
+  display: inline;
+  color: inherit;
+  font: inherit;
+  text-transform: none;
+  font-size: inherit;
+  letter-spacing: inherit;
+}
+
+/* per-chip accent colours */
+.stat-chip:nth-child(1) strong { color: var(--accent-violet); }
+.stat-chip:nth-child(2) strong { color: var(--accent-sky); }
+.stat-chip:nth-child(3) strong { color: var(--accent-amber); }
+.stat-chip:nth-child(4) strong { color: var(--accent-green); }
+
+/* secondary buttons */
 .control-band button {
-  min-width: 102px;
-  height: 46px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--ink);
-  background: white;
-  font-weight: 850;
-  cursor: pointer;
+  height: 38px;
+  min-width: 82px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(0, 0, 0, 0.10);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition), color var(--transition),
+              box-shadow var(--transition), transform var(--transition);
 }
 
+.control-band button:hover {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.control-band button:active { transform: translateY(0); }
+
+/* primary — Start Camera */
 #startButton {
-  min-width: 146px;
-  color: white;
+  min-width: 120px;
+  color: #fff;
   border-color: transparent;
-  background: linear-gradient(180deg, #7561e7, #5742c1);
-  box-shadow: 0 14px 26px rgba(108, 85, 217, 0.22);
+  background: linear-gradient(135deg, #6547d4, #4330ad);
+  box-shadow: 0 4px 16px rgba(91, 63, 212, 0.30);
+  font-weight: 700;
 }
 
+#startButton:hover {
+  background: linear-gradient(135deg, #7659e0, #5040be);
+  box-shadow: 0 6px 22px rgba(91, 63, 212, 0.42);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* ════════════════════════════════════════════════════
+   ROM STATUS
+   ════════════════════════════════════════════════════ */
 .rom-status {
-  display: grid;
-  gap: 3px;
-  min-width: min(420px, 100%);
-  padding: 9px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex-shrink: 0;
+  min-width: min(200px, 100%);
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.rom-status span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .rom-status strong {
-  font-size: 18px;
-  line-height: 1.2;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.35;
 }
 
-@media (max-width: 980px) {
-  .hud-top {
-    top: 100px;
-    left: 24px;
-    transform: none;
-    width: min(520px, calc(100% - 190px));
-    min-width: 0;
-  }
-
-  .mission-card {
-    width: min(340px, calc(100% - 190px));
-  }
+/* ════════════════════════════════════════════════════
+   RESPONSIVE
+   ════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .stats-bar { gap: 0; }
+  .stat-chip { padding: 4px 6px; }
+  .stat-chip strong { font-size: 14px; }
+  .rom-status { min-width: 160px; }
 }
 
 @media (max-width: 760px) {
-  .shell {
-    padding: 10px;
-  }
+  .shell { padding: 8px; }
 
   #gameCanvas {
-    height: calc(100vh - 178px);
-    min-height: 460px;
+    height: calc(100vh - 142px);
+    min-height: 400px;
   }
 
   .mission-card {
-    left: 12px;
-    top: 12px;
-    width: calc(100% - 146px);
-    padding: 11px 12px;
-  }
-
-  .hud-top {
-    top: 86px;
-    left: 12px;
-    width: calc(100% - 24px);
-  }
-
-  .hud-top div {
-    padding: 9px 6px;
-  }
-
-  .hud strong {
-    font-size: 19px;
+    left: 10px;
+    top: 10px;
+    width: calc(100% - 128px);
+    padding: 8px 10px 10px;
   }
 
   .rom-meter {
-    top: 12px;
-    right: 12px;
-    width: 112px;
-    border-width: 7px;
+    top: 10px;
+    right: 10px;
+    width: 92px;
   }
-
-  .rom-meter strong {
-    font-size: 31px;
-  }
+  .rom-meter strong { font-size: 24px; }
 
   .camera-preview {
-    left: 12px;
-    top: 156px;
-    width: min(170px, calc(100% - 134px));
+    left: 10px;
+    top: 80px;
+    width: min(130px, calc(100% - 116px));
   }
 
   .feedback {
-    left: 12px;
-    bottom: 12px;
-    width: calc(100% - 116px);
-    padding: 13px 14px;
+    left: 10px;
+    bottom: 10px;
+    width: calc(100% - 20px);
+    padding: 9px 12px;
   }
-
-  .feedback span {
-    font-size: 14px;
-  }
-
-  .pain-button {
-    right: 12px;
-    bottom: 12px;
-    width: 82px;
-    height: 54px;
-  }
+  .feedback span { font-size: 12px; }
 
   .control-band {
     flex-wrap: wrap;
+    min-height: auto;
+    gap: 8px;
   }
 
-  .control-group,
-  .rom-status {
+  .control-band > .control-group::after,
+  .control-band > .stats-bar::after {
+    display: none;
+  }
+
+  .control-group { width: 100%; }
+  .control-band button { flex: 1; min-width: 0; }
+
+  .stats-bar {
     width: 100%;
+    order: -1; /* stats row first on mobile */
+    border-bottom: 1px solid var(--border-inner);
+    padding-bottom: 8px;
+    margin-bottom: 2px;
   }
 
-  .control-band button {
-    flex: 1;
-    min-width: 0;
-  }
+  .rom-status { min-width: 0; flex: 1; }
+}
+
+/* ════════════════════════════════════════════════════
+   ANIMATIONS
+   ════════════════════════════════════════════════════ */
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(26, 158, 85, 0.22); }
+  50%       { box-shadow: 0 0 0 4px rgba(26, 158, 85, 0.08); }
 }
 
 @keyframes apple-sparkle {
-  0% { transform: scale(0) rotate(0deg); opacity: 1; }
-  60% { transform: scale(1.3) rotate(180deg); opacity: 0.8; }
+  0%   { transform: scale(0) rotate(0deg);   opacity: 1; }
+  60%  { transform: scale(1.3) rotate(180deg); opacity: 0.8; }
   100% { transform: scale(0) rotate(360deg); opacity: 0; }
 }
 
 @keyframes leaf-fall {
-  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  0%   { transform: translateY(0)    rotate(0deg);   opacity: 1; }
   100% { transform: translateY(80px) rotate(120deg); opacity: 0; }
 }

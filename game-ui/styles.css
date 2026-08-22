@@ -80,10 +80,10 @@ button {
 
 .mission-card {
   position: absolute;
-  left: 24px;
-  top: 22px;
-  width: min(320px, calc(100% - 48px));
-  padding: 14px 16px;
+  left: 18px;
+  top: 16px;
+  width: min(270px, calc(100% - 48px));
+  padding: 10px 13px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--glass);
@@ -105,23 +105,24 @@ button {
 
 .mission-card strong {
   display: block;
-  margin-top: 4px;
-  font-size: clamp(20px, 2.1vw, 30px);
+  margin-top: 3px;
+  font-size: clamp(20px, 1.8vw, 26px);
   line-height: 1.04;
 }
 
 .camera-preview {
   position: absolute;
-  left: 24px;
-  top: 112px;
+  left: 18px;
+  top: 96px;
   display: none;
-  width: min(260px, calc(100% - 178px));
+  width: min(160px, calc(100% - 178px));
   aspect-ratio: 4 / 3;
   object-fit: cover;
-  border: 3px solid rgba(255, 255, 255, 0.94);
+  border: 2px solid rgba(255, 255, 255, 0.9);
   border-radius: 8px;
   background: #10202b;
-  box-shadow: 0 18px 44px rgba(16, 32, 43, 0.24);
+  box-shadow: 0 14px 34px rgba(16, 32, 43, 0.2);
+  opacity: 0.88;
   transform: scaleX(-1);
 }
 
@@ -139,11 +140,11 @@ button {
 }
 
 .hud-top {
-  top: 22px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(620px, calc(100% - 390px));
-  min-width: 460px;
+  width: min(560px, calc(100% - 370px));
+  min-width: 430px;
   justify-content: space-between;
   border-radius: 8px;
   box-shadow: 0 18px 40px rgba(21, 45, 58, 0.12);
@@ -152,7 +153,7 @@ button {
 .hud-top div {
   width: 25%;
   min-width: 0;
-  padding: 12px 16px;
+  padding: 9px 13px;
   text-align: center;
   border-right: 1px solid var(--line);
 }
@@ -164,19 +165,26 @@ button {
 .hud strong {
   display: block;
   margin-top: 3px;
-  font-size: clamp(21px, 2vw, 28px);
+  font-size: clamp(20px, 1.75vw, 25px);
   line-height: 1;
+}
+
+.hud strong span {
+  display: inline;
+  color: inherit;
+  font: inherit;
+  text-transform: none;
 }
 
 .rom-meter {
   position: absolute;
-  right: 26px;
-  top: 24px;
+  right: 22px;
+  top: 18px;
   display: grid;
   place-items: center;
-  width: 146px;
+  width: 128px;
   aspect-ratio: 1;
-  border: 8px solid rgba(38, 166, 106, 0.72);
+  border: 7px solid rgba(38, 166, 106, 0.72);
   border-radius: 50%;
   background:
     radial-gradient(circle at center, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.76)),
@@ -185,16 +193,16 @@ button {
 }
 
 .rom-meter strong {
-  font-size: 42px;
+  font-size: 36px;
   line-height: 0.9;
 }
 
 .feedback {
   position: absolute;
-  left: 24px;
-  bottom: 24px;
-  width: min(500px, calc(100% - 144px));
-  padding: 16px 18px;
+  left: 18px;
+  bottom: 18px;
+  width: min(430px, calc(100% - 128px));
+  padding: 13px 15px;
   border: 1px solid var(--line);
   border-left: 8px solid var(--sky);
   border-radius: 8px;
@@ -208,7 +216,7 @@ button {
 }
 
 .feedback strong {
-  font-size: clamp(22px, 2.2vw, 30px);
+  font-size: clamp(20px, 1.9vw, 26px);
   line-height: 1.04;
 }
 

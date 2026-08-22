@@ -3,9 +3,23 @@ const ctx = canvas.getContext("2d");
 const motionCanvas = document.createElement("canvas");
 const motionCtx = motionCanvas.getContext("2d", { willReadFrequently: true });
 
-const MEDIAPIPE_TASKS_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
-const MEDIAPIPE_WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
-const POSE_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+const MEDIAPIPE_SOURCES = [
+  {
+    bundle: "./node_modules/@mediapipe/tasks-vision/vision_bundle.mjs",
+    wasm: "./node_modules/@mediapipe/tasks-vision/wasm",
+  },
+  {
+    bundle: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/vision_bundle.mjs",
+    wasm: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm",
+  },
+];
+const POSE_MODEL_URL = "./assets/pose_landmarker.task";
+const ORCHARD_BACKGROUND_URL = "./assets/orchard-archery-reference.jpeg";
+const POSE_TARGET_FPS = 30;
+const POSE_FRAME_INTERVAL = 1000 / POSE_TARGET_FPS;
+
+const orchardBackground = new Image();
+orchardBackground.src = ORCHARD_BACKGROUND_URL;
 
 const ui = {
   score: document.getElementById("score"),
@@ -61,13 +75,20 @@ const game = {
   poseLoading: false,
   poseReady: false,
   poseFallback: false,
+  poseBackend: "Not loaded",
+  lastPoseAt: 0,
+  poseBusy: false,
   lastVideoTime: -1,
   trackingQuality: "Waiting for camera",
   trackedSide: "right",
   posePoints: null,
   lostPoseFrames: 0,
   rawAngle: 20,
+  controlAngle: 20,
+  clinicalAngle: 20,
+  displayAngle: 20,
   targetAcquired: false,
+  shotArmed: true,
   handFollow: {
     x: 0.35,
     y: 0.55,
@@ -94,12 +115,13 @@ const game = {
   lastRepFrameId: null,
   feedbackKind: "neutral",
   feedbackTitle: "Ready",
-  feedbackText: "Start camera to pick apples",
+  feedbackText: "Start camera to draw the bow",
   /* mission-specific */
   trees: makeTreeRow(),
   hangingApples: makeHangingApples(),
   sparkles: [],
   fallingLeaves: [],
+  arrows: [],
   basketApples: 0,
 };
 
@@ -139,6 +161,8 @@ function buildPayload(angle, repJustCompleted = false, repStatus = "NONE", peakA
       valid_reps: game.reps,
       partial_reps: 0,
       target_rom: game.targetRom,
+      control_rom: game.controlAngle,
+      clinical_rom: game.clinicalAngle,
       success_rate: game.reps > 0 ? 1 : 0,
       arar: game.targetRom > 0 ? angle / game.targetRom : 0,
       consistency_bonus: 0.92,
@@ -163,7 +187,7 @@ function receiveEdgePayload(payload) {
       completeRep("VALID", payload.peak_angle ?? game.angle);
     }
   } else if (payload.rep_status === "PARTIAL") {
-    setFeedback("warn", "Almost", "Reach a little higher for the apple");
+    setFeedback("warn", "Almost", "Aim a little higher at the apple");
   } else if (payload.rep_status === "INVALID") {
     setFeedback("bad", "Reset", "Lower your arm and try again");
   } else if (payload.audio_cue) {
@@ -184,8 +208,7 @@ async function ensurePoseLandmarker() {
   game.poseLoading = true;
   game.trackingQuality = "Loading pose model";
   try {
-    const visionTasks = await import(MEDIAPIPE_TASKS_URL);
-    const vision = await visionTasks.FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
+    const { visionTasks, vision, source } = await loadVisionTasks();
     try {
       game.poseLandmarker = await createPoseLandmarker(visionTasks, vision, "GPU");
     } catch (gpuError) {
@@ -194,16 +217,37 @@ async function ensurePoseLandmarker() {
     }
     game.poseReady = true;
     game.poseFallback = false;
-    game.trackingQuality = "Pose AI ready";
+    game.poseBackend = source;
+    game.trackingQuality = `Pose AI ready (${source})`;
     return true;
   } catch (error) {
     game.poseFallback = false;
+    game.poseBackend = "Unavailable";
     game.trackingQuality = "Pose AI unavailable";
     console.error("MoveWall pose model error:", error);
     return false;
   } finally {
     game.poseLoading = false;
   }
+}
+
+async function loadVisionTasks() {
+  let lastError;
+  for (const source of MEDIAPIPE_SOURCES) {
+    try {
+      const visionTasks = await import(source.bundle);
+      const vision = await visionTasks.FilesetResolver.forVisionTasks(source.wasm);
+      return {
+        visionTasks,
+        vision,
+        source: source.bundle.startsWith(".") ? "local" : "cdn",
+      };
+    } catch (error) {
+      lastError = error;
+      console.warn("MoveWall pose source failed:", source.bundle, error);
+    }
+  }
+  throw lastError;
 }
 
 function createPoseLandmarker(visionTasks, vision, delegate) {
@@ -230,8 +274,9 @@ async function ensureCameraReady() {
     if (!game.cameraStream) {
       game.cameraStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 480 },
+          height: { ideal: 360 },
+          frameRate: { ideal: 30, max: 30 },
           facingMode: "user",
         },
         audio: false,
@@ -239,21 +284,38 @@ async function ensureCameraReady() {
     }
     ui.cameraPreview.srcObject = game.cameraStream;
     ui.cameraPreview.classList.add("visible");
+    await waitForVideoReady(ui.cameraPreview);
     game.previousCameraFrame = null;
     game.cameraIdleTimer = 0;
+    game.lastPoseAt = 0;
+    game.lastVideoTime = -1;
     setFeedback("warn", "Camera ready", "Loading pose tracking");
     const poseReady = await ensurePoseLandmarker();
     if (!poseReady) {
       setFeedback("bad", "Pose AI unavailable", "Check local server and refresh");
       return false;
     }
-    setFeedback("good", "Pose AI ready", "Raise your hand to pick the apple");
+    setFeedback("good", "Pose AI ready", "Raise your hand to draw the bow");
     return true;
   } catch (error) {
     setFeedback("bad", "Camera blocked", "Allow camera permission in the browser");
     console.error("MoveWall camera error:", error);
     return false;
   }
+}
+
+function waitForVideoReady(video) {
+  return new Promise((resolve) => {
+    const done = () => {
+      video.play().catch(() => {});
+      resolve();
+    };
+    if (video.readyState >= 1 && video.videoWidth > 0) {
+      done();
+      return;
+    }
+    video.addEventListener("loadedmetadata", done, { once: true });
+  });
 }
 
 function updateCameraMotion(dt) {
@@ -265,15 +327,30 @@ function updateCameraMotion(dt) {
     return;
   }
 
-  updatePoseTracking();
+  updatePoseTracking(performance.now());
 }
 
-function updatePoseTracking() {
+function updatePoseTracking(now) {
+  if (game.poseBusy || now - game.lastPoseAt < POSE_FRAME_INTERVAL) return;
+
   const video = ui.cameraPreview;
   if (video.currentTime === game.lastVideoTime) return;
+  game.lastPoseAt = now;
   game.lastVideoTime = video.currentTime;
 
-  const result = game.poseLandmarker.detectForVideo(video, performance.now());
+  game.poseBusy = true;
+  let result;
+  try {
+    result = game.poseLandmarker.detectForVideo(video, now);
+  } catch (error) {
+    game.trackingQuality = "Pose inference error";
+    setFeedback("bad", "Tracking error", "Refresh the game and start camera again");
+    console.error("MoveWall pose inference error:", error);
+    return;
+  } finally {
+    game.poseBusy = false;
+  }
+
   const landmarks = result?.landmarks?.[0];
   if (!landmarks) {
     handlePoseMiss("No full body detected", "Keep shoulder and hand visible");
@@ -293,13 +370,23 @@ function updatePoseTracking() {
   game.trackedSide = estimate.side;
   game.posePoints = estimate.points;
   updateHandFollow(estimate.points.wrist);
-  game.rawAngle = estimate.angle;
-  game.cameraAngle = stabilizeAngle(estimate.angle, game.cameraAngle);
+  game.rawAngle = estimate.controlAngle;
+  game.controlAngle = estimate.controlAngle;
+  game.displayAngle = estimate.controlAngle;
+  game.clinicalAngle = stabilizeClinicalAngle(estimate.clinicalAngle, game.clinicalAngle);
+  game.cameraAngle = estimate.controlAngle;
 
-  const payload = processLocalRep(game.cameraAngle);
-  if (isHandOnTarget()) {
+  const payload = processLocalRep(game.controlAngle);
+  if (game.controlAngle < game.targetRom * 0.58) {
+    game.shotArmed = true;
+  }
+  if (game.shotArmed && game.controlAngle >= game.targetRom - 2) {
     payload.rep_status = "VALID";
-    payload.peak_angle = Math.max(game.cameraAngle, game.targetRom);
+    payload.peak_angle = Math.max(game.controlAngle, game.targetRom);
+    game.shotArmed = false;
+  } else if (isHandOnTarget()) {
+    payload.rep_status = "VALID";
+    payload.peak_angle = Math.max(game.controlAngle, game.targetRom);
   }
   if (estimate.compensation) {
     payload.audio_cue = "Lower your shoulder a bit";
@@ -316,21 +403,22 @@ function handlePoseMiss(title, text) {
     return;
   }
 
+  game.handFollow.visible = false;
   game.trackingQuality = title;
   setFeedback("warn", title, text);
 }
 
-function stabilizeAngle(rawAngle, previousAngle) {
+function stabilizeClinicalAngle(rawAngle, previousAngle) {
   const diff = rawAngle - previousAngle;
   const absDiff = Math.abs(diff);
 
-  if (absDiff < 0.9) return previousAngle;
+  if (absDiff < 0.8) return previousAngle;
 
-  if (Math.abs(rawAngle - game.targetRom) <= 1.6 && Math.abs(previousAngle - game.targetRom) <= 4) {
+  if (Math.abs(rawAngle - game.targetRom) <= 1.8 && Math.abs(previousAngle - game.targetRom) <= 4) {
     return game.targetRom;
   }
 
-  const alpha = absDiff > 18 ? 0.86 : absDiff > 7 ? 0.72 : 0.48;
+  const alpha = absDiff > 18 ? 0.62 : absDiff > 7 ? 0.48 : 0.32;
   return previousAngle + diff * alpha;
 }
 
@@ -349,12 +437,27 @@ function getTargetColor(angle) {
 function isHandOnTarget() {
   if (!game.handFollow.visible || game.targetCooldown > 0) return false;
 
-  const targetX = 0.76;
-  const targetY = 0.72 - (game.targetRom / game.maxTargetRom) * 0.48;
+  const { x: targetX, y: targetY } = getTargetPointNorm();
   const dx = game.handFollow.x - targetX;
   const dy = game.handFollow.y - targetY;
   const distance = Math.sqrt(dx * dx + dy * dy);
   return distance < 0.075 && (game.targetAcquired || game.cameraAngle >= game.targetRom * 0.72);
+}
+
+function getTargetPointNorm() {
+  const targetRatio = game.targetRom / game.maxTargetRom;
+  return {
+    x: 0.79,
+    y: 0.64 - targetRatio * 0.42,
+  };
+}
+
+function getTargetPoint(width, height) {
+  const point = getTargetPointNorm();
+  return {
+    x: width * point.x,
+    y: height * point.y,
+  };
 }
 
 function updateHandFollow(wrist) {
@@ -362,8 +465,8 @@ function updateHandFollow(wrist) {
   const targetX = clamp(mirroredX, 0.08, 0.92);
   const targetY = clamp(wrist.y, 0.12, 0.88);
 
-  game.handFollow.x = game.handFollow.x * 0.28 + targetX * 0.72;
-  game.handFollow.y = game.handFollow.y * 0.28 + targetY * 0.72;
+  game.handFollow.x = game.handFollow.x * 0.12 + targetX * 0.88;
+  game.handFollow.y = game.handFollow.y * 0.12 + targetY * 0.88;
   game.handFollow.visible = true;
 }
 
@@ -399,12 +502,11 @@ function estimateSideRom(landmarks, ids) {
   const oppositeShoulder = landmarks[ids.oppositeShoulder];
   const confidence = Math.min(
     shoulder?.visibility ?? 1,
-    elbow?.visibility ?? 1,
     wrist?.visibility ?? 1,
     hip?.visibility ?? 1,
   );
 
-  if (!shoulder || !elbow || !wrist || !hip || confidence < 0.35) return null;
+  if (!shoulder || !wrist || !hip || confidence < 0.28) return null;
 
   const torsoUp = {
     x: shoulder.x - hip.x,
@@ -415,16 +517,22 @@ function estimateSideRom(landmarks, ids) {
     y: wrist.y - shoulder.y,
   };
   const angleFromTorso = angleBetweenVectors(torsoUp, arm);
-  const angle = clamp(180 - angleFromTorso, 0, 180);
+  const clinicalAngle = elbow ? clamp(180 - angleFromTorso, 0, 180) : game.clinicalAngle;
+  const torsoLength = Math.max(0.08, Math.hypot(shoulder.x - hip.x, shoulder.y - hip.y));
+  const wristHeight = (shoulder.y - wrist.y) / torsoLength;
+  const controlAngle = clamp(wristHeight * 86 + 48, 0, 180);
+  const angle = controlAngle;
   const shoulderHike = oppositeShoulder
-    ? shoulder.y < oppositeShoulder.y - 0.045 && angle < game.targetRom
+    ? shoulder.y < oppositeShoulder.y - 0.045 && controlAngle < game.targetRom
     : false;
 
   return {
     side: ids.side,
     angle,
+    controlAngle,
+    clinicalAngle,
     compensation: shoulderHike,
-    score: confidence * 100 + angle,
+    score: confidence * 100 + controlAngle,
     points: {
       shoulder,
       elbow,
@@ -468,7 +576,7 @@ function processLocalRep(angle) {
     repJustCompleted = true;
     completedPeakAngle = game.peakAngle;
     repStatus = game.peakAngle >= game.targetRom ? "VALID" : game.peakAngle >= game.targetRom * 0.72 ? "PARTIAL" : "INVALID";
-    if (repStatus !== "VALID") setFeedback("warn", "Almost", "Reach for the glowing apple");
+    if (repStatus !== "VALID") setFeedback("warn", "Almost", "Draw higher toward the glowing apple");
     game.repState = "RESTING";
     game.peakAngle = 0;
   }
@@ -484,6 +592,7 @@ function completeRep(status, peakAngle) {
   game.targetHitFlash = 1;
   game.targetCooldown = 0.45;
   game.basketApples += 1;
+  fireArrowAtTarget();
 
   /* mark a random unpicked hanging apple as picked */
   const unpicked = game.hangingApples.filter((a) => !a.picked);
@@ -492,11 +601,12 @@ function completeRep(status, peakAngle) {
   }
 
   /* spawn sparkles & leaves */
+  const targetPoint = getTargetPointNorm();
   for (let i = 0; i < 8; i += 1) {
     const a = Math.random() * Math.PI * 2;
     game.sparkles.push({
-      x: 0.76,
-      y: 0.72 - (game.targetRom / game.maxTargetRom) * 0.48,
+      x: targetPoint.x,
+      y: targetPoint.y,
       vx: Math.cos(a) * (0.06 + Math.random() * 0.08),
       vy: Math.sin(a) * (0.06 + Math.random() * 0.08),
       life: 1,
@@ -506,8 +616,8 @@ function completeRep(status, peakAngle) {
   }
   for (let i = 0; i < 4; i += 1) {
     game.fallingLeaves.push({
-      x: 0.76 + (Math.random() - 0.5) * 0.06,
-      y: 0.72 - (game.targetRom / game.maxTargetRom) * 0.48,
+      x: targetPoint.x + (Math.random() - 0.5) * 0.06,
+      y: targetPoint.y,
       vx: (Math.random() - 0.5) * 0.02,
       vy: 0.04 + Math.random() * 0.03,
       rot: Math.random() * Math.PI * 2,
@@ -522,7 +632,17 @@ function completeRep(status, peakAngle) {
   }
   game.targetAcquired = false;
 
-  setFeedback("good", "Apple picked! 🍎", "Great reach — keep it up");
+  setFeedback("good", "Bullseye!", "Great aim - keep it up");
+}
+
+function fireArrowAtTarget() {
+  const targetPoint = getTargetPointNorm();
+  game.arrows.push({
+    from: { x: 0.325, y: 0.525 },
+    to: { x: targetPoint.x, y: targetPoint.y },
+    progress: 0,
+    life: 1,
+  });
 }
 
 /* ── feedback helpers ──────────────────────────────── */
@@ -534,18 +654,19 @@ function setFeedback(kind, title, text) {
 }
 
 function updateFeedbackFromAngle(color) {
-  if (color === "GREEN") setFeedback("good", "On target", "Hold and grab the apple");
-  else if (color === "YELLOW") setFeedback("warn", "Close", "Stretch a little higher");
-  else setFeedback("bad", "Low ROM", "Reach toward the apple");
+  if (color === "GREEN") setFeedback("good", "On target", "Hold your aim on the apple");
+  else if (color === "YELLOW") setFeedback("warn", "Close", "Draw a little higher");
+  else setFeedback("bad", "Low ROM", "Raise your bow hand");
 }
 
 function getRomStatus() {
   if (!game.cameraStream) return "Waiting for camera";
   if (!game.running) return game.trackingQuality;
   if (game.trackingQuality.includes("Shoulder hike")) return "Compensation detected";
-  if (game.targetAcquired) return "ROM target reached";
-  if (game.angle >= game.targetRom * 0.72) return "ROM limited, keep reaching";
-  return `${game.trackingQuality}: low ROM signal`;
+  const clinical = Math.round(game.clinicalAngle);
+  if (game.targetAcquired) return `ROM target reached | clinical ${clinical}`;
+  if (game.controlAngle >= game.targetRom * 0.72) return `Keep aiming | clinical ${clinical}`;
+  return `${game.trackingQuality}: raise arm | clinical ${clinical}`;
 }
 
 function triggerPainStop() {
@@ -572,10 +693,16 @@ function resetGame() {
   game.previousCameraFrame = null;
   game.cameraAngle = 20;
   game.cameraIdleTimer = 0;
+  game.lastPoseAt = 0;
+  game.poseBusy = false;
   game.posePoints = null;
   game.lostPoseFrames = 0;
   game.rawAngle = 20;
+  game.controlAngle = 20;
+  game.clinicalAngle = 20;
+  game.displayAngle = 20;
   game.targetAcquired = false;
+  game.shotArmed = true;
   game.handFollow = {
     x: 0.35,
     y: 0.55,
@@ -583,10 +710,11 @@ function resetGame() {
   };
   game.sparkles = [];
   game.fallingLeaves = [];
+  game.arrows = [];
   game.basketApples = 0;
   game.trees = makeTreeRow();
   game.hangingApples = makeHangingApples();
-  setFeedback("neutral", "Ready", "Start camera to pick apples");
+  setFeedback("neutral", "Ready", "Start camera to draw the bow");
 }
 
 /* ══════════════════════════════════════════════════════
@@ -597,12 +725,12 @@ function draw() {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   ctx.clearRect(0, 0, width, height);
-  drawScene(width, height);
-  drawTrees(width, height);
+  const hasReferenceScene = drawScene(width, height);
+  if (!hasReferenceScene) drawTrees(width, height);
   drawReachGuide(width, height);
+  drawShotArrows(width, height);
   drawAppleTarget(width, height);
   drawPatient(width, height);
-  drawPoseOverlay(width, height);
   drawSparkles(width, height);
   drawFallingLeaves(width, height);
   drawBasket(width, height);
@@ -611,6 +739,26 @@ function draw() {
 /* ── sky + ground ──────────────────────────────────── */
 
 function drawScene(width, height) {
+  if (orchardBackground.complete && orchardBackground.naturalWidth > 0) {
+    drawCoverImage(orchardBackground, 0, 0, width, height);
+
+    const lightWash = ctx.createLinearGradient(0, 0, 0, height);
+    lightWash.addColorStop(0, "rgba(255, 247, 213, 0.06)");
+    lightWash.addColorStop(0.5, "rgba(255, 255, 255, 0)");
+    lightWash.addColorStop(1, "rgba(23, 56, 34, 0.18)");
+    ctx.fillStyle = lightWash;
+    ctx.fillRect(0, 0, width, height);
+
+    const focus = ctx.createRadialGradient(width * 0.76, height * 0.42, 20, width * 0.76, height * 0.42, width * 0.34);
+    focus.addColorStop(0, "rgba(255, 246, 190, 0.2)");
+    focus.addColorStop(0.45, "rgba(255, 246, 190, 0.06)");
+    focus.addColorStop(1, "rgba(255, 246, 190, 0)");
+    ctx.fillStyle = focus;
+    ctx.fillRect(0, 0, width, height);
+
+    return true;
+  }
+
   /* sky gradient — warm afternoon */
   const sky = ctx.createLinearGradient(0, 0, 0, height);
   sky.addColorStop(0, "#7ec8e3");
@@ -718,9 +866,30 @@ function drawScene(width, height) {
   ctx.moveTo(width * 0.04, height * 0.645);
   ctx.lineTo(width * 0.22, height * 0.645);
   ctx.stroke();
+
+  return false;
 }
 
 /* ── apple trees ───────────────────────────────────── */
+
+function drawCoverImage(image, x, y, width, height) {
+  const imageRatio = image.naturalWidth / image.naturalHeight;
+  const targetRatio = width / height;
+  let sx = 0;
+  let sy = 0;
+  let sw = image.naturalWidth;
+  let sh = image.naturalHeight;
+
+  if (imageRatio > targetRatio) {
+    sw = image.naturalHeight * targetRatio;
+    sx = (image.naturalWidth - sw) / 2;
+  } else {
+    sh = image.naturalWidth / targetRatio;
+    sy = (image.naturalHeight - sh) / 2;
+  }
+
+  ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
+}
 
 function drawTrees(width, height) {
   const groundY = height * 0.58;
@@ -832,51 +1001,56 @@ function drawTrees(width, height) {
 /* ── reach guide arc ───────────────────────────────── */
 
 function drawReachGuide(width, height) {
-  const targetRatio = game.targetRom / game.maxTargetRom;
-  const target = {
-    x: width * 0.76,
-    y: height * (0.72 - targetRatio * 0.48),
-  };
+  const target = getTargetPoint(width, height);
   const origin = {
-    x: width * 0.24,
-    y: height * 0.52,
+    x: width * 0.29,
+    y: height * 0.54,
   };
 
-  ctx.strokeStyle = "rgba(224, 60, 60, 0.14)";
-  ctx.lineWidth = 18;
+  ctx.strokeStyle = "rgba(255, 246, 190, 0.22)";
+  ctx.lineWidth = 5;
   ctx.lineCap = "round";
-  ctx.setLineDash([2, 28]);
+  ctx.setLineDash([10, 18]);
   ctx.beginPath();
   ctx.moveTo(origin.x, origin.y);
-  ctx.quadraticCurveTo(width * 0.48, height * 0.32, target.x, target.y);
+  ctx.lineTo(target.x, target.y);
   ctx.stroke();
   ctx.setLineDash([]);
-
-  /* glow zone */
-  ctx.fillStyle = "rgba(224, 60, 60, 0.07)";
-  ctx.beginPath();
-  ctx.arc(target.x, target.y, Math.max(72, height * 0.1), 0, Math.PI * 2);
-  ctx.fill();
 }
 
 /* ── apple target (glowing apple the patient reaches for) ── */
 
 function drawAppleTarget(width, height) {
-  const targetRatio = game.targetRom / game.maxTargetRom;
-  const x = width * 0.76;
-  const y = height * (0.72 - targetRatio * 0.48);
-  const pulse = 1 + Math.sin(performance.now() / 190) * 0.08 + game.targetHitFlash * 0.4;
-  const baseR = 28;
+  const { x, y } = getTargetPoint(width, height);
+  const pulse = 1 + Math.sin(performance.now() / 220) * 0.04 + game.targetHitFlash * 0.2;
+  const baseR = 23;
 
   /* outer glow */
-  const halo = ctx.createRadialGradient(x, y, 6, x, y, 82 * pulse);
-  halo.addColorStop(0, "rgba(245, 200, 66, 0.55)");
-  halo.addColorStop(0.4, "rgba(224, 60, 60, 0.2)");
+  const halo = ctx.createRadialGradient(x, y, 8, x, y, 48 * pulse);
+  halo.addColorStop(0, "rgba(255, 248, 210, 0.36)");
+  halo.addColorStop(0.55, "rgba(224, 60, 60, 0.1)");
   halo.addColorStop(1, "rgba(224, 60, 60, 0)");
   ctx.fillStyle = halo;
   ctx.beginPath();
-  ctx.arc(x, y, 86 * pulse, 0, Math.PI * 2);
+  ctx.arc(x, y, 52 * pulse, 0, Math.PI * 2);
   ctx.fill();
+
+  ctx.fillStyle = "rgba(255, 248, 225, 0.22)";
+  ctx.beginPath();
+  ctx.arc(x, y, 43 * pulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.72)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, 35 * pulse, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(16, 32, 43, 0.22)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, 47 * pulse, 0, Math.PI * 2);
+  ctx.stroke();
 
   /* stem */
   ctx.strokeStyle = "#5a3a18";
@@ -915,109 +1089,140 @@ function drawAppleTarget(width, height) {
   ctx.ellipse(x - 8, y - 8, 8 * pulse, 6 * pulse, -0.4, 0, Math.PI * 2);
   ctx.fill();
 
-  /* white ring */
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(x, y, (baseR + 8) * pulse, 0, Math.PI * 2);
-  ctx.stroke();
-
   /* label */
-  ctx.fillStyle = "rgba(16, 32, 43, 0.78)";
+  ctx.fillStyle = "rgba(16, 32, 43, 0.68)";
   ctx.beginPath();
-  ctx.roundRect(x - 60, y + 44, 120, 30, 8);
+  ctx.roundRect(x - 42, y + 42, 84, 24, 7);
   ctx.fill();
   ctx.fillStyle = "white";
-  ctx.font = "800 13px Inter, sans-serif";
+  ctx.font = "800 12px Inter, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(`${Math.round(game.targetRom)}° — Pick me!`, x, y + 64);
+  ctx.fillText(`${Math.round(game.targetRom)} deg`, x, y + 58);
 }
 
 /* ── patient figure ────────────────────────────────── */
 
-function drawPatient(width, height) {
-  const hip = { x: width * 0.24, y: height * 0.74 };
-  const shoulder = { x: hip.x, y: hip.y - height * 0.22 };
-  const head = { x: shoulder.x, y: shoulder.y - 48 };
-  const armLength = height * 0.24;
-  const angleRad = ((game.angle - 20) / 140) * -1.5 + 0.35;
-  const angleHand = {
-    x: shoulder.x + Math.cos(angleRad) * armLength,
-    y: shoulder.y + Math.sin(angleRad) * armLength,
-  };
-  const trackedHand = {
-    x: width * game.handFollow.x,
-    y: height * game.handFollow.y,
-  };
-  const hand = game.handFollow.visible ? trackedHand : angleHand;
-  const elbow = {
-    x: shoulder.x + (hand.x - shoulder.x) * 0.52,
-    y: shoulder.y + (hand.y - shoulder.y) * 0.52 + 24,
-  };
+function drawArcher(width, height) {
+  const target = getTargetPoint(width, height);
+  const footY = height * 0.84;
+  const hip = { x: width * 0.222, y: footY - height * 0.1 };
+  const shoulder = { x: width * 0.242, y: footY - height * 0.255 };
+  const head = { x: shoulder.x - width * 0.008, y: shoulder.y - height * 0.06 };
+  const bowGrip = { x: width * 0.325, y: shoulder.y + height * 0.018 };
+  const drawHand = game.handFollow.visible
+    ? { x: width * game.handFollow.x, y: height * game.handFollow.y }
+    : bowGrip;
 
-  /* shadow */
-  ctx.strokeStyle = "rgba(16, 32, 43, 0.16)";
-  ctx.lineWidth = 18;
+  ctx.fillStyle = "rgba(16, 32, 43, 0.2)";
+  ctx.beginPath();
+  ctx.ellipse(hip.x, footY + 8, width * 0.055, height * 0.021, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#172b3a";
+  ctx.lineWidth = Math.max(7, height * 0.012);
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.ellipse(hip.x, hip.y + 100, 82, 18, 0, 0, Math.PI * 2);
+  ctx.moveTo(hip.x - width * 0.018, hip.y + height * 0.09);
+  ctx.lineTo(hip.x - width * 0.035, footY);
+  ctx.moveTo(hip.x + width * 0.018, hip.y + height * 0.09);
+  ctx.lineTo(hip.x + width * 0.055, footY - height * 0.012);
   ctx.stroke();
 
-  /* skeleton */
-  ctx.strokeStyle = "#17384a";
-  ctx.lineWidth = 14;
+  const robe = ctx.createLinearGradient(shoulder.x - 42, shoulder.y, shoulder.x + 42, hip.y + height * 0.12);
+  robe.addColorStop(0, "#305aa6");
+  robe.addColorStop(0.48, "#4f91d3");
+  robe.addColorStop(1, "#75b8db");
+  ctx.fillStyle = robe;
   ctx.beginPath();
-  ctx.moveTo(hip.x, hip.y);
-  ctx.lineTo(shoulder.x, shoulder.y);
-  ctx.moveTo(shoulder.x, shoulder.y);
-  ctx.quadraticCurveTo(elbow.x, elbow.y, hand.x, hand.y);
-  ctx.moveTo(hip.x, hip.y);
-  ctx.lineTo(hip.x - 30, hip.y + 92);
-  ctx.moveTo(hip.x, hip.y);
-  ctx.lineTo(hip.x + 32, hip.y + 92);
+  ctx.roundRect(shoulder.x - width * 0.027, shoulder.y - 4, width * 0.058, height * 0.205, 8);
+  ctx.fill();
+
+  ctx.fillStyle = "#f2c39a";
+  ctx.beginPath();
+  ctx.arc(head.x, head.y, height * 0.027, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#1b2638";
+  ctx.beginPath();
+  ctx.arc(head.x - height * 0.01, head.y - height * 0.008, height * 0.03, Math.PI * 0.55, Math.PI * 1.55);
+  ctx.lineTo(head.x + height * 0.02, head.y + height * 0.03);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#24417e";
+  ctx.lineWidth = Math.max(7, height * 0.012);
+  ctx.beginPath();
+  ctx.moveTo(shoulder.x, shoulder.y + height * 0.015);
+  ctx.lineTo(bowGrip.x, bowGrip.y);
   ctx.stroke();
 
-  /* shirt */
-  const shirt = ctx.createLinearGradient(shoulder.x - 40, shoulder.y, shoulder.x + 52, hip.y);
-  shirt.addColorStop(0, "#7c5ee2");
-  shirt.addColorStop(1, "#26a7c8");
-  ctx.fillStyle = shirt;
+  ctx.strokeStyle = "#5b351e";
+  ctx.lineWidth = Math.max(4, height * 0.007);
   ctx.beginPath();
-  ctx.roundRect(shoulder.x - 36, shoulder.y - 6, 72, hip.y - shoulder.y + 18, 8);
-  ctx.fill();
+  ctx.moveTo(shoulder.x - width * 0.01, shoulder.y + height * 0.025);
+  ctx.lineTo(shoulder.x - width * 0.055, shoulder.y + height * 0.03);
+  ctx.stroke();
 
-  /* head */
-  ctx.fillStyle = "#f0b088";
+  ctx.strokeStyle = "#6e4b2c";
+  ctx.lineWidth = Math.max(4, height * 0.008);
   ctx.beginPath();
-  ctx.arc(head.x, head.y, 28, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(bowGrip.x, bowGrip.y - height * 0.115);
+  ctx.quadraticCurveTo(bowGrip.x + width * 0.03, bowGrip.y, bowGrip.x, bowGrip.y + height * 0.115);
+  ctx.stroke();
 
-  /* hair */
-  ctx.fillStyle = "#10202b";
+  ctx.strokeStyle = "rgba(42, 31, 25, 0.82)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(head.x - 6, head.y - 7, 30, Math.PI * 0.45, Math.PI * 1.55);
-  ctx.fill();
+  ctx.moveTo(bowGrip.x, bowGrip.y - height * 0.115);
+  ctx.quadraticCurveTo(bowGrip.x - width * 0.022, bowGrip.y, bowGrip.x, bowGrip.y + height * 0.115);
+  ctx.stroke();
 
-  /* hand dot */
-  ctx.fillStyle = "#6f50c9";
+  const aimAngle = Math.atan2(target.y - bowGrip.y, target.x - bowGrip.x);
+  const arrowBack = {
+    x: bowGrip.x - Math.cos(aimAngle) * width * 0.05,
+    y: bowGrip.y - Math.sin(aimAngle) * width * 0.05,
+  };
+  const arrowTip = {
+    x: bowGrip.x + Math.cos(aimAngle) * width * 0.09,
+    y: bowGrip.y + Math.sin(aimAngle) * width * 0.09,
+  };
+
+  ctx.strokeStyle = "#4c2e1e";
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.arc(hand.x, hand.y, 16, 0, Math.PI * 2);
+  ctx.moveTo(arrowBack.x, arrowBack.y);
+  ctx.lineTo(arrowTip.x, arrowTip.y);
+  ctx.stroke();
+
+  ctx.fillStyle = "#4c2e1e";
+  ctx.save();
+  ctx.translate(arrowTip.x, arrowTip.y);
+  ctx.rotate(aimAngle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-14, -6);
+  ctx.lineTo(-11, 0);
+  ctx.lineTo(-14, 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  ctx.fillStyle = "#f2c39a";
+  ctx.beginPath();
+  ctx.arc(bowGrip.x, bowGrip.y, Math.max(8, height * 0.014), 0, Math.PI * 2);
   ctx.fill();
 
   if (game.handFollow.visible) {
-    ctx.strokeStyle = "rgba(111, 80, 201, 0.34)";
-    ctx.lineWidth = 5;
+    ctx.strokeStyle = "rgba(255, 246, 190, 0.9)";
+    ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(hand.x, hand.y, 30 + game.targetHitFlash * 16, 0, Math.PI * 2);
+    ctx.arc(drawHand.x, drawHand.y, 22 + game.targetHitFlash * 16, 0, Math.PI * 2);
     ctx.stroke();
   }
+}
 
-  /* shoulder ROM ring */
-  ctx.strokeStyle = game.feedbackKind === "bad" ? "#d84b4b" : game.feedbackKind === "warn" ? "#f1a63a" : "#2fb56f";
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.arc(shoulder.x, shoulder.y, 28, 0, Math.PI * 2);
-  ctx.stroke();
+function drawPatient(width, height) {
+  drawArcher(width, height);
 }
 
 /* ── pose overlay ──────────────────────────────────── */
@@ -1085,6 +1290,54 @@ function drawSparkles(width, height) {
     ctx.fill();
   });
   game.sparkles = game.sparkles.filter((s) => s.life > 0);
+}
+
+function updateShotArrows(dt) {
+  game.arrows.forEach((arrow) => {
+    if (arrow.progress < 1) {
+      arrow.progress = Math.min(1, arrow.progress + dt * 6.5);
+    } else {
+      arrow.life -= dt * 2.6;
+    }
+  });
+  game.arrows = game.arrows.filter((arrow) => arrow.life > 0);
+}
+
+function drawShotArrows(width, height) {
+  game.arrows.forEach((arrow) => {
+    const t = Math.min(1, arrow.progress);
+    const x1 = arrow.from.x * width;
+    const y1 = arrow.from.y * height;
+    const x2 = (arrow.from.x + (arrow.to.x - arrow.from.x) * t) * width;
+    const y2 = (arrow.from.y + (arrow.to.y - arrow.from.y) * t) * height;
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const alpha = clamp(arrow.life, 0, 1);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = "#4c2e1e";
+    ctx.lineWidth = 5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    ctx.translate(x2, y2);
+    ctx.rotate(angle);
+    ctx.fillStyle = "#4c2e1e";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-18, -8);
+    ctx.lineTo(-14, 0);
+    ctx.lineTo(-18, 8);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#f5c842";
+    ctx.fillRect(-42, -3, 14, 6);
+    ctx.restore();
+  });
 }
 
 /* ── particles: falling leaves ─────────────────────── */
@@ -1199,7 +1452,7 @@ function drawBasket(width, height) {
     ctx.fillStyle = "#fff";
     ctx.font = "700 12px Inter, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(`🍎 ${game.basketApples}`, bx, by + bh + 25);
+    ctx.fillText(`x ${game.basketApples}`, bx, by + bh + 25);
   }
 }
 
@@ -1210,7 +1463,7 @@ function syncHud() {
   ui.time.textContent = formatTime(game.timeRemaining);
   ui.level.textContent = String(game.level);
   ui.reps.textContent = String(game.reps);
-  ui.rom.textContent = String(Math.round(game.angle));
+  ui.rom.textContent = String(Math.round(game.displayAngle));
   ui.target.textContent = `Target ${Math.round(game.targetRom)}`;
   ui.romStatus.textContent = getRomStatus();
   ui.feedback.className = `feedback ${game.feedbackKind}`;
@@ -1228,12 +1481,13 @@ function tick(now) {
     game.timeRemaining = Math.max(0, game.timeRemaining - dt);
     if (game.timeRemaining <= 0 || game.reps >= game.repsGoal) {
       game.running = false;
-      setFeedback("good", "All apples picked! 🍎", `You collected ${game.basketApples} apples`);
+      setFeedback("good", "Round complete!", `${game.basketApples} target hits`);
     }
   }
 
   game.targetHitFlash = Math.max(0, game.targetHitFlash - dt * 2.5);
   game.targetCooldown = Math.max(0, game.targetCooldown - dt);
+  updateShotArrows(dt);
   updateCameraMotion(dt);
   draw();
   syncHud();
@@ -1247,7 +1501,7 @@ ui.startButton.addEventListener("click", async () => {
   if (!ready) return;
   game.running = true;
   game.painStop = false;
-  setFeedback("neutral", "Mission active", "Raise your hand to pick the apples");
+  setFeedback("neutral", "Mission active", "Raise your hand to draw and shoot");
 });
 
 ui.pauseButton.addEventListener("click", () => {

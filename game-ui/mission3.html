@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MoveWall AI – Hang the Lantern</title>
+    <meta name="description" content="MOVEWALL-AI Mission 3 – Hang the Lantern. Interactive shoulder rehabilitation game." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="projection" aria-label="MoveWall AI game projection">
+        <canvas id="gameCanvas" width="1280" height="720"></canvas>
+        <video id="cameraPreview" class="camera-preview" autoplay muted playsinline></video>
+
+        <div class="mission-card" aria-label="Current mission">
+          <span>Today's Mission</span>
+          <strong>Lantern Hanger</strong>
+        </div>
+
+        <div class="rom-meter" aria-label="ROM meter">
+          <span>ROM</span>
+          <strong id="rom">0</strong>
+          <small id="target">Target 70</small>
+        </div>
+
+        <div id="feedback" class="feedback neutral">
+          <strong id="feedbackTitle">Ready</strong>
+          <span id="feedbackText">Start camera to hang the lanterns</span>
+        </div>
+      </section>
+
+      <section class="control-band" aria-label="Game controls">
+        <div class="control-group">
+          <button id="startButton" type="button">Start Camera</button>
+          <button id="pauseButton" type="button">Pause</button>
+          <button id="resetButton" type="button">Reset</button>
+        </div>
+
+        <div class="stats-bar" aria-label="Game statistics">
+          <div class="stat-chip">
+            <span>Score</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="stat-chip">
+            <span>Time</span>
+            <strong id="time">02:00</strong>
+          </div>
+          <div class="stat-chip">
+            <span>Level</span>
+            <strong id="level">1</strong>
+          </div>
+          <div class="stat-chip">
+            <span>Hung</span>
+            <strong><span id="reps">0</span>/10</strong>
+          </div>
+        </div>
+
+        <div class="rom-status">
+          <span>ROM Check</span>
+          <strong id="romStatus">Waiting for camera</strong>
+        </div>
+
+        <button id="painButton" class="pain-button" type="button">Stop</button>
+      </section>
+    </main>
+
+    <script src="./mission3.js"></script>
+  </body>
+</html>

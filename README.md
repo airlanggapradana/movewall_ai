@@ -137,3 +137,15 @@ Saat jendela game (Pygame window) sedang aktif, terapis dapat menekan tombol key
 | **`P`** | Menjeda game (Pause) / Melanjutkan game (Resume) |
 | **`S`** | Menghentikan sesi terapi saat itu juga dan menyimpan hasilnya (Stop) |
 | **`ESC`**| Keluar dari aplikasi AI Engine dan menutup semua jendela |
+
+---
+
+## 9. Aturan Web Game Misi 1
+
+Pada prototipe `game-ui`, Misi 1 Apple Archer memakai target ROM berurutan:
+
+- Level 1: 30, 45, 60, 75, 90 derajat untuk 5 hit.
+- Level 2: 105, 120, 135, 150, 165 derajat untuk 5 hit.
+- Setiap target apel harus ditahan selama 3 detik sebelum panah ditembakkan dan hit dihitung.
+- Total penyelesaian Misi 1 adalah 10 hit, lalu pemain dapat lanjut ke Misi 2.
+- Posisi apel dipetakan dari derajat ROM target, dan kalkulasi ROM memakai vektor bahu-pinggul ke bahu-pergelangan tangan dengan koreksi aspect ratio kamera.

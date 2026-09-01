@@ -15,11 +15,19 @@ const MEDIAPIPE_SOURCES = [
 ];
 const POSE_MODEL_URL = "./assets/pose_landmarker.task";
 const ORCHARD_BACKGROUND_URL = "./assets/orchard-archery-reference.jpg";
+const USE_ORCHARD_REFERENCE = false;
+const MISSION_TARGETS = [30, 45, 60, 75, 90, 105, 120, 135, 150, 165];
+const LEVEL_ONE_HITS = 5;
+const TARGET_HOLD_SECONDS = 3;
+const TARGET_HOLD_UNDER_TOLERANCE = 5;
+const TARGET_HOLD_OVER_TOLERANCE = 7;
 const POSE_TARGET_FPS = 30;
 const POSE_FRAME_INTERVAL = 1000 / POSE_TARGET_FPS;
 
 const orchardBackground = new Image();
-orchardBackground.src = ORCHARD_BACKGROUND_URL;
+if (USE_ORCHARD_REFERENCE) {
+  orchardBackground.src = ORCHARD_BACKGROUND_URL;
+}
 
 const ui = {
   score: document.getElementById("score"),
@@ -50,25 +58,24 @@ const ui = {
 
 function makeTreeRow() {
   return [
-    { x: 0.13, canopyR: 0.09, trunkH: 0.14, hue: "#3a8c3f" },
-    { x: 0.34, canopyR: 0.11, trunkH: 0.17, hue: "#2f7a35" },
-    { x: 0.58, canopyR: 0.10, trunkH: 0.15, hue: "#48993e" },
-    { x: 0.80, canopyR: 0.12, trunkH: 0.18, hue: "#357a2e" },
+    { x: 0.16, canopyR: 0.075, trunkH: 0.12, hue: "#5aa050" },
+    { x: 0.54, canopyR: 0.095, trunkH: 0.15, hue: "#438d40" },
+    { x: 0.79, canopyR: 0.155, trunkH: 0.22, hue: "#2f7d3a" },
   ];
 }
 
 function makeHangingApples() {
   return [
-    { treeIdx: 0, ox: -0.03, oy: 0.02, picked: false },
-    { treeIdx: 0, ox:  0.02, oy: 0.04, picked: false },
-    { treeIdx: 1, ox: -0.04, oy: 0.01, picked: false },
-    { treeIdx: 1, ox:  0.03, oy: 0.05, picked: false },
-    { treeIdx: 1, ox:  0.00, oy: 0.03, picked: false },
-    { treeIdx: 2, ox: -0.02, oy: 0.02, picked: false },
-    { treeIdx: 2, ox:  0.04, oy: 0.04, picked: false },
-    { treeIdx: 3, ox: -0.05, oy: 0.01, picked: false },
-    { treeIdx: 3, ox:  0.02, oy: 0.03, picked: false },
-    { treeIdx: 3, ox: -0.01, oy: 0.06, picked: false },
+    { treeIdx: 0, ox: -0.02, oy: 0.03, picked: false },
+    { treeIdx: 1, ox: -0.035, oy: 0.02, picked: false },
+    { treeIdx: 1, ox:  0.035, oy: 0.04, picked: false },
+    { treeIdx: 2, ox: -0.07, oy: 0.00, picked: false },
+    { treeIdx: 2, ox: -0.035, oy: 0.05, picked: false },
+    { treeIdx: 2, ox:  0.00, oy: 0.02, picked: false },
+    { treeIdx: 2, ox:  0.045, oy: 0.065, picked: false },
+    { treeIdx: 2, ox:  0.075, oy: 0.01, picked: false },
+    { treeIdx: 2, ox: -0.005, oy: 0.09, picked: false },
+    { treeIdx: 2, ox:  0.105, oy: 0.055, picked: false },
   ];
 }
 
@@ -108,13 +115,15 @@ const game = {
   timeRemaining: 90,
   level: 1,
   reps: 0,
-  repsGoal: 12,
+  repsGoal: MISSION_TARGETS.length,
   angle: 20,
-  targetRom: 70,
-  maxTargetRom: 180,
-  minTargetRom: 45,
+  targetRom: MISSION_TARGETS[0],
+  maxTargetRom: MISSION_TARGETS[MISSION_TARGETS.length - 1],
+  minTargetRom: MISSION_TARGETS[0],
   repState: "RESTING",
   peakAngle: 0,
+  holdTimer: 0,
+  lastHoldTimestamp: null,
   lastTick: performance.now(),
   targetHitFlash: 0,
   targetCooldown: 0,
@@ -174,7 +183,7 @@ function buildPayload(angle, repJustCompleted = false, repStatus = "NONE", peakA
       success_rate: game.reps > 0 ? 1 : 0,
       arar: game.targetRom > 0 ? angle / game.targetRom : 0,
       consistency_bonus: 0.92,
-      reps_in_current_set: game.reps % 5,
+      reps_in_current_set: game.reps % LEVEL_ONE_HITS,
     },
     audio_cue: null,
     visual_overlay_color: color,
@@ -379,26 +388,16 @@ function updatePoseTracking(now) {
   game.posePoints = estimate.points;
   updateHandFollow(estimate.points.wrist);
   game.rawAngle = estimate.controlAngle;
-  game.controlAngle = estimate.controlAngle;
-  game.displayAngle = estimate.controlAngle;
+  game.controlAngle = stabilizeClinicalAngle(estimate.controlAngle, game.controlAngle);
+  game.displayAngle = game.controlAngle;
   game.clinicalAngle = stabilizeClinicalAngle(estimate.clinicalAngle, game.clinicalAngle);
-  game.cameraAngle = estimate.controlAngle;
+  game.cameraAngle = game.controlAngle;
 
-  const payload = processLocalRep(game.controlAngle);
-  if (game.controlAngle < game.targetRom * 0.58) {
-    game.shotArmed = true;
-  }
-  if (game.shotArmed && game.controlAngle >= game.targetRom - 2) {
-    payload.rep_status = "VALID";
-    payload.peak_angle = Math.max(game.controlAngle, game.targetRom);
-    game.shotArmed = false;
-  } else if (isHandOnTarget()) {
-    payload.rep_status = "VALID";
-    payload.peak_angle = Math.max(game.controlAngle, game.targetRom);
-  }
+  const payload = processTargetHold(game.controlAngle, now);
   if (estimate.compensation) {
     payload.audio_cue = "Lower your shoulder a bit";
     payload.visual_overlay_color = "RED";
+    resetTargetHold();
   }
   receiveEdgePayload(payload);
 }
@@ -412,6 +411,7 @@ function handlePoseMiss(title, text) {
   }
 
   game.handFollow.visible = false;
+  resetTargetHold();
   game.trackingQuality = title;
   setFeedback("warn", title, text);
 }
@@ -431,14 +431,8 @@ function stabilizeClinicalAngle(rawAngle, previousAngle) {
 }
 
 function getTargetColor(angle) {
-  if (game.targetAcquired) {
-    if (angle < game.targetRom - 4) game.targetAcquired = false;
-  } else if (angle >= game.targetRom - 1.5) {
-    game.targetAcquired = true;
-  }
-
-  if (game.targetAcquired) return "GREEN";
-  if (angle >= game.targetRom * 0.72) return "YELLOW";
+  if (isAngleInsideTargetWindow(angle)) return "GREEN";
+  if (Math.abs(angle - game.targetRom) <= 15) return "YELLOW";
   return "RED";
 }
 
@@ -449,14 +443,15 @@ function isHandOnTarget() {
   const dx = game.handFollow.x - targetX;
   const dy = game.handFollow.y - targetY;
   const distance = Math.sqrt(dx * dx + dy * dy);
-  return distance < 0.075 && (game.targetAcquired || game.cameraAngle >= game.targetRom * 0.72);
+  return distance < 0.075 && isAngleInsideTargetWindow(game.cameraAngle);
 }
 
 function getTargetPointNorm() {
-  const targetRatio = game.targetRom / game.maxTargetRom;
+  const targetRange = game.maxTargetRom - game.minTargetRom;
+  const targetRatio = targetRange > 0 ? (game.targetRom - game.minTargetRom) / targetRange : 0;
   return {
     x: 0.79,
-    y: 0.64 - targetRatio * 0.42,
+    y: 0.68 - targetRatio * 0.46,
   };
 }
 
@@ -516,19 +511,18 @@ function estimateSideRom(landmarks, ids) {
 
   if (!shoulder || !wrist || !hip || confidence < 0.28) return null;
 
+  const aspect = getPoseAspectRatio();
   const torsoUp = {
-    x: shoulder.x - hip.x,
+    x: (shoulder.x - hip.x) * aspect,
     y: shoulder.y - hip.y,
   };
   const arm = {
-    x: wrist.x - shoulder.x,
+    x: (wrist.x - shoulder.x) * aspect,
     y: wrist.y - shoulder.y,
   };
   const angleFromTorso = angleBetweenVectors(torsoUp, arm);
   const clinicalAngle = elbow ? clamp(180 - angleFromTorso, 0, 180) : game.clinicalAngle;
-  const torsoLength = Math.max(0.08, Math.hypot(shoulder.x - hip.x, shoulder.y - hip.y));
-  const wristHeight = (shoulder.y - wrist.y) / torsoLength;
-  const controlAngle = clamp(wristHeight * 86 + 48, 0, 180);
+  const controlAngle = clinicalAngle;
   const angle = controlAngle;
   const shoulderHike = oppositeShoulder
     ? shoulder.y < oppositeShoulder.y - 0.045 && controlAngle < game.targetRom
@@ -550,6 +544,12 @@ function estimateSideRom(landmarks, ids) {
   };
 }
 
+function getPoseAspectRatio() {
+  const video = ui.cameraPreview;
+  if (!video?.videoWidth || !video?.videoHeight) return 1;
+  return video.videoWidth / video.videoHeight;
+}
+
 function angleBetweenVectors(a, b) {
   const magA = Math.hypot(a.x, a.y);
   const magB = Math.hypot(b.x, b.y);
@@ -562,34 +562,68 @@ function angleBetweenVectors(a, b) {
 
 /* ── rep counting ──────────────────────────────────── */
 
-function processLocalRep(angle) {
+function processTargetHold(angle, now) {
   let repJustCompleted = false;
   let repStatus = "NONE";
-  let completedPeakAngle = game.peakAngle;
+  let completedPeakAngle = Math.max(game.peakAngle, angle);
 
-  if (game.repState === "RESTING" && angle > 28) {
-    game.repState = "ASCENDING";
-    game.peakAngle = angle;
-  } else if (game.repState === "ASCENDING") {
+  if (!game.running || game.painStop || game.missionCompleted || game.targetCooldown > 0) {
+    resetTargetHold();
+    return buildPayload(angle, repJustCompleted, repStatus, completedPeakAngle);
+  }
+
+  if (!isAngleInsideTargetWindow(angle)) {
+    game.repState = getAimState(angle);
     game.peakAngle = Math.max(game.peakAngle, angle);
-    if (angle >= game.targetRom - 4) {
-      game.repState = "PEAK_HOLD";
-    }
-  } else if (game.repState === "PEAK_HOLD") {
-    game.peakAngle = Math.max(game.peakAngle, angle);
-    if (angle < game.targetRom - 8) {
-      game.repState = "DESCENDING";
-    }
-  } else if (game.repState === "DESCENDING" && angle < 24) {
+    game.targetAcquired = false;
+    resetTargetHold();
+    return buildPayload(angle, repJustCompleted, repStatus, completedPeakAngle);
+  }
+
+  const lastHoldTimestamp = game.lastHoldTimestamp ?? now;
+  const holdDelta = Math.max(0, (now - lastHoldTimestamp) / 1000);
+  game.holdTimer = clamp(game.holdTimer + holdDelta, 0, TARGET_HOLD_SECONDS);
+  game.lastHoldTimestamp = now;
+  game.repState = "PEAK_HOLD";
+  game.peakAngle = completedPeakAngle;
+  game.targetAcquired = true;
+
+  if (game.holdTimer >= TARGET_HOLD_SECONDS) {
     repJustCompleted = true;
-    completedPeakAngle = game.peakAngle;
-    repStatus = game.peakAngle >= game.targetRom ? "VALID" : game.peakAngle >= game.targetRom * 0.72 ? "PARTIAL" : "INVALID";
-    if (repStatus !== "VALID") setFeedback("warn", "Almost", "Draw higher toward the glowing apple");
+    repStatus = "VALID";
+    completedPeakAngle = Math.max(completedPeakAngle, game.targetRom);
     game.repState = "RESTING";
     game.peakAngle = 0;
+    resetTargetHold();
   }
 
   return buildPayload(angle, repJustCompleted, repStatus, completedPeakAngle);
+}
+
+function isAngleInsideTargetWindow(angle) {
+  return (
+    angle >= game.targetRom - TARGET_HOLD_UNDER_TOLERANCE &&
+    angle <= game.targetRom + TARGET_HOLD_OVER_TOLERANCE
+  );
+}
+
+function getAimState(angle) {
+  if (angle < game.targetRom - TARGET_HOLD_UNDER_TOLERANCE) return "ASCENDING";
+  if (angle > game.targetRom + TARGET_HOLD_OVER_TOLERANCE) return "DESCENDING";
+  return "AIMING";
+}
+
+function resetTargetHold() {
+  game.holdTimer = 0;
+  game.lastHoldTimestamp = null;
+}
+
+function getMissionLevelForHitCount(hits) {
+  return hits < LEVEL_ONE_HITS ? 1 : 2;
+}
+
+function getTargetRomForHitCount(hits) {
+  return MISSION_TARGETS[clamp(hits, 0, MISSION_TARGETS.length - 1)];
 }
 
 function completeRep(status, peakAngle) {
@@ -634,16 +668,16 @@ function completeRep(status, peakAngle) {
     });
   }
 
-  if (game.reps % 5 === 0) {
-    game.targetRom = clamp(game.targetRom * 1.05, game.minTargetRom, game.maxTargetRom);
-    game.level = Math.min(9, game.level + 1);
-  }
+  game.level = getMissionLevelForHitCount(game.reps);
   game.targetAcquired = false;
+  resetTargetHold();
 
   if (game.reps >= game.repsGoal) {
     triggerMissionComplete();
   } else {
-    setFeedback("good", "Bullseye!", "Great aim - keep it up");
+    game.targetRom = getTargetRomForHitCount(game.reps);
+    game.level = getMissionLevelForHitCount(game.reps);
+    setFeedback("good", "Bullseye!", `Next apple at ${game.targetRom} deg`);
   }
 }
 
@@ -666,9 +700,16 @@ function setFeedback(kind, title, text) {
 }
 
 function updateFeedbackFromAngle(color) {
-  if (color === "GREEN") setFeedback("good", "On target", "Hold your aim on the apple");
-  else if (color === "YELLOW") setFeedback("warn", "Close", "Draw a little higher");
-  else setFeedback("bad", "Low ROM", "Raise your bow hand");
+  if (color === "GREEN") {
+    const remaining = Math.max(0, TARGET_HOLD_SECONDS - game.holdTimer).toFixed(1);
+    setFeedback("good", "On target", `Hold ${remaining}s to shoot`);
+  } else if (game.controlAngle > game.targetRom + TARGET_HOLD_OVER_TOLERANCE) {
+    setFeedback("warn", "Too high", "Lower your bow hand slightly");
+  } else if (color === "YELLOW") {
+    setFeedback("warn", "Close", "Draw to the apple angle");
+  } else {
+    setFeedback("bad", "Low ROM", "Raise your bow hand");
+  }
 }
 
 function getRomStatus() {
@@ -676,9 +717,10 @@ function getRomStatus() {
   if (!game.running) return game.trackingQuality;
   if (game.trackingQuality.includes("Shoulder hike")) return "Compensation detected";
   const clinical = Math.round(game.clinicalAngle);
-  if (game.targetAcquired) return `ROM target reached | clinical ${clinical}`;
-  if (game.controlAngle >= game.targetRom * 0.72) return `Keep aiming | clinical ${clinical}`;
-  return `${game.trackingQuality}: raise arm | clinical ${clinical}`;
+  if (game.targetAcquired) return `Holding ${game.holdTimer.toFixed(1)}/${TARGET_HOLD_SECONDS}s | clinical ${clinical}`;
+  if (game.controlAngle > game.targetRom + TARGET_HOLD_OVER_TOLERANCE) return `Lower to ${game.targetRom} | clinical ${clinical}`;
+  if (Math.abs(game.controlAngle - game.targetRom) <= 15) return `Close to ${game.targetRom} | clinical ${clinical}`;
+  return `${game.trackingQuality}: raise to ${game.targetRom} | clinical ${clinical}`;
 }
 
 function triggerPainStop() {
@@ -735,9 +777,10 @@ function resetGame() {
   game.level = 1;
   game.reps = 0;
   game.angle = 20;
-  game.targetRom = 70;
+  game.targetRom = MISSION_TARGETS[0];
   game.repState = "RESTING";
   game.peakAngle = 0;
+  resetTargetHold();
   game.targetHitFlash = 0;
   game.targetCooldown = 0;
   game.painStop = false;
@@ -779,6 +822,8 @@ function draw() {
   ctx.clearRect(0, 0, width, height);
   const hasReferenceScene = drawScene(width, height);
   if (!hasReferenceScene) drawTrees(width, height);
+  drawSceneDepth(width, height);
+  drawAppleProgress(width, height);
   drawReachGuide(width, height);
   drawShotArrows(width, height);
   drawAppleTarget(width, height);
@@ -786,12 +831,13 @@ function draw() {
   drawSparkles(width, height);
   drawFallingLeaves(width, height);
   drawBasket(width, height);
+  drawOrchardForeground(width, height);
 }
 
 /* ── sky + ground ──────────────────────────────────── */
 
 function drawScene(width, height) {
-  if (orchardBackground.complete && orchardBackground.naturalWidth > 0) {
+  if (USE_ORCHARD_REFERENCE && orchardBackground.complete && orchardBackground.naturalWidth > 0) {
     drawCoverImage(orchardBackground, 0, 0, width, height);
 
     const lightWash = ctx.createLinearGradient(0, 0, 0, height);
@@ -943,29 +989,86 @@ function drawCoverImage(image, x, y, width, height) {
   ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
 }
 
+function drawSceneDepth(width, height) {
+  const nearGround = ctx.createLinearGradient(0, height * 0.62, 0, height);
+  nearGround.addColorStop(0, "rgba(255, 255, 255, 0)");
+  nearGround.addColorStop(0.5, "rgba(33, 84, 45, 0.10)");
+  nearGround.addColorStop(1, "rgba(16, 32, 43, 0.24)");
+  ctx.fillStyle = nearGround;
+  ctx.fillRect(0, height * 0.58, width, height * 0.42);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
+  ctx.beginPath();
+  ctx.ellipse(width * 0.78, height * 0.37, width * 0.23, height * 0.13, -0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(54, 111, 47, 0.16)";
+  for (let i = 0; i < 7; i += 1) {
+    const x = width * (0.08 + i * 0.145);
+    const y = height * (0.665 + (i % 3) * 0.018);
+    ctx.beginPath();
+    ctx.ellipse(x, y, width * 0.07, height * 0.025, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawAppleProgress(width, height) {
+  if (width < 760) return;
+
+  const total = game.repsGoal;
+  const done = game.reps;
+  const x = width * 0.34;
+  const y = height * 0.075;
+  const w = Math.min(360, width * 0.34);
+  const h = 10;
+
+  ctx.fillStyle = "rgba(16,32,43,0.22)";
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 8);
+  ctx.fill();
+
+  const fillW = total > 0 ? (done / total) * w : 0;
+  if (fillW > 0) {
+    const bar = ctx.createLinearGradient(x, y, x + w, y);
+    bar.addColorStop(0, "#d5423a");
+    bar.addColorStop(1, "#32a36a");
+    ctx.fillStyle = bar;
+    ctx.beginPath();
+    ctx.roundRect(x, y, Math.max(10, fillW), h, 8);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = "800 11px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`${done}/${total}`, x + w + 28, y + h);
+}
+
 function drawTrees(width, height) {
   const groundY = height * 0.58;
 
   game.trees.forEach((tree, treeIdx) => {
+    const isMainTree = treeIdx === 2;
     const x = tree.x * width;
     const trunkH = tree.trunkH * height;
     const canopyR = tree.canopyR * height;
     const trunkTop = groundY - trunkH;
 
     /* shadow */
-    ctx.fillStyle = "rgba(16, 32, 43, 0.12)";
+    ctx.fillStyle = isMainTree ? "rgba(16, 32, 43, 0.20)" : "rgba(16, 32, 43, 0.11)";
     ctx.beginPath();
-    ctx.ellipse(x, groundY + 8, 62, 14, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, groundY + 9, canopyR * 0.95, canopyR * 0.18, 0, 0, Math.PI * 2);
     ctx.fill();
 
     /* trunk */
-    const trunk = ctx.createLinearGradient(x - 14, trunkTop, x + 14, groundY);
+    const trunkWidth = Math.max(22, canopyR * 0.24);
+    const trunk = ctx.createLinearGradient(x - trunkWidth / 2, trunkTop, x + trunkWidth / 2, groundY);
     trunk.addColorStop(0, "#8b6b3d");
     trunk.addColorStop(0.5, "#6b4226");
     trunk.addColorStop(1, "#4a2e18");
     ctx.fillStyle = trunk;
     ctx.beginPath();
-    ctx.roundRect(x - 14, trunkTop + canopyR * 0.3, 28, trunkH - canopyR * 0.3 + 12, 6);
+    ctx.roundRect(x - trunkWidth / 2, trunkTop + canopyR * 0.24, trunkWidth, trunkH - canopyR * 0.2 + 18, 7);
     ctx.fill();
 
     /* bark texture */
@@ -974,14 +1077,14 @@ function drawTrees(width, height) {
     for (let b = 0; b < 4; b += 1) {
       const by = trunkTop + canopyR * 0.4 + b * (trunkH * 0.18);
       ctx.beginPath();
-      ctx.moveTo(x - 8, by);
-      ctx.quadraticCurveTo(x, by + 6, x + 8, by);
+      ctx.moveTo(x - trunkWidth * 0.28, by);
+      ctx.quadraticCurveTo(x, by + 6, x + trunkWidth * 0.28, by);
       ctx.stroke();
     }
 
     /* branches */
     ctx.strokeStyle = "#6b4226";
-    ctx.lineWidth = 6;
+    ctx.lineWidth = Math.max(5, canopyR * 0.065);
     ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(x, trunkTop + canopyR * 0.5);
@@ -998,6 +1101,7 @@ function drawTrees(width, height) {
       { ox:  0,               oy: -canopyR * 0.1, r: canopyR * 0.78 },
       { ox: -canopyR * 0.15, oy: canopyR * 0.3,  r: canopyR * 0.52 },
       { ox:  canopyR * 0.2,  oy: canopyR * 0.28, r: canopyR * 0.48 },
+      { ox:  canopyR * 0.08, oy: -canopyR * 0.42, r: canopyR * 0.48 },
     ];
     offsets.forEach((off, oi) => {
       const cx = x + off.ox;
@@ -1022,6 +1126,7 @@ function drawTrees(width, height) {
       if (apple.treeIdx !== treeIdx || apple.picked) return;
       const ax = x + apple.ox * width;
       const ay = trunkTop + apple.oy * height;
+      const appleR = isMainTree ? Math.max(8, canopyR * 0.085) : Math.max(6, canopyR * 0.075);
 
       /* tiny stem */
       ctx.strokeStyle = "#5a3a18";
@@ -1032,22 +1137,43 @@ function drawTrees(width, height) {
       ctx.stroke();
 
       /* apple body */
-      const appleGrad = ctx.createRadialGradient(ax - 3, ay - 3, 2, ax, ay, 10);
+      const appleGrad = ctx.createRadialGradient(ax - appleR * 0.3, ay - appleR * 0.3, 2, ax, ay, appleR);
       appleGrad.addColorStop(0, "#ff6b6b");
       appleGrad.addColorStop(0.6, "#e03c3c");
       appleGrad.addColorStop(1, "#b22a2a");
       ctx.fillStyle = appleGrad;
       ctx.beginPath();
-      ctx.arc(ax, ay, 9, 0, Math.PI * 2);
+      ctx.arc(ax, ay, appleR, 0, Math.PI * 2);
       ctx.fill();
 
       /* shine */
       ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
       ctx.beginPath();
-      ctx.arc(ax - 3, ay - 3, 3, 0, Math.PI * 2);
+      ctx.arc(ax - appleR * 0.32, ay - appleR * 0.32, appleR * 0.3, 0, Math.PI * 2);
       ctx.fill();
     });
   });
+}
+
+function drawOrchardForeground(width, height) {
+  const y = height * 0.86;
+  const grass = ctx.createLinearGradient(0, y, 0, height);
+  grass.addColorStop(0, "rgba(64, 138, 56, 0)");
+  grass.addColorStop(1, "rgba(32, 84, 42, 0.46)");
+  ctx.fillStyle = grass;
+  ctx.fillRect(0, y, width, height - y);
+
+  ctx.strokeStyle = "rgba(240, 249, 218, 0.34)";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  for (let i = 0; i < 26; i += 1) {
+    const x = width * ((i * 0.041 + 0.02) % 1);
+    const h = height * (0.018 + (i % 5) * 0.004);
+    ctx.beginPath();
+    ctx.moveTo(x, height);
+    ctx.quadraticCurveTo(x + (i % 2 ? 8 : -8), height - h * 0.55, x + (i % 3 - 1) * 6, height - h);
+    ctx.stroke();
+  }
 }
 
 /* ── reach guide arc ───────────────────────────────── */
@@ -1055,19 +1181,44 @@ function drawTrees(width, height) {
 function drawReachGuide(width, height) {
   const target = getTargetPoint(width, height);
   const origin = {
-    x: width * 0.29,
-    y: height * 0.54,
+    x: width * 0.325,
+    y: height * 0.535,
+  };
+  const mid = {
+    x: origin.x + (target.x - origin.x) * 0.54,
+    y: origin.y + (target.y - origin.y) * 0.54 - height * 0.05,
   };
 
-  ctx.strokeStyle = "rgba(255, 246, 190, 0.22)";
-  ctx.lineWidth = 5;
+  ctx.strokeStyle = "rgba(16, 32, 43, 0.20)";
+  ctx.lineWidth = 9;
   ctx.lineCap = "round";
-  ctx.setLineDash([10, 18]);
   ctx.beginPath();
   ctx.moveTo(origin.x, origin.y);
-  ctx.lineTo(target.x, target.y);
+  ctx.quadraticCurveTo(mid.x, mid.y, target.x, target.y);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(255, 247, 196, 0.86)";
+  ctx.lineWidth = 4;
+  ctx.setLineDash([12, 16]);
+  ctx.beginPath();
+  ctx.moveTo(origin.x, origin.y);
+  ctx.quadraticCurveTo(mid.x, mid.y, target.x, target.y);
   ctx.stroke();
   ctx.setLineDash([]);
+
+  const angle = Math.atan2(target.y - mid.y, target.x - mid.x);
+  ctx.save();
+  ctx.translate(target.x - Math.cos(angle) * 42, target.y - Math.sin(angle) * 42);
+  ctx.rotate(angle);
+  ctx.fillStyle = "rgba(255, 247, 196, 0.88)";
+  ctx.beginPath();
+  ctx.moveTo(12, 0);
+  ctx.lineTo(-7, -8);
+  ctx.lineTo(-3, 0);
+  ctx.lineTo(-7, 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 /* ── apple target (glowing apple the patient reaches for) ── */
@@ -1103,6 +1254,17 @@ function drawAppleTarget(width, height) {
   ctx.beginPath();
   ctx.arc(x, y, 47 * pulse, 0, Math.PI * 2);
   ctx.stroke();
+
+  const holdProgress = clamp(game.holdTimer / TARGET_HOLD_SECONDS, 0, 1);
+  if (holdProgress > 0) {
+    ctx.strokeStyle = "rgba(16, 185, 129, 0.92)";
+    ctx.lineWidth = 5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(x, y, 55, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * holdProgress);
+    ctx.stroke();
+    ctx.lineCap = "butt";
+  }
 
   /* stem */
   ctx.strokeStyle = "#5a3a18";
@@ -1142,14 +1304,17 @@ function drawAppleTarget(width, height) {
   ctx.fill();
 
   /* label */
-  ctx.fillStyle = "rgba(16, 32, 43, 0.68)";
+  ctx.fillStyle = "rgba(16, 32, 43, 0.78)";
   ctx.beginPath();
-  ctx.roundRect(x - 42, y + 42, 84, 24, 7);
+  ctx.roundRect(x - 48, y + 42, 96, 26, 8);
   ctx.fill();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.28)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
   ctx.fillStyle = "white";
-  ctx.font = "800 12px Inter, sans-serif";
+  ctx.font = "800 11px Inter, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(`${Math.round(game.targetRom)} deg`, x, y + 58);
+  ctx.fillText(`TARGET ${Math.round(game.targetRom)} deg`, x, y + 59);
 }
 
 /* ── patient figure ────────────────────────────────── */
@@ -1170,28 +1335,65 @@ function drawArcher(width, height) {
   ctx.ellipse(hip.x, footY + 8, width * 0.055, height * 0.021, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = "#172b3a";
-  ctx.lineWidth = Math.max(7, height * 0.012);
+  ctx.strokeStyle = "#20314a";
+  ctx.lineWidth = Math.max(9, height * 0.014);
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(hip.x - width * 0.018, hip.y + height * 0.09);
-  ctx.lineTo(hip.x - width * 0.035, footY);
-  ctx.moveTo(hip.x + width * 0.018, hip.y + height * 0.09);
-  ctx.lineTo(hip.x + width * 0.055, footY - height * 0.012);
+  ctx.moveTo(hip.x - width * 0.012, hip.y + height * 0.075);
+  ctx.lineTo(hip.x - width * 0.036, footY - height * 0.018);
+  ctx.moveTo(hip.x + width * 0.018, hip.y + height * 0.076);
+  ctx.lineTo(hip.x + width * 0.055, footY - height * 0.026);
   ctx.stroke();
 
-  const robe = ctx.createLinearGradient(shoulder.x - 42, shoulder.y, shoulder.x + 42, hip.y + height * 0.12);
-  robe.addColorStop(0, "#305aa6");
-  robe.addColorStop(0.48, "#4f91d3");
-  robe.addColorStop(1, "#75b8db");
-  ctx.fillStyle = robe;
+  ctx.strokeStyle = "#13243a";
+  ctx.lineWidth = Math.max(7, height * 0.011);
   ctx.beginPath();
-  ctx.roundRect(shoulder.x - width * 0.027, shoulder.y - 4, width * 0.058, height * 0.205, 8);
+  ctx.moveTo(hip.x - width * 0.048, footY);
+  ctx.lineTo(hip.x - width * 0.015, footY - height * 0.006);
+  ctx.moveTo(hip.x + width * 0.043, footY - height * 0.018);
+  ctx.lineTo(hip.x + width * 0.088, footY - height * 0.018);
+  ctx.stroke();
+
+  const tunicTopY = shoulder.y - height * 0.004;
+  const tunicBottomY = hip.y + height * 0.095;
+  const tunic = ctx.createLinearGradient(shoulder.x - 44, tunicTopY, shoulder.x + 48, tunicBottomY);
+  tunic.addColorStop(0, "#244b93");
+  tunic.addColorStop(0.45, "#3f86cf");
+  tunic.addColorStop(1, "#7ec0df");
+  ctx.fillStyle = tunic;
+  ctx.beginPath();
+  ctx.moveTo(shoulder.x - width * 0.033, tunicTopY + 8);
+  ctx.bezierCurveTo(shoulder.x - width * 0.045, tunicTopY + height * 0.05, shoulder.x - width * 0.043, tunicBottomY - 8, shoulder.x - width * 0.024, tunicBottomY);
+  ctx.lineTo(shoulder.x + width * 0.034, tunicBottomY);
+  ctx.bezierCurveTo(shoulder.x + width * 0.049, tunicBottomY - height * 0.052, shoulder.x + width * 0.045, tunicTopY + height * 0.045, shoulder.x + width * 0.025, tunicTopY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(17, 42, 74, 0.28)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(shoulder.x - width * 0.026, hip.y + height * 0.026);
+  ctx.lineTo(shoulder.x + width * 0.036, hip.y + height * 0.02);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(20, 35, 58, 0.92)";
+  ctx.beginPath();
+  ctx.roundRect(shoulder.x - width * 0.031, hip.y + height * 0.022, width * 0.07, height * 0.013, 5);
+  ctx.fill();
+
+  ctx.fillStyle = "#f2c39a";
+  ctx.beginPath();
+  ctx.roundRect(shoulder.x - width * 0.007, shoulder.y - height * 0.027, width * 0.016, height * 0.04, 5);
   ctx.fill();
 
   ctx.fillStyle = "#f2c39a";
   ctx.beginPath();
   ctx.arc(head.x, head.y, height * 0.027, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#e8b283";
+  ctx.beginPath();
+  ctx.ellipse(head.x + height * 0.026, head.y + height * 0.002, height * 0.007, height * 0.01, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = "#1b2638";
@@ -1201,6 +1403,11 @@ function drawArcher(width, height) {
   ctx.closePath();
   ctx.fill();
 
+  ctx.fillStyle = "#10202b";
+  ctx.beginPath();
+  ctx.arc(head.x + height * 0.012, head.y - height * 0.002, Math.max(1.5, height * 0.003), 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.strokeStyle = "#24417e";
   ctx.lineWidth = Math.max(7, height * 0.012);
   ctx.beginPath();
@@ -1208,11 +1415,18 @@ function drawArcher(width, height) {
   ctx.lineTo(bowGrip.x, bowGrip.y);
   ctx.stroke();
 
-  ctx.strokeStyle = "#5b351e";
-  ctx.lineWidth = Math.max(4, height * 0.007);
+  ctx.strokeStyle = "#f2c39a";
+  ctx.lineWidth = Math.max(6, height * 0.01);
   ctx.beginPath();
-  ctx.moveTo(shoulder.x - width * 0.01, shoulder.y + height * 0.025);
-  ctx.lineTo(shoulder.x - width * 0.055, shoulder.y + height * 0.03);
+  ctx.moveTo(bowGrip.x - width * 0.022, bowGrip.y);
+  ctx.lineTo(bowGrip.x, bowGrip.y);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#5b351e";
+  ctx.lineWidth = Math.max(6, height * 0.01);
+  ctx.beginPath();
+  ctx.moveTo(shoulder.x - width * 0.006, shoulder.y + height * 0.027);
+  ctx.quadraticCurveTo(shoulder.x - width * 0.034, shoulder.y + height * 0.006, shoulder.x - width * 0.058, shoulder.y + height * 0.032);
   ctx.stroke();
 
   ctx.strokeStyle = "#6e4b2c";

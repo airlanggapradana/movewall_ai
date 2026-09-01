@@ -14,6 +14,14 @@ Pada prototipe awal, MOVEWALL-AI difokuskan pada latihan yang melibatkan **gerak
 
 Pasien diminta meraih buah apel virtual yang muncul pada berbagai ketinggian.
 
+**Aturan gameplay prototipe Apple Archer:**
+- Target apel mengikuti target ROM dalam derajat dan berpindah vertikal sesuai sudut target.
+- Level 1 berisi 5 hit dengan urutan target ROM: 30, 45, 60, 75, 90 derajat.
+- Setiap target harus ditahan selama 3 detik pada jendela sudut target sebelum panah ditembakkan dan hit dihitung.
+- Setelah hit ke-5, Level 2 dimulai dengan urutan target ROM: 105, 120, 135, 150, 165 derajat.
+- Level 2 juga berisi 5 hit, sehingga total Misi 1 adalah 10 hit sebelum tombol lanjut ke Misi 2 ditampilkan.
+- Perhitungan ROM kontrol menggunakan sudut vektor bahu-pinggul terhadap bahu-pergelangan tangan, dengan koreksi aspect ratio kamera agar posisi tangan horizontal terbaca lebih dekat ke 90 derajat.
+
 **Target terapeutik:**
 - Shoulder flexion / elevasi
 - Reaching
@@ -27,15 +35,6 @@ Pasien mengarahkan tangannya menuju berbagai target untuk menyiram tanaman virtu
 - Shoulder flexion
 - Reaching
 - Kontrol gerakan
-
-### 💡 Misi 3 – Hang the Lantern
-
-Pasien harus meraih lentera virtual yang muncul pada berbagai arah.
-
-**Target terapeutik:**
-- Elevasi bahu
-- Abduksi / scaption
-- Directional reaching
 
 ### 🪟 Misi 4 – Clean the Window
 

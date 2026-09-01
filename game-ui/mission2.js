@@ -433,6 +433,7 @@ function draw() {
   const W = canvas.clientWidth, H = canvas.clientHeight;
   ctx.clearRect(0, 0, W, H);
   drawGardenScene(W, H);
+  drawGardenProgress(W, H);
   drawFence(W, H);
   drawPots(W, H);
   drawHandCursor(W, H);
@@ -519,6 +520,38 @@ function drawGardenScene(W, H) {
 }
 
 /* ── Fence ───────────────────────────────────────────────────── */
+function drawGardenProgress(W, H) {
+  if (W < 760) return;
+
+  const total = game.pots.length;
+  const done = game.pots.filter((pot) => pot.watered).length;
+  const x = W * 0.34;
+  const y = H * 0.075;
+  const w = Math.min(360, W * 0.34);
+  const h = 10;
+
+  ctx.fillStyle = "rgba(16,32,43,0.22)";
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 8);
+  ctx.fill();
+
+  const fillW = total > 0 ? (done / total) * w : 0;
+  const bar = ctx.createLinearGradient(x, y, x + w, y);
+  bar.addColorStop(0, "#21a36c");
+  bar.addColorStop(1, "#47b8e8");
+  ctx.fillStyle = bar;
+  ctx.beginPath();
+  if (fillW > 0) {
+    ctx.roundRect(x, y, Math.max(10, fillW), h, 8);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = "800 11px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`${done}/${total}`, x + w + 28, y + h);
+}
+
 function drawFence(W, H) {
   const y0 = H * 0.74;
   // Horizontal rails
@@ -660,16 +693,23 @@ function drawPots(W, H) {
       ctx.beginPath(); ctx.arc(px, py - 10, 44 * pulse, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);
 
-      // ROM label badge
-      ctx.fillStyle = "rgba(16,32,43,0.72)";
-      ctx.beginPath(); ctx.roundRect(px - 38, py + potH + 8, 76, 22, 7); ctx.fill();
-      ctx.fillStyle = "#fff";
-      ctx.font = "700 11px Inter, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(`${pot.requiredRom}° target`, px, py + potH + 23);
     }
 
     /* ── Watered checkmark ── */
+    if (isActive && !isWatered) {
+      ctx.fillStyle = "rgba(16,32,43,0.86)";
+      ctx.beginPath();
+      ctx.roundRect(px - 43, py + potH + 8, 86, 24, 8);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.28)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = "#fff";
+      ctx.font = "800 11px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(`${pot.requiredRom} deg`, px, py + potH + 24);
+    }
+
     if (isWatered && pot.growPct >= 0.95) {
       ctx.fillStyle = "rgba(26,158,85,0.88)";
       ctx.beginPath(); ctx.arc(px + 18, py - 30, 10, 0, Math.PI * 2); ctx.fill();

@@ -14,7 +14,7 @@ const MEDIAPIPE_SOURCES = [
   },
 ];
 const POSE_MODEL_URL = "./assets/pose_landmarker.task";
-const ORCHARD_BACKGROUND_URL = "./assets/orchard-archery-reference.jpeg";
+const ORCHARD_BACKGROUND_URL = "./assets/orchard-archery-reference.jpg";
 const POSE_TARGET_FPS = 30;
 const POSE_FRAME_INTERVAL = 1000 / POSE_TARGET_FPS;
 
@@ -37,6 +37,13 @@ const ui = {
   pauseButton: document.getElementById("pauseButton"),
   resetButton: document.getElementById("resetButton"),
   painButton: document.getElementById("painButton"),
+  missionCompleteOverlay: document.getElementById("missionCompleteOverlay"),
+  modalScore: document.getElementById("modalScore"),
+  modalHits: document.getElementById("modalHits"),
+  modalLevel: document.getElementById("modalLevel"),
+  modalTime: document.getElementById("modalTime"),
+  modalReplayButton: document.getElementById("modalReplayButton"),
+  modalNextButton: document.getElementById("modalNextButton"),
 };
 
 /* ── apple tree data ───────────────────────────────── */
@@ -112,6 +119,7 @@ const game = {
   targetHitFlash: 0,
   targetCooldown: 0,
   painStop: false,
+  missionCompleted: false,
   lastRepFrameId: null,
   feedbackKind: "neutral",
   feedbackTitle: "Ready",
@@ -632,7 +640,11 @@ function completeRep(status, peakAngle) {
   }
   game.targetAcquired = false;
 
-  setFeedback("good", "Bullseye!", "Great aim - keep it up");
+  if (game.reps >= game.repsGoal) {
+    triggerMissionComplete();
+  } else {
+    setFeedback("good", "Bullseye!", "Great aim - keep it up");
+  }
 }
 
 function fireArrowAtTarget() {
@@ -676,8 +688,48 @@ function triggerPainStop() {
   setFeedback("bad", "Stopped", "Rest and contact your therapist");
 }
 
+function triggerMissionComplete() {
+  if (game.missionCompleted) return;
+  game.missionCompleted = true;
+  game.running = false;
+
+  if (ui.modalScore) ui.modalScore.textContent = game.score.toLocaleString();
+  if (ui.modalHits) ui.modalHits.textContent = `${game.reps}/${game.repsGoal}`;
+  if (ui.modalLevel) ui.modalLevel.textContent = `Lv ${game.level}`;
+  if (ui.modalTime) ui.modalTime.textContent = formatTime(Math.max(0, game.timeRemaining));
+
+  if (ui.missionCompleteOverlay) {
+    ui.missionCompleteOverlay.classList.remove("hidden");
+  }
+
+  setFeedback("good", "Misi Selesai! 🎉", "Target tercapai! Lanjut ke Misi 2");
+
+  /* spawn colorful celebratory particles across the screen */
+  for (let i = 0; i < 50; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.04 + Math.random() * 0.14;
+    game.sparkles.push({
+      x: 0.3 + Math.random() * 0.4,
+      y: 0.3 + Math.random() * 0.3,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 0.03,
+      life: 1.5 + Math.random() * 0.8,
+      size: 4 + Math.random() * 5,
+      hue: Math.random() > 0.6 ? "#10b981" : Math.random() > 0.3 ? "#f59e0b" : "#fff",
+    });
+  }
+}
+
+function hideMissionCompletionModal() {
+  if (ui.missionCompleteOverlay) {
+    ui.missionCompleteOverlay.classList.add("hidden");
+  }
+}
+
 function resetGame() {
   game.running = false;
+  game.missionCompleted = false;
+  hideMissionCompletionModal();
   game.score = 0;
   game.timeRemaining = 90;
   game.level = 1;
@@ -1479,7 +1531,9 @@ function tick(now) {
 
   if (game.running && !game.painStop) {
     game.timeRemaining = Math.max(0, game.timeRemaining - dt);
-    if (game.timeRemaining <= 0 || game.reps >= game.repsGoal) {
+    if (game.reps >= game.repsGoal) {
+      triggerMissionComplete();
+    } else if (game.timeRemaining <= 0) {
       game.running = false;
       setFeedback("good", "Round complete!", `${game.basketApples} target hits`);
     }
@@ -1511,6 +1565,15 @@ ui.pauseButton.addEventListener("click", () => {
 
 ui.resetButton.addEventListener("click", resetGame);
 ui.painButton.addEventListener("click", triggerPainStop);
+
+if (ui.modalReplayButton) {
+  ui.modalReplayButton.addEventListener("click", () => {
+    resetGame();
+    game.running = true;
+    game.painStop = false;
+    setFeedback("neutral", "Mission active", "Raise your hand to draw and shoot");
+  });
+}
 
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();

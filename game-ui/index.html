@@ -31,6 +31,56 @@
           <strong id="feedbackTitle">Ready</strong>
           <span id="feedbackText">Start camera to draw the bow</span>
         </div>
+
+        <!-- Mission Complete Modal / Overlay -->
+        <div id="missionCompleteOverlay" class="mission-complete-overlay hidden" aria-modal="true" role="dialog">
+          <div class="mission-complete-backdrop"></div>
+          <div class="mission-complete-card">
+            <div class="complete-badge-wrapper">
+              <div class="complete-badge-glow"></div>
+              <div class="complete-badge">🎯</div>
+            </div>
+            <span class="complete-eyebrow">Misi 1 Selesai!</span>
+            <h2 class="complete-title">Apple Archer Berhasil!</h2>
+            <p class="complete-subtitle">Luar biasa! Kamu telah berhasil memanah seluruh target apel dengan gerakan bahu dan rentang ROM yang optimal.</p>
+
+            <div class="complete-metrics-grid">
+              <div class="complete-metric-card">
+                <span class="metric-label">Total Skor</span>
+                <strong class="metric-val" id="modalScore">0</strong>
+              </div>
+              <div class="complete-metric-card highlight">
+                <span class="metric-label">Target Hits</span>
+                <strong class="metric-val" id="modalHits">12/12</strong>
+              </div>
+              <div class="complete-metric-card">
+                <span class="metric-label">Level</span>
+                <strong class="metric-val" id="modalLevel">1</strong>
+              </div>
+              <div class="complete-metric-card">
+                <span class="metric-label">Sisa Waktu</span>
+                <strong class="metric-val" id="modalTime">00:00</strong>
+              </div>
+            </div>
+
+            <div class="complete-actions">
+              <button id="modalReplayButton" type="button" class="btn-complete secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                  <path d="M3 3v5h5"></path>
+                </svg>
+                <span>Main Lagi</span>
+              </button>
+              <a id="modalNextButton" href="./mission2.html" class="btn-complete primary">
+                <span>Lanjut ke Misi 2</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+              </a>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="control-band" aria-label="Game controls">

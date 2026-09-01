@@ -14,8 +14,8 @@ const MEDIAPIPE_SOURCES = [
   },
 ];
 const POSE_MODEL_URL = "./assets/pose_landmarker.task";
-const ORCHARD_BACKGROUND_URL = "./assets/orchard-archery-reference.jpg";
-const USE_ORCHARD_REFERENCE = false;
+const ORCHARD_BACKGROUND_URL = "./assets/orchard-fpv-background.jpeg";
+const USE_ORCHARD_REFERENCE = true;
 const MISSION_TARGETS = [30, 45, 60, 75, 90, 105, 120, 135, 150, 165];
 const LEVEL_ONE_HITS = 5;
 const TARGET_HOLD_SECONDS = 3;
@@ -275,9 +275,9 @@ function createPoseLandmarker(visionTasks, vision, delegate) {
     },
     runningMode: "VIDEO",
     numPoses: 1,
-    minPoseDetectionConfidence: 0.45,
-    minPosePresenceConfidence: 0.45,
-    minTrackingConfidence: 0.45,
+    minPoseDetectionConfidence: 0.3,
+    minPosePresenceConfidence: 0.3,
+    minTrackingConfidence: 0.3,
   });
 }
 
@@ -291,8 +291,8 @@ async function ensureCameraReady() {
     if (!game.cameraStream) {
       game.cameraStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 480 },
-          height: { ideal: 360 },
+          width: { ideal: 640 },
+          height: { ideal: 480 },
           frameRate: { ideal: 30, max: 30 },
           facingMode: "user",
         },
@@ -376,7 +376,7 @@ function updatePoseTracking(now) {
 
   const estimate = estimateArmRaiseRom(landmarks);
   if (!estimate) {
-    handlePoseMiss("Hand not visible", "Keep your wrist inside the camera");
+    handlePoseMiss("Hand not visible", "Keep your shoulder and wrist inside the camera");
     return;
   }
 
@@ -503,29 +503,34 @@ function estimateSideRom(landmarks, ids) {
   const wrist = landmarks[ids.wrist];
   const hip = landmarks[ids.hip];
   const oppositeShoulder = landmarks[ids.oppositeShoulder];
-  const confidence = Math.min(
-    shoulder?.visibility ?? 1,
-    wrist?.visibility ?? 1,
-    hip?.visibility ?? 1,
-  );
+  const shoulderVisibility = shoulder?.visibility ?? 1;
+  const wristVisibility = wrist?.visibility ?? 1;
+  const hipVisibility = hip?.visibility ?? 0;
+  const confidence = Math.min(shoulderVisibility, wristVisibility);
 
-  if (!shoulder || !wrist || !hip || confidence < 0.28) return null;
+  if (!shoulder || !wrist || confidence < 0.12) return null;
 
   const aspect = getPoseAspectRatio();
-  const torsoUp = {
-    x: (shoulder.x - hip.x) * aspect,
-    y: shoulder.y - hip.y,
-  };
+  const hasReliableHip = hip && hipVisibility >= 0.12;
+  const torsoUp = hasReliableHip
+    ? {
+        x: (shoulder.x - hip.x) * aspect,
+        y: shoulder.y - hip.y,
+      }
+    : {
+        x: 0,
+        y: -1,
+      };
   const arm = {
     x: (wrist.x - shoulder.x) * aspect,
     y: wrist.y - shoulder.y,
   };
   const angleFromTorso = angleBetweenVectors(torsoUp, arm);
-  const clinicalAngle = elbow ? clamp(180 - angleFromTorso, 0, 180) : game.clinicalAngle;
+  const clinicalAngle = clamp(180 - angleFromTorso, 0, 180);
   const controlAngle = clinicalAngle;
   const angle = controlAngle;
   const shoulderHike = oppositeShoulder
-    ? shoulder.y < oppositeShoulder.y - 0.045 && controlAngle < game.targetRom
+    ? shoulder.y < oppositeShoulder.y - 0.045 && controlAngle < game.targetRom && controlAngle > 45
     : false;
 
   return {
@@ -539,7 +544,7 @@ function estimateSideRom(landmarks, ids) {
       shoulder,
       elbow,
       wrist,
-      hip,
+      hip: hasReliableHip ? hip : { x: shoulder.x, y: Math.min(0.98, shoulder.y + 0.32) },
     },
   };
 }
@@ -822,7 +827,7 @@ function draw() {
   ctx.clearRect(0, 0, width, height);
   const hasReferenceScene = drawScene(width, height);
   if (!hasReferenceScene) drawTrees(width, height);
-  drawSceneDepth(width, height);
+  if (!hasReferenceScene) drawSceneDepth(width, height);
   drawAppleProgress(width, height);
   drawReachGuide(width, height);
   drawShotArrows(width, height);
@@ -830,8 +835,10 @@ function draw() {
   drawPatient(width, height);
   drawSparkles(width, height);
   drawFallingLeaves(width, height);
-  drawBasket(width, height);
-  drawOrchardForeground(width, height);
+  if (!hasReferenceScene) {
+    drawBasket(width, height);
+    drawOrchardForeground(width, height);
+  }
 }
 
 /* ── sky + ground ──────────────────────────────────── */

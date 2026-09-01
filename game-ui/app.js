@@ -1488,7 +1488,10 @@ function drawArcher(width, height) {
 }
 
 function drawPatient(width, height) {
-  drawArcher(width, height);
+  const fpvCanvas = document.getElementById("archerFpvCanvas");
+  if (!fpvCanvas?.classList.contains("model-ready")) {
+    drawArcher(width, height);
+  }
 }
 
 /* ── pose overlay ──────────────────────────────────── */

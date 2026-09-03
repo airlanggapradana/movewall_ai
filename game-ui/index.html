@@ -81,6 +81,52 @@
             </div>
           </div>
         </div>
+
+        <!-- Timeout Modal / Overlay -->
+        <div id="timeoutOverlay" class="timeout-overlay hidden" aria-modal="true" role="dialog">
+          <div class="timeout-backdrop"></div>
+          <div class="timeout-card">
+            <div class="timeout-badge-wrapper">
+              <div class="timeout-badge-glow"></div>
+              <div class="timeout-badge">⏳</div>
+            </div>
+            <span class="timeout-eyebrow">Waktu Habis!</span>
+            <h2 class="timeout-title">Waktu Latihan Selesai</h2>
+            <p class="timeout-subtitle">Waktu yang disediakan untuk misi ini telah berakhir. Kamu bisa mengulang level ini untuk terus melatih rentang ROM dan menyelesaikan target!</p>
+
+            <div class="timeout-metrics-grid">
+              <div class="timeout-metric-card">
+                <span class="metric-label">Total Skor</span>
+                <strong class="metric-val" id="timeoutScore">0</strong>
+              </div>
+              <div class="timeout-metric-card highlight">
+                <span class="metric-label">Target Hits</span>
+                <strong class="metric-val" id="timeoutHits">0/10</strong>
+              </div>
+              <div class="timeout-metric-card">
+                <span class="metric-label">Level</span>
+                <strong class="metric-val" id="timeoutLevel">Lv 1</strong>
+              </div>
+              <div class="timeout-metric-card">
+                <span class="metric-label">Target Terakhir</span>
+                <strong class="metric-val" id="timeoutTarget">30°</strong>
+              </div>
+            </div>
+
+            <div class="timeout-actions">
+              <button id="timeoutRetryButton" type="button" class="btn-timeout primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                  <path d="M3 3v5h5"></path>
+                </svg>
+                <span>Ulangi Level</span>
+              </button>
+              <button id="timeoutResetButton" type="button" class="btn-timeout secondary">
+                <span>Reset Misi</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="control-band" aria-label="Game controls">

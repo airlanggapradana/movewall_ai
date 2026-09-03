@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
-   MOVEWALL-AI  ·  Mission 2 – Restore the Garden
+   MOVEWALL-AI  ·  Mission 2 – Restore the Garden (Garden Keeper)
    Target terapeutik: shoulder flexion, reaching, motor control
+   MediaPipe Hand-Tracking & Pointer Gembor (Watering-Can)
    ═══════════════════════════════════════════════════════════════ */
 
 const canvas = document.getElementById("gameCanvas");
@@ -18,6 +19,8 @@ const MEDIAPIPE_SOURCES = [
   },
 ];
 const POSE_MODEL_URL    = "./assets/pose_landmarker.task";
+const HAND_MODEL_URL    = "./assets/hand_landmarker.task";
+const HAND_FALLBACK_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task";
 const POSE_TARGET_FPS   = 30;
 const POSE_FRAME_INTERVAL = 1000 / POSE_TARGET_FPS;
 
@@ -38,6 +41,10 @@ const ui = {
   pauseButton:  document.getElementById("pauseButton"),
   resetButton:  document.getElementById("resetButton"),
   painButton:   document.getElementById("painButton"),
+  gestureCard:  document.getElementById("gestureCard"),
+  gestureBadge: document.getElementById("gestureBadge"),
+  rangeBadge:   document.getElementById("rangeBadge"),
+  romMeter:     document.querySelector(".rom-meter"),
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -51,30 +58,37 @@ const ui = {
  *   x  — normalised horizontal [0..1]
  *   y  — normalised vertical   [0..1]  (lower y = higher on screen)
  *   requiredRom — approximate shoulder flexion needed (degrees)
- *   label — short direction hint shown in HUD
  */
 function makePots() {
   return [
-    // Row 1 – mid-height, spread across width
-    { x: 0.18, y: 0.52, requiredRom:  65, watered: false, growPct: 0, waterParticles: [] },
-    { x: 0.38, y: 0.48, requiredRom:  75, watered: false, growPct: 0, waterParticles: [] },
-    { x: 0.62, y: 0.50, requiredRom:  70, watered: false, growPct: 0, waterParticles: [] },
-    { x: 0.82, y: 0.46, requiredRom:  80, watered: false, growPct: 0, waterParticles: [] },
-    // Row 2 – higher (more flexion required)
-    { x: 0.25, y: 0.36, requiredRom:  95, watered: false, growPct: 0, waterParticles: [] },
-    { x: 0.50, y: 0.32, requiredRom: 110, watered: false, growPct: 0, waterParticles: [] },
-    { x: 0.74, y: 0.34, requiredRom: 100, watered: false, growPct: 0, waterParticles: [] },
-    // Row 3 – overhead (high flexion / elevation)
-    { x: 0.32, y: 0.22, requiredRom: 130, watered: false, growPct: 0, waterParticles: [] },
-    { x: 0.58, y: 0.20, requiredRom: 145, watered: false, growPct: 0, waterParticles: [] },
-    // Row 4 – low/lateral (to be reached later in session)
-    { x: 0.14, y: 0.64, requiredRom:  55, watered: false, growPct: 0, waterParticles: [] },
-    { x: 0.88, y: 0.60, requiredRom:  60, watered: false, growPct: 0, waterParticles: [] },
-    { x: 0.70, y: 0.66, requiredRom:  50, watered: false, growPct: 0, waterParticles: [] },
+    // Pot 1 – Target 30° (Starting therapeutic target, lower shelf left)
+    { x: 0.22, y: 0.66, requiredRom:  30, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 2 – Target 35° (Low shelf right)
+    { x: 0.78, y: 0.66, requiredRom:  35, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 3 – Target 45° (Mid-low center)
+    { x: 0.50, y: 0.58, requiredRom:  45, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 4 – Target 55° (Mid-low left)
+    { x: 0.18, y: 0.52, requiredRom:  55, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 5 – Target 65° (Mid shelf right)
+    { x: 0.82, y: 0.50, requiredRom:  65, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 6 – Target 75° (Mid shelf center)
+    { x: 0.38, y: 0.44, requiredRom:  75, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 7 – Target 85° (Chest / shoulder level)
+    { x: 0.62, y: 0.42, requiredRom:  85, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 8 – Target 95° (Eye level)
+    { x: 0.25, y: 0.34, requiredRom:  95, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 9 – Target 110° (Overhead reach)
+    { x: 0.74, y: 0.30, requiredRom: 110, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 10 – Target 125° (High overhead)
+    { x: 0.50, y: 0.24, requiredRom: 125, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 11 – Target 135° (High lateral left)
+    { x: 0.32, y: 0.18, requiredRom: 135, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 12 – Target 150° (Peak elevation right)
+    { x: 0.68, y: 0.16, requiredRom: 150, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
   ];
 }
 
-/* ── Stars in sky (static, generated once) ──────────────────── */
+/* ── Clouds in sky (static, generated once) ──────────────────── */
 const CLOUD_SEEDS = [
   { x: 0.08, y: 0.08, rx: 72, ry: 24 },
   { x: 0.35, y: 0.05, rx: 60, ry: 20 },
@@ -86,48 +100,152 @@ const CLOUD_SEEDS = [
    GAME STATE
    ═══════════════════════════════════════════════════════════════ */
 const game = {
-  running:       false,
-  cameraStream:  null,
-  poseLandmarker:null,
-  poseLoading:   false,
-  poseReady:     false,
-  poseBackend:   "Not loaded",
-  lastPoseAt:    0,
-  poseBusy:      false,
-  lastVideoTime: -1,
+  running:         false,
+  cameraStream:    null,
+  poseLandmarker:  null,
+  handLandmarker:  null,
+  visionLoading:   false,
+  poseReady:       false,
+  handReady:       false,
+  poseBackend:     "Not loaded",
+  lastPoseAt:      0,
+  poseBusy:        false,
+  lastVideoTime:   -1,
   trackingQuality: "Waiting for camera",
-  posePoints:    null,
-  lostPoseFrames:0,
-  rawAngle:      20,
-  controlAngle:  20,
-  clinicalAngle: 20,
-  displayAngle:  20,
-  targetAcquired:false,
-  handFollow:    { x: 0.5, y: 0.55, visible: false },
-  cameraAngle:   20,
-  score:         0,
-  timeRemaining: 120,
-  level:         1,
-  reps:          0,
-  repsGoal:      12,
-  targetRom:     70,
-  maxTargetRom:  180,
-  minTargetRom:  45,
-  repState:      "RESTING",
-  peakAngle:     0,
-  lastTick:      performance.now(),
-  targetHitFlash:0,
-  targetCooldown:0,
-  painStop:      false,
-  lastRepFrameId:null,
-  feedbackKind:  "neutral",
-  feedbackTitle: "Ready",
-  feedbackText:  "Start camera to water the garden",
+  posePoints:      null,
+  lostPoseFrames:  0,
+  lostHandFrames:  0,
+  rawAngle:        20,
+  controlAngle:    20,
+  clinicalAngle:   20,
+  displayAngle:    20,
+  targetAcquired:  false,
+  /* Hand Tracking & Pointer */
+  handFollow:      { x: 0.5, y: 0.55, visible: false },
+  handDetected:    false,
+  isHandOpen:      false,       // true: open hand (watering), false: fist (aiming)
+  consecutiveOpenFrames: 0,
+  consecutiveClosedFrames: 0,
+  isWatering:      false,       // true if pouring water onto pot
+  potInRange:      false,       // true if pointer is within range of target pot
+  canTiltAngle:    0,           // current smooth tilt angle of watering can
+  canTipPos:       { x: 0, y: 0 },
+  splashParticles: [],
+  floatingPopups:  [],
+  cameraAngle:     20,
+  score:           0,
+  timeRemaining:   120,
+  level:           1,
+  reps:            0,
+  repsGoal:        12,
+  targetRom:       70,
+  maxTargetRom:    180,
+  minTargetRom:    45,
+  repState:        "RESTING",
+  peakAngle:       0,
+  lastTick:        performance.now(),
+  targetHitFlash:  0,
+  targetCooldown:  0,
+  painStop:        false,
+  lastRepFrameId:  null,
+  feedbackKind:    "neutral",
+  feedbackTitle:   "Ready",
+  feedbackText:    "Start camera to water the garden",
   /* mission-specific */
-  pots:          makePots(),
-  activePotIdx:  0,   // which pot is the current target
-  waterStreamPct:0,   // 0‥1 animation for water stream on hit
-  completedPots: 0,
+  pots:            makePots(),
+  activePotIdx:    0,
+  completedPots:   0,
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   AUDIO SYNTHESIZER (Zero external audio asset dependencies)
+   ═══════════════════════════════════════════════════════════════ */
+const audio = {
+  ctx: null,
+  waterSource: null,
+  waterGain: null,
+  init() {
+    if (this.ctx) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    } catch (e) {
+      console.warn("MoveWall AudioContext error:", e);
+    }
+  },
+  startWaterSound() {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+    if (this.waterGain) return;
+
+    try {
+      const bufferSize = Math.floor(this.ctx.sampleRate * 1.5);
+      const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = (Math.random() * 2 - 1) * 0.35;
+      }
+
+      const whiteNoise = this.ctx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 1050;
+      filter.Q.value = 3.2;
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.14, this.ctx.currentTime + 0.12);
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      whiteNoise.start();
+      this.waterSource = whiteNoise;
+      this.waterGain = gain;
+    } catch (e) {}
+  },
+  stopWaterSound() {
+    if (!this.waterGain || !this.ctx) return;
+    try {
+      this.waterGain.gain.setValueAtTime(this.waterGain.gain.value, this.ctx.currentTime);
+      this.waterGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+      setTimeout(() => {
+        if (this.waterSource) {
+          try { this.waterSource.stop(); } catch (e) {}
+          this.waterSource = null;
+        }
+        this.waterGain = null;
+      }, 110);
+    } catch (e) {
+      this.waterGain = null;
+    }
+  },
+  playChime() {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+
+    // Pentatonic arpeggio [523.25, 659.25, 783.99, 1046.50]
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const startTime = this.ctx.currentTime + idx * 0.07;
+      gain.gain.setValueAtTime(0.16, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.45);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.5);
+    });
+  }
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -149,41 +267,25 @@ function formatTime(s) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   POSE / CAMERA  (identical infrastructure to Mission 1)
+   MEDIAPIPE VISION: POSE & HAND LANDMARKERS
    ═══════════════════════════════════════════════════════════════ */
-async function ensurePoseLandmarker() {
-  if (game.poseReady) return true;
-  if (game.poseLoading) return false;
-  game.poseLoading = true;
-  game.trackingQuality = "Loading pose model";
-  try {
-    const { visionTasks, vision, source } = await loadVisionTasks();
-    try {
-      game.poseLandmarker = await createPoseLandmarker(visionTasks, vision, "GPU");
-    } catch {
-      game.poseLandmarker = await createPoseLandmarker(visionTasks, vision, "CPU");
-    }
-    game.poseReady   = true;
-    game.poseBackend = source;
-    game.trackingQuality = `Pose AI ready (${source})`;
-    return true;
-  } catch (err) {
-    game.poseBackend = "Unavailable";
-    game.trackingQuality = "Pose AI unavailable";
-    console.error("MoveWall M2 pose error:", err);
-    return false;
-  } finally {
-    game.poseLoading = false;
-  }
-}
+let cachedVisionTasks = null;
+let cachedVision = null;
+let cachedSource = null;
 
 async function loadVisionTasks() {
+  if (cachedVisionTasks && cachedVision) {
+    return { visionTasks: cachedVisionTasks, vision: cachedVision, source: cachedSource };
+  }
   let lastErr;
   for (const src of MEDIAPIPE_SOURCES) {
     try {
       const visionTasks = await import(src.bundle);
       const vision = await visionTasks.FilesetResolver.forVisionTasks(src.wasm);
-      return { visionTasks, vision, source: src.bundle.startsWith(".") ? "local" : "cdn" };
+      cachedVisionTasks = visionTasks;
+      cachedVision = vision;
+      cachedSource = src.bundle.startsWith(".") ? "local" : "cdn";
+      return { visionTasks, vision, source: cachedSource };
     } catch (e) { lastErr = e; }
   }
   throw lastErr;
@@ -194,15 +296,77 @@ function createPoseLandmarker(vt, vision, delegate) {
     baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate },
     runningMode: "VIDEO",
     numPoses: 1,
-    minPoseDetectionConfidence: 0.45,
-    minPosePresenceConfidence:  0.45,
-    minTrackingConfidence:      0.45,
+    minPoseDetectionConfidence: 0.3,
+    minPosePresenceConfidence:  0.3,
+    minTrackingConfidence:      0.3,
   });
+}
+
+function createHandLandmarker(vt, vision, delegate) {
+  return vt.HandLandmarker.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate },
+    runningMode: "VIDEO",
+    numHands: 1,
+    minHandDetectionConfidence: 0.25,
+    minHandPresenceConfidence:  0.25,
+    minTrackingConfidence:      0.25,
+  }).catch((err) => {
+    console.warn("MoveWall: local hand_landmarker.task fallback to CDN...", err);
+    return vt.HandLandmarker.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: HAND_FALLBACK_URL, delegate },
+      runningMode: "VIDEO",
+      numHands: 1,
+      minHandDetectionConfidence: 0.25,
+      minHandPresenceConfidence:  0.25,
+      minTrackingConfidence:      0.25,
+    });
+  });
+}
+
+async function ensureVisionLandmarkers() {
+  if (game.poseReady && game.handReady) return true;
+  if (game.visionLoading) return false;
+  game.visionLoading = true;
+  game.trackingQuality = "Memuat model AI MediaPipe...";
+  try {
+    const { visionTasks, vision, source } = await loadVisionTasks();
+
+    // 1. Pose Landmarker
+    try {
+      game.poseLandmarker = await createPoseLandmarker(visionTasks, vision, "GPU");
+    } catch {
+      game.poseLandmarker = await createPoseLandmarker(visionTasks, vision, "CPU");
+    }
+    game.poseReady = true;
+
+    // 2. Hand Landmarker
+    try {
+      game.handLandmarker = await createHandLandmarker(visionTasks, vision, "GPU");
+    } catch {
+      game.handLandmarker = await createHandLandmarker(visionTasks, vision, "CPU");
+    }
+    game.handReady = true;
+
+    game.poseBackend = source;
+    game.trackingQuality = `Pose & Hand AI ready (${source})`;
+    return true;
+  } catch (err) {
+    console.error("MoveWall M2 vision error:", err);
+    if (game.poseReady) {
+      game.trackingQuality = "Pose AI ready (Hand fallback)";
+      return true;
+    }
+    game.poseBackend = "Unavailable";
+    game.trackingQuality = "MediaPipe AI unavailable";
+    return false;
+  } finally {
+    game.visionLoading = false;
+  }
 }
 
 async function ensureCameraReady() {
   if (!navigator.mediaDevices?.getUserMedia) {
-    setFeedback("bad", "Camera unavailable", "Browser does not support webcam access");
+    setFeedback("bad", "Kamera tidak tersedia", "Browser tidak mendukung akses webcam");
     return false;
   }
   try {
@@ -217,13 +381,16 @@ async function ensureCameraReady() {
     await waitForVideoReady(ui.cameraPreview);
     game.lastPoseAt = 0;
     game.lastVideoTime = -1;
-    setFeedback("warn", "Camera ready", "Loading pose tracking…");
-    const ok = await ensurePoseLandmarker();
-    if (!ok) { setFeedback("bad", "Pose AI unavailable", "Check local server and refresh"); return false; }
-    setFeedback("good", "Pose AI ready", "Raise your hand toward a pot");
+    setFeedback("warn", "Kamera Siap", "Memuat pelacakan tangan & bahu...");
+    const ok = await ensureVisionLandmarkers();
+    if (!ok) {
+      setFeedback("bad", "AI Vision tidak tersedia", "Periksa koneksi model dan muat ulang halaman");
+      return false;
+    }
+    setFeedback("good", "AI Siap! 🌿", "Arahkan tangan tertutup untuk membidik, buka untuk menyiram!");
     return true;
   } catch (err) {
-    setFeedback("bad", "Camera blocked", "Allow camera permission in the browser");
+    setFeedback("bad", "Kamera Diblokir", "Berikan izin akses kamera di browser Anda");
     console.error("MoveWall M2 camera error:", err);
     return false;
   }
@@ -237,76 +404,218 @@ function waitForVideoReady(video) {
   });
 }
 
-/* ── Pose tracking loop ──────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   HAND GESTURE CLASSIFICATION: OPEN HAND VS CLOSED FIST
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Classifies whether a hand is OPEN (tangan terbuka) or CLOSED (tangan tertutup / mengepal)
+ * based on the 21 MediaPipe hand landmarks.
+ * In a closed fist, fingers curl into the palm towards MCP and wrist.
+ * In an open hand, at least 3 fingers are clearly extended away from MCP and wrist.
+ */
+function evaluateHandGesture(landmarks) {
+  if (!landmarks || landmarks.length < 21) {
+    return { isOpen: false, openFingers: 0 };
+  }
+
+  const lm = landmarks;
+  const wrist = lm[0];
+
+  function dist(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  // A finger is extended if fingertip is further from wrist and further from MCP than PIP
+  function isFingerOpen(tipIdx, pipIdx, mcpIdx) {
+    const dTipWrist = dist(lm[tipIdx], wrist);
+    const dPipWrist = dist(lm[pipIdx], wrist);
+    const dTipMcp   = dist(lm[tipIdx], lm[mcpIdx]);
+    const dPipMcp   = dist(lm[pipIdx], lm[mcpIdx]);
+    return (dTipWrist > dPipWrist * 1.14) && (dTipMcp > dPipMcp * 1.25);
+  }
+
+  const indexOpen  = isFingerOpen(8, 6, 5);
+  const middleOpen = isFingerOpen(12, 10, 9);
+  const ringOpen   = isFingerOpen(16, 14, 13);
+  const pinkyOpen  = isFingerOpen(20, 18, 17);
+
+  // Thumb: extended outward from pinky base (17) and wrist (0)
+  const dThumbPinky = dist(lm[4], lm[17]);
+  const dMcpPinky   = dist(lm[2], lm[17]);
+  const thumbOpen   = (dThumbPinky > dMcpPinky * 1.20) && (dist(lm[4], wrist) > dist(lm[3], wrist) * 1.10);
+
+  let openFingers = 0;
+  if (indexOpen)  openFingers++;
+  if (middleOpen) openFingers++;
+  if (ringOpen)   openFingers++;
+  if (pinkyOpen)  openFingers++;
+  if (thumbOpen)  openFingers++;
+
+  // Strict check: Must have at least 3 fingers extended to be considered OPEN!
+  // In a fist, fingers curl in (openFingers is 0 or 1), so isOpen is ALWAYS false!
+  const isOpen = openFingers >= 3;
+  return { isOpen, openFingers };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VISION TRACKING LOOP
+   ═══════════════════════════════════════════════════════════════ */
 function updateCameraMotion() {
   if (!game.running || game.painStop) return;
   if (!ui.cameraPreview.videoWidth) return;
-  if (!game.poseReady || !game.poseLandmarker) return;
-  updatePoseTracking(performance.now());
+  if (!game.poseReady && !game.handReady) return;
+  updateVisionTracking(performance.now());
 }
 
-function updatePoseTracking(now) {
+function updateVisionTracking(now) {
   if (game.poseBusy || now - game.lastPoseAt < POSE_FRAME_INTERVAL) return;
   const video = ui.cameraPreview;
-  if (video.currentTime === game.lastVideoTime) return;
+  const videoTimestamp = video.currentTime;
+  if (
+    videoTimestamp === game.lastVideoTime &&
+    now - game.lastPoseAt < POSE_FRAME_INTERVAL * 3
+  )
+    return;
+
   game.lastPoseAt   = now;
-  game.lastVideoTime = video.currentTime;
+  game.lastVideoTime = videoTimestamp;
   game.poseBusy = true;
 
-  let result;
+  let poseResult = null;
+  let handResult = null;
+
   try {
-    result = game.poseLandmarker.detectForVideo(video, now);
+    if (game.poseLandmarker) {
+      poseResult = game.poseLandmarker.detectForVideo(video, now);
+    }
   } catch (err) {
-    game.trackingQuality = "Pose inference error";
-    setFeedback("bad", "Tracking error", "Refresh the game and start camera again");
-    return;
+    console.warn("Pose inference error:", err);
+  }
+
+  try {
+    if (game.handLandmarker) {
+      handResult = game.handLandmarker.detectForVideo(video, now);
+    }
+  } catch (err) {
+    console.warn("Hand inference error:", err);
   } finally {
     game.poseBusy = false;
   }
 
-  const landmarks = result?.landmarks?.[0];
-  if (!landmarks) { handlePoseMiss("No body detected", "Keep shoulder and hand visible"); return; }
+  // 1. Process Pose for Shoulder ROM Flexion (Sesuai Apple Archery)
+  let estimate = null;
+  const poseLandmarks = poseResult?.landmarks?.[0];
+  if (poseLandmarks) {
+    estimate = estimateArmRaiseRom(poseLandmarks);
+    if (estimate) {
+      game.lostPoseFrames  = 0;
+      game.posePoints      = estimate.points;
+      game.rawAngle        = estimate.controlAngle;
+      game.controlAngle    = stabilizeClinicalAngle(estimate.controlAngle, game.controlAngle);
+      game.displayAngle    = game.controlAngle;
+      game.clinicalAngle   = stabilizeClinicalAngle(estimate.clinicalAngle, game.clinicalAngle);
+      game.cameraAngle     = game.controlAngle;
 
-  const estimate = estimateArmRaiseRom(landmarks);
-  if (!estimate)   { handlePoseMiss("Hand not visible", "Keep your wrist inside the camera"); return; }
-
-  game.lostPoseFrames  = 0;
-  game.trackingQuality = estimate.compensation ? "Shoulder hike detected" : `Tracking ${estimate.side} arm`;
-  game.posePoints      = estimate.points;
-  updateHandFollow(estimate.points.wrist);
-  game.rawAngle     = estimate.controlAngle;
-  game.controlAngle = estimate.controlAngle;
-  game.displayAngle = estimate.controlAngle;
-  game.clinicalAngle = stabilizeClinicalAngle(estimate.clinicalAngle, game.clinicalAngle);
-  game.cameraAngle  = estimate.controlAngle;
-
-  if (estimate.compensation) {
-    setFeedback("warn", "Shoulder hike", "Lower your shoulder a bit");
+      if (estimate.compensation) {
+        setFeedback("warn", "Shoulder hike detected", "Turunkan sedikit bahu Anda");
+      }
+    }
   }
 
-  checkPotHit();
+  // 2. Process Hand Landmarks for Pointer & Open/Closed Gesture
+  const handLandmarks = handResult?.landmarks?.[0];
+
+  if (handLandmarks) {
+    game.handDetected = true;
+    game.lostHandFrames = 0;
+
+    // Center of palm between wrist (0) and middle MCP (9)
+    const wrist = handLandmarks[0];
+    const middleMcp = handLandmarks[9];
+    const palmX = (wrist.x + middleMcp.x) * 0.5;
+    const palmY = (wrist.y + middleMcp.y) * 0.5;
+
+    // Mirrored for user-facing camera
+    const normX = clamp(1 - palmX, 0.05, 0.95);
+    const normY = clamp(palmY, 0.06, 0.94);
+
+    // Smooth movement (EMA)
+    game.handFollow.x = game.handFollow.x * 0.22 + normX * 0.78;
+    game.handFollow.y = game.handFollow.y * 0.22 + normY * 0.78;
+    game.handFollow.visible = true;
+
+    // Evaluate gesture strictly from 21 MediaPipe hand points
+    const { isOpen, openFingers } = evaluateHandGesture(handLandmarks);
+    if (isOpen) {
+      game.consecutiveOpenFrames = (game.consecutiveOpenFrames || 0) + 1;
+      game.consecutiveClosedFrames = 0;
+    } else {
+      game.consecutiveClosedFrames = (game.consecutiveClosedFrames || 0) + 1;
+      game.consecutiveOpenFrames = 0;
+    }
+
+    // Require at least 3 consecutive open frames to trigger watering.
+    // If closed even for 1 frame, immediately stop watering!
+    game.isHandOpen = (game.consecutiveOpenFrames >= 3);
+    game.trackingQuality = `Tangan: ${game.isHandOpen ? "Terbuka 🖐️ (Menyiram)" : "Tertutup ✊ (Membidik)"} (${openFingers}/5 jari)`;
+
+    // Jika pose landmarking terhalang/miss, gunakan elevasi vertikal tangan sebagai fallback ROM
+    if (!estimate) {
+      const handElevationAngle = clamp(
+        Math.round(((0.82 - palmY) / 0.66) * 135 + 24),
+        15,
+        175
+      );
+      game.rawAngle      = handElevationAngle;
+      game.controlAngle  = stabilizeClinicalAngle(handElevationAngle, game.controlAngle);
+      game.displayAngle  = game.controlAngle;
+      game.clinicalAngle = stabilizeClinicalAngle(handElevationAngle, game.clinicalAngle);
+      game.cameraAngle   = game.controlAngle;
+    }
+  } else {
+    game.lostHandFrames = (game.lostHandFrames || 0) + 1;
+    game.consecutiveOpenFrames = 0;
+    game.isHandOpen = false;
+
+    // Fallback pointer movement to wrist from PoseLandmarker so user can still aim
+    if (game.posePoints?.wrist) {
+      updateHandFollow(game.posePoints.wrist);
+      game.trackingQuality = "Membidik dengan pergelangan tangan (Tangan ✊)";
+    } else if (game.lostHandFrames > 12) {
+      game.handFollow.visible = false;
+      game.trackingQuality = "Arahkan tangan ke kamera";
+    }
+  }
 }
 
-function handlePoseMiss(title, text) {
-  game.lostPoseFrames += 1;
-  if (game.lostPoseFrames <= 6 && game.posePoints) { game.trackingQuality = "Tracking stable"; return; }
-  game.handFollow.visible = false;
-  game.trackingQuality = title;
-  setFeedback("warn", title, text);
+function getPoseAspectRatio() {
+  const w = ui.cameraPreview?.videoWidth || 1280;
+  const h = ui.cameraPreview?.videoHeight || 720;
+  return w / h;
+}
+
+function angleBetweenVectors(a, b) {
+  const dot = a.x * b.x + a.y * b.y;
+  const magA = Math.hypot(a.x, a.y);
+  const magB = Math.hypot(b.x, b.y);
+  if (magA < 1e-6 || magB < 1e-6) return 0;
+  const cosine = Math.max(-1, Math.min(1, dot / (magA * magB)));
+  return (Math.acos(cosine) * 180) / Math.PI;
 }
 
 function stabilizeClinicalAngle(raw, prev) {
   const diff = raw - prev, abs = Math.abs(diff);
-  if (abs < 0.8) return prev;
+  if (abs < 0.6) return prev;
   if (Math.abs(raw - game.targetRom) <= 1.8 && Math.abs(prev - game.targetRom) <= 4) return game.targetRom;
-  const alpha = abs > 18 ? 0.62 : abs > 7 ? 0.48 : 0.32;
+  const alpha = abs > 18 ? 0.65 : abs > 7 ? 0.50 : 0.35;
   return prev + diff * alpha;
 }
 
-/* ── Arm ROM estimation (same as Mission 1) ──────────────────── */
+/* ── Arm ROM estimation ──────────────────────────────────────── */
 function estimateArmRaiseRom(landmarks) {
-  const right = estimateSideRom(landmarks, { side: "right", shoulder: 12, elbow: 14, wrist: 16, hip: 24, oppositeShoulder: 11 });
-  const left  = estimateSideRom(landmarks, { side: "left",  shoulder: 11, elbow: 13, wrist: 15, hip: 23, oppositeShoulder: 12 });
+  const right = estimateSideRom(landmarks, { side: "right", shoulder: 12, elbow: 14, wrist: 16, hip: 24, oppositeShoulder: 11, pinky: 18, index: 20, thumb: 22 });
+  const left  = estimateSideRom(landmarks, { side: "left",  shoulder: 11, elbow: 13, wrist: 15, hip: 23, oppositeShoulder: 12, pinky: 17, index: 19, thumb: 21 });
   const candidates = [right, left].filter(Boolean);
   if (!candidates.length) return null;
   candidates.sort((a, b) => b.score - a.score);
@@ -319,22 +628,47 @@ function estimateSideRom(landmarks, ids) {
   const wrist    = landmarks[ids.wrist];
   const hip      = landmarks[ids.hip];
   const opp      = landmarks[ids.oppositeShoulder];
-  const conf = Math.min(shoulder?.visibility ?? 1, wrist?.visibility ?? 1, hip?.visibility ?? 1);
-  if (!shoulder || !wrist || !hip || conf < 0.28) return null;
+  const pinky    = ids.pinky !== undefined ? landmarks[ids.pinky] : null;
+  const index    = ids.index !== undefined ? landmarks[ids.index] : null;
+  const thumb    = ids.thumb !== undefined ? landmarks[ids.thumb] : null;
 
-  const torsoUp = { x: shoulder.x - hip.x, y: shoulder.y - hip.y };
-  const arm     = { x: wrist.x - shoulder.x, y: wrist.y - shoulder.y };
-  const angleFromTorso = angleBetween(torsoUp, arm);
+  // Landmark wajib: shoulder dan wrist. Hip opsional (seperti Apple Archery).
+  if (!shoulder || !wrist) return null;
+
+  const shoulderVis = shoulder?.visibility ?? 0;
+  const wristVis    = wrist?.visibility ?? 0;
+  const hipVis      = hip?.visibility ?? 0;
+
+  // Gunakan rata-rata visibility alih-alih Math.min agar satu landmark rendah tidak membatalkan
+  const confidence = hip
+    ? (shoulderVis + wristVis + hipVis) / 3
+    : (shoulderVis + wristVis) / 2;
+
+  if (confidence < 0.12) return null;
+
+  const aspect = getPoseAspectRatio();
+
+  // Jika hip tidak tersedia di frame (misal posisi duduk di depan laptop),
+  // perkirakan posisi hip dari shoulder
+  const effectiveHip = hip ?? { x: shoulder.x, y: shoulder.y + 0.4 };
+
+  const torsoUp = {
+    x: (shoulder.x - effectiveHip.x) * aspect,
+    y: shoulder.y - effectiveHip.y,
+  };
+  const arm = {
+    x: (wrist.x - shoulder.x) * aspect,
+    y: wrist.y - shoulder.y,
+  };
+  const angleFromTorso = angleBetweenVectors(torsoUp, arm);
   const clinicalAngle  = elbow ? clamp(180 - angleFromTorso, 0, 180) : game.clinicalAngle;
-  const torsoLen   = Math.max(0.08, Math.hypot(torsoUp.x, torsoUp.y));
-  const wristHeight = (shoulder.y - wrist.y) / torsoLen;
-  const controlAngle = clamp(wristHeight * 86 + 48, 0, 180);
-  const shoulderHike = opp ? shoulder.y < opp.y - 0.045 && controlAngle < game.targetRom : false;
+  const controlAngle   = clinicalAngle; // Direct clinical shoulder flexion angle
+  const shoulderHike   = opp ? shoulder.y < opp.y - 0.045 && controlAngle < game.targetRom : false;
 
   return {
     side: ids.side, angle: controlAngle, controlAngle, clinicalAngle,
-    compensation: shoulderHike, score: conf * 100 + controlAngle,
-    points: { shoulder, elbow, wrist, hip },
+    compensation: shoulderHike, confidence, score: confidence * 100 + controlAngle,
+    points: { shoulder, elbow, wrist, hip, pinky, index, thumb },
   };
 }
 
@@ -347,65 +681,216 @@ function angleBetween(a, b) {
 function updateHandFollow(wrist) {
   const mx = clamp(1 - wrist.x, 0.08, 0.92);
   const my = clamp(wrist.y, 0.12, 0.88);
-  game.handFollow.x = game.handFollow.x * 0.12 + mx * 0.88;
-  game.handFollow.y = game.handFollow.y * 0.12 + my * 0.88;
+  game.handFollow.x = game.handFollow.x * 0.18 + mx * 0.82;
+  game.handFollow.y = game.handFollow.y * 0.18 + my * 0.82;
   game.handFollow.visible = true;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MISSION 2 GAME LOGIC – Pot / Watering
+   GAMEPLAY & WATERING LOGIC (Ketentuan Task.md)
+   • Tangan Terbuka + Range Pot  -> Menyiram air
+   • Tangan Tertutup             -> Hanya mengarahkan pointer
    ═══════════════════════════════════════════════════════════════ */
 
-/** Returns the active pot, or null if all watered */
+/** Returns current active unwatered pot, or null if all watered */
 function getActivePot() {
   for (let i = game.activePotIdx; i < game.pots.length; i++) {
+    if (!game.pots[i].watered) { game.activePotIdx = i; return game.pots[i]; }
+  }
+  for (let i = 0; i < game.pots.length; i++) {
     if (!game.pots[i].watered) { game.activePotIdx = i; return game.pots[i]; }
   }
   return null;
 }
 
-/** Check if the patient's hand is close enough to the active pot */
-function checkPotHit() {
-  if (!game.handFollow.visible || game.targetCooldown > 0) return;
-  const pot = getActivePot();
-  if (!pot) return;
+/**
+ * Returns the target pot: prioritizes whichever unwatered pot the user is closest to,
+ * or falls back to the sequential active pot.
+ */
+function getTargetPot() {
+  const W = canvas.clientWidth || 1280;
+  const H = canvas.clientHeight || 720;
+  let closestPot = null;
+  let closestDist = Infinity;
 
-  // Dynamic target: set game.targetRom to this pot's required ROM
+  for (let i = 0; i < game.pots.length; i++) {
+    const p = game.pots[i];
+    if (!p.watered) {
+      const potY = p.y - 0.02;
+      const dxCan = game.handFollow.x - p.x;
+      const dyCan = game.handFollow.y - potY;
+      const distCan = Math.hypot(dxCan, dyCan);
+
+      const dxTip = (game.canTipPos.x / W) - p.x;
+      const dyTip = (game.canTipPos.y / H) - potY;
+      const distTip = Math.hypot(dxTip, dyTip);
+
+      const d = Math.min(distCan, distTip);
+      if (d < closestDist) {
+        closestDist = d;
+        closestPot = p;
+      }
+    }
+  }
+
+  // If user reached near any unwatered pot within close range (~100px), lock onto that pot
+  if (closestPot && closestDist < 0.082) {
+    const idx = game.pots.indexOf(closestPot);
+    if (idx !== -1) game.activePotIdx = idx;
+    return closestPot;
+  }
+
+  return getActivePot();
+}
+
+function updateWateringLogic(dt) {
+  if (!game.running || game.painStop) {
+    if (game.isWatering) {
+      game.isWatering = false;
+      audio.stopWaterSound();
+    }
+    return;
+  }
+
+  const pot = getTargetPot();
+  if (!pot) {
+    if (game.isWatering) {
+      game.isWatering = false;
+      audio.stopWaterSound();
+    }
+    return;
+  }
+
+  // Set current therapeutic target ROM for this pot
   game.targetRom = pot.requiredRom;
 
-  const dx = game.handFollow.x - pot.x;
-  const dy = game.handFollow.y - pot.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (!game.handFollow.visible || game.targetCooldown > 0) {
+    if (game.isWatering) {
+      game.isWatering = false;
+      audio.stopWaterSound();
+    }
+    return;
+  }
 
-  // Proximity hit (hand near pot) AND sufficient ROM
-  if (dist < 0.09 && game.cameraAngle >= pot.requiredRom * 0.9) {
-    waterPot(pot);
-  } else if (game.cameraAngle >= pot.requiredRom * 0.72) {
-    setFeedback("warn", "Almost!", "Move your hand closer to the glowing pot");
+  // Calculate distance between watering can (body and spout tip) and pot
+  const W = canvas.clientWidth || 1280;
+  const H = canvas.clientHeight || 720;
+  const potY = pot.y - 0.02;
+
+  const dxCan = game.handFollow.x - pot.x;
+  const dyCan = game.handFollow.y - potY;
+  const distCan = Math.hypot(dxCan, dyCan);
+
+  const dxTip = (game.canTipPos.x / W) - pot.x;
+  const dyTip = (game.canTipPos.y / H) - potY;
+  const distTip = Math.hypot(dxTip, dyTip);
+
+  const dist = Math.min(distCan, distTip);
+  const POT_RANGE = 0.075; // Adjusted tightly to pot proximity (~95px at 1280 width)
+  const inRange = dist < POT_RANGE;
+  game.potInRange = inRange;
+
+  // Evaluasi kesesuaian ROM tangan dengan ROM Target pot
+  const currentRom = Math.round(game.clinicalAngle);
+  const targetRom  = pot.requiredRom;
+
+  // Toleransi terapeutik klinis (misal Target 30°, jangkauan valid 24° - 37°)
+  const ROM_UNDER_TOLERANCE = 6;
+  const ROM_OVER_TOLERANCE  = 8;
+  const isRomMatched = (currentRom >= targetRom - ROM_UNDER_TOLERANCE) && (currentRom <= targetRom + ROM_OVER_TOLERANCE);
+  game.isRomMatched = isRomMatched;
+
+  /* ── Evaluasi Ketentuan Task.md & Penyesuaian ROM Target ──
+     1. Posisi gembor harus dalam jangkauan pot (inRange)
+     2. Tangan harus terbuka (game.isHandOpen)
+     3. ROM tangan harus sesuai dengan ROM Target pot (isRomMatched)
+  */
+  if (inRange) {
+    if (game.isHandOpen) {
+      if (isRomMatched) {
+        // Tangan terbuka + Dalam range pot + ROM tangan sesuai ROM Target pot! -> Lakukan penyiraman air!
+        game.isWatering = true;
+        audio.startWaterSound();
+
+        // Isi progress air pot (~1.1 detik pengisian stabil)
+        pot.waterProgress = Math.min(1.0, (pot.waterProgress || 0) + dt * 0.92);
+        setFeedback("good", "Menyiram Tanaman! 💧", `ROM Sesuai: ${currentRom}° = Target ${targetRom}° (Pertahankan!)`);
+
+        if (pot.waterProgress >= 1.0) {
+          waterPot(pot);
+        }
+      } else if (currentRom < targetRom - ROM_UNDER_TOLERANCE) {
+        // ROM tangan masih kurang dari ROM target
+        game.isWatering = false;
+        audio.stopWaterSound();
+        setFeedback("warn", "Angkat Lengan Lebih Tinggi ⬆️", `Target Pot: ${targetRom}° | ROM Tangan Anda: ${currentRom}°`);
+      } else {
+        // ROM tangan melebihi ROM target
+        game.isWatering = false;
+        audio.stopWaterSound();
+        setFeedback("warn", "Turunkan Sedikit Lengan ⬇️", `Target Pot: ${targetRom}° | ROM Tangan Anda: ${currentRom}°`);
+      }
+    } else {
+      // 2. TANGAN TERTUTUP (FIST / MENGEPAL)
+      // Hanya berfungsi untuk mengarahkan pointer saja (tidak menyiram air)
+      game.isWatering = false;
+      audio.stopWaterSound();
+
+      if (isRomMatched) {
+        setFeedback("neutral", "ROM Tepat 🎯 Buka Tangan!", `ROM Tangan ${currentRom}° = Target ${targetRom}°. Buka tanganmu untuk mulai menyiram!`);
+      } else if (currentRom < targetRom - ROM_UNDER_TOLERANCE) {
+        setFeedback("neutral", "Membidik Pot 🎯", `Angkat lengan ke ${targetRom}° (Saat ini: ${currentRom}°) lalu buka tangan`);
+      } else {
+        setFeedback("neutral", "Membidik Pot 🎯", `Turunkan lengan ke ${targetRom}° (Saat ini: ${currentRom}°) lalu buka tangan`);
+      }
+    }
   } else {
-    const dir = pot.y < 0.38 ? "higher" : "forward";
-    setFeedback("bad", "Reach further", `Raise your arm ${dir} toward the pot`);
+    // Di luar jangkauan pot
+    game.isWatering = false;
+    audio.stopWaterSound();
+
+    if (game.isHandOpen) {
+      setFeedback("warn", "Di Luar Jangkauan", `Arahkan gembor mendekati pot sasaran (Target: ${targetRom}°)`);
+    } else {
+      setFeedback("neutral", "Membidik Pointer ✊", `Arahkan gembor menuju pot sasaran (Target: ${targetRom}°)`);
+    }
   }
 }
 
 function waterPot(pot) {
   pot.watered = true;
+  game.isWatering = false;
+  audio.stopWaterSound();
+  audio.playChime();
+
   game.completedPots += 1;
   game.reps = Math.min(game.repsGoal, game.completedPots);
-  game.score += Math.round(120 + Math.max(0, game.cameraAngle - pot.requiredRom) * 3 + game.level * 15);
+  const earnedScore = Math.round(120 + Math.max(0, game.cameraAngle - pot.requiredRom) * 3 + game.level * 15);
+  game.score += earnedScore;
   game.targetHitFlash = 1;
-  game.targetCooldown = 0.8;
-  game.waterStreamPct = 0;
+  game.targetCooldown = 0.65;
 
-  // Spawn water particles at pot location
-  for (let i = 0; i < 14; i++) {
-    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.9;
+  // Floating score popup
+  game.floatingPopups.push({
+    x: pot.x,
+    y: pot.y - 0.06,
+    text: `+${earnedScore}`,
+    subText: "Disiram! 🌸",
+    life: 1.0,
+  });
+
+  // Celebration burst particles
+  for (let i = 0; i < 20; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.012 + Math.random() * 0.024;
     pot.waterParticles.push({
-      x: pot.x, y: pot.y,
-      vx: Math.cos(angle) * (0.012 + Math.random() * 0.018),
-      vy: Math.sin(angle) * (0.012 + Math.random() * 0.018) + 0.008,
-      life: 1,
-      size: 3 + Math.random() * 4,
+      x: pot.x,
+      y: pot.y - 0.02,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 0.012,
+      life: 1.0,
+      size: 3 + Math.random() * 5,
+      color: Math.random() > 0.4 ? "#38bdf8" : (Math.random() > 0.5 ? "#f59e0b" : "#4ade80"),
     });
   }
 
@@ -414,19 +899,18 @@ function waterPot(pot) {
     game.level = Math.min(9, game.level + 1);
   }
 
-  // Advance to next unwanted pot
+  // Advance to next pot
   game.activePotIdx += 1;
-
-  setFeedback("good", "Watered! 🌿", "Great reach — next pot is glowing");
+  setFeedback("good", "Pot Berhasil Disiram! 🌸", "Bagus sekali! Lanjut ke pot berikutnya");
 
   if (game.reps >= game.repsGoal) {
     game.running = false;
-    setFeedback("good", "Garden restored! 🌸", `All ${game.completedPots} pots watered`);
+    setFeedback("good", "Kebun Berhasil Dipulihkan! 🌻", `Semua ${game.completedPots} pot telah selesai disiram`);
   }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DRAWING — Garden scene
+   DRAWING — GARDEN SCENE & OBJECTS
    ═══════════════════════════════════════════════════════════════ */
 
 function draw() {
@@ -436,13 +920,15 @@ function draw() {
   drawGardenProgress(W, H);
   drawFence(W, H);
   drawPots(W, H);
-  drawHandCursor(W, H);
-  drawWaterParticles(W, H);
+  drawWaterStreams(W, H);
+  drawSplashParticles(W, H);
+  drawWateringCan(W, H);
+  drawFloatingPopups(W, H);
 }
 
 /* ── Sky + ground ────────────────────────────────────────────── */
 function drawGardenScene(W, H) {
-  // Sky — warm late-afternoon gradient
+  // Sky gradient
   const sky = ctx.createLinearGradient(0, 0, 0, H * 0.6);
   sky.addColorStop(0,   "#a8d8f0");
   sky.addColorStop(0.45,"#d4eef9");
@@ -505,7 +991,7 @@ function drawGardenScene(W, H) {
     ctx.stroke();
   }
 
-  // Garden bed border (brown strip along bottom-centre)
+  // Garden bed border
   const bed = ctx.createLinearGradient(0, H * 0.76, 0, H * 0.82);
   bed.addColorStop(0, "rgba(140,90,40,0.55)");
   bed.addColorStop(1, "rgba(100,60,20,0.75)");
@@ -519,7 +1005,7 @@ function drawGardenScene(W, H) {
   ctx.fill();
 }
 
-/* ── Fence ───────────────────────────────────────────────────── */
+/* ── Progress & fence ────────────────────────────────────────── */
 function drawGardenProgress(W, H) {
   if (W < 760) return;
 
@@ -554,7 +1040,6 @@ function drawGardenProgress(W, H) {
 
 function drawFence(W, H) {
   const y0 = H * 0.74;
-  // Horizontal rails
   ctx.strokeStyle = "#b8915a";
   ctx.lineWidth = 5;
   [0, 14].forEach((off) => {
@@ -563,7 +1048,6 @@ function drawFence(W, H) {
     ctx.lineTo(W * 0.94, y0 + off);
     ctx.stroke();
   });
-  // Vertical pickets
   ctx.strokeStyle = "#c8a06a";
   ctx.lineWidth = 7;
   ctx.lineCap = "round";
@@ -576,25 +1060,24 @@ function drawFence(W, H) {
   }
 }
 
-/* ── Pot drawing ─────────────────────────────────────────────── */
+/* ── Pot drawing & growth ────────────────────────────────────── */
 function drawPots(W, H) {
-  const activePot = getActivePot();
+  const activePot = getTargetPot();
   const now = performance.now();
 
-  game.pots.forEach((pot, idx) => {
+  game.pots.forEach((pot) => {
     const px = pot.x * W;
     const py = pot.y * H;
-
     const isActive  = pot === activePot;
     const isWatered = pot.watered;
 
-    // Grow animation
+    // Growth animation
     if (isWatered && pot.growPct < 1) {
-      pot.growPct = Math.min(1, pot.growPct + 0.012);
+      pot.growPct = Math.min(1, pot.growPct + 0.016);
     }
 
     /* ── Pot body ── */
-    const potW = 32, potH = 26;
+    const potW = 34, potH = 28;
     const gradient = ctx.createLinearGradient(px - potW / 2, py, px + potW / 2, py + potH);
     if (isWatered) {
       gradient.addColorStop(0, "#d4774a");
@@ -620,15 +1103,16 @@ function drawPots(W, H) {
     ctx.lineTo(px + potW / 2 + 2, py);
     ctx.stroke();
 
-    // Soil
-    ctx.fillStyle = isWatered ? "#5a3a1a" : "#3e2210";
+    // Soil (darker when moist/watered)
+    const isMoist = isWatered || (pot.waterProgress > 0.1);
+    ctx.fillStyle = isMoist ? "#3a2210" : "#523318";
     ctx.beginPath();
     ctx.ellipse(px, py + 3, potW * 0.42, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    /* ── Plant (wilted if not watered, growing if watered) ── */
+    /* ── Plant rendering ── */
     if (!isWatered) {
-      // Wilted plant – drooping stem
+      // Wilted stem
       ctx.strokeStyle = "#7a9e3a";
       ctx.lineWidth = 3;
       ctx.lineCap = "round";
@@ -641,8 +1125,8 @@ function drawPots(W, H) {
       ctx.ellipse(px - 4, py - 22, 7, 4, -0.6, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      // Growing plant
-      const h = pot.growPct * 48;
+      // Flourishing plant & flower
+      const h = pot.growPct * 52;
       ctx.strokeStyle = "#3a9a2a";
       ctx.lineWidth = 4;
       ctx.lineCap = "round";
@@ -650,9 +1134,9 @@ function drawPots(W, H) {
       ctx.moveTo(px, py);
       ctx.bezierCurveTo(px - 4, py - h * 0.3, px + 6, py - h * 0.6, px, py - h);
       ctx.stroke();
-      // Leaves
-      if (pot.growPct > 0.3) {
-        const lAlpha = Math.min(1, (pot.growPct - 0.3) / 0.4);
+
+      if (pot.growPct > 0.25) {
+        const lAlpha = Math.min(1, (pot.growPct - 0.25) / 0.4);
         ctx.globalAlpha = lAlpha;
         ctx.fillStyle = "#4ac83a";
         [[px - 18, py - h * 0.55, 0.6], [px + 16, py - h * 0.7, -0.5], [px - 12, py - h, 0.8]].forEach(([lx, ly, rot]) => {
@@ -660,9 +1144,9 @@ function drawPots(W, H) {
           ctx.beginPath(); ctx.ellipse(0, 0, 14, 6, 0, 0, Math.PI * 2); ctx.fill();
           ctx.restore();
         });
-        // Flower at top
-        if (pot.growPct > 0.7) {
-          const fAlpha = Math.min(1, (pot.growPct - 0.7) / 0.3);
+
+        if (pot.growPct > 0.65) {
+          const fAlpha = Math.min(1, (pot.growPct - 0.65) / 0.35);
           ctx.globalAlpha = fAlpha;
           ctx.fillStyle = "#f5c842";
           ctx.beginPath(); ctx.arc(px, py - h, 8, 0, Math.PI * 2); ctx.fill();
@@ -676,62 +1160,90 @@ function drawPots(W, H) {
       }
     }
 
-    /* ── Active pot glow + label ── */
+    /* ── Active pot target glow & range halo ── */
     if (isActive && !isWatered) {
-      const pulse = 1 + Math.sin(now / 250) * 0.06;
-      const glow = ctx.createRadialGradient(px, py - 10, 5, px, py - 10, 55 * pulse);
-      glow.addColorStop(0, "rgba(100,220,255,0.45)");
-      glow.addColorStop(0.5,"rgba(60,180,255,0.18)");
-      glow.addColorStop(1, "rgba(60,180,255,0)");
+      const pulse = 1 + Math.sin(now / 220) * 0.07;
+      const glow = ctx.createRadialGradient(px, py - 10, 6, px, py - 10, 60 * pulse);
+      glow.addColorStop(0, "rgba(56,189,248,0.45)");
+      glow.addColorStop(0.5,"rgba(56,189,248,0.18)");
+      glow.addColorStop(1, "rgba(56,189,248,0)");
       ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(px, py - 10, 58 * pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py - 10, 62 * pulse, 0, Math.PI * 2); ctx.fill();
 
-      // Outer ring
-      ctx.strokeStyle = `rgba(80,200,255,${0.55 + Math.sin(now / 250) * 0.2})`;
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([6, 8]);
+      // Dashed proximity circle (matched to POT_RANGE)
+      ctx.strokeStyle = game.potInRange
+        ? `rgba(52, 211, 153, ${0.85 + Math.sin(now / 150) * 0.15})`
+        : `rgba(56, 189, 248, ${0.45 + Math.sin(now / 220) * 0.2})`;
+      ctx.lineWidth = game.potInRange ? 3.5 : 2;
+      ctx.setLineDash([6, 6]);
       ctx.beginPath(); ctx.arc(px, py - 10, 44 * pulse, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);
 
-    }
+      // Required ROM badge under pot (dynamic matching feedback)
+      const curRom = Math.round(game.clinicalAngle);
+      const isRomOk = Math.abs(curRom - pot.requiredRom) <= 7;
+      let badgeText = `${pot.requiredRom}° Flexion`;
+      let badgeBg = "rgba(16,32,43,0.88)";
+      let badgeBorder = "rgba(255,255,255,0.28)";
 
-    /* ── Watered checkmark ── */
-    if (isActive && !isWatered) {
-      ctx.fillStyle = "rgba(16,32,43,0.86)";
+      if (game.potInRange) {
+        if (isRomOk) {
+          badgeText = `✓ ${pot.requiredRom}° ROM TEPAT`;
+          badgeBg = "rgba(6, 95, 70, 0.95)";
+          badgeBorder = "#34d399";
+        } else if (curRom < pot.requiredRom) {
+          badgeText = `⬆️ ${pot.requiredRom}° (Lengan: ${curRom}°)`;
+          badgeBg = "rgba(154, 52, 18, 0.95)";
+          badgeBorder = "#fb923c";
+        } else {
+          badgeText = `⬇️ ${pot.requiredRom}° (Lengan: ${curRom}°)`;
+          badgeBg = "rgba(154, 52, 18, 0.95)";
+          badgeBorder = "#fb923c";
+        }
+      }
+
+      ctx.save();
+      ctx.font = "800 11px Inter, sans-serif";
+      const bTextWidth = ctx.measureText(badgeText).width;
+      const bw = Math.max(92, bTextWidth + 20);
+
+      ctx.fillStyle = badgeBg;
       ctx.beginPath();
-      ctx.roundRect(px - 43, py + potH + 8, 86, 24, 8);
+      ctx.roundRect(px - bw / 2, py + potH + 8, bw, 24, 8);
       ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.28)";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = badgeBorder;
+      ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.fillStyle = "#fff";
-      ctx.font = "800 11px Inter, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(`${pot.requiredRom} deg`, px, py + potH + 24);
+      ctx.fillText(badgeText, px, py + potH + 24);
+      ctx.restore();
+
+      // Water filling circular gauge
+      if (pot.waterProgress > 0) {
+        drawWateringGauge(W, H, pot);
+      }
     }
 
+    // Success checkmark on completed pots
     if (isWatered && pot.growPct >= 0.95) {
-      ctx.fillStyle = "rgba(26,158,85,0.88)";
-      ctx.beginPath(); ctx.arc(px + 18, py - 30, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(26,158,85,0.92)";
+      ctx.beginPath(); ctx.arc(px + 20, py - 32, 10, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.lineJoin = "round";
       ctx.beginPath();
-      ctx.moveTo(px + 13, py - 30); ctx.lineTo(px + 17, py - 25); ctx.lineTo(px + 24, py - 36);
+      ctx.moveTo(px + 15, py - 32); ctx.lineTo(px + 19, py - 27); ctx.lineTo(px + 26, py - 38);
       ctx.stroke();
     }
-  });
-}
 
-/* ── Water particles ─────────────────────────────────────────── */
-function drawWaterParticles(W, H) {
-  game.pots.forEach((pot) => {
+    // Pot burst particles
     pot.waterParticles.forEach((p) => {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.002;
+      p.vy += 0.0015;
       p.life -= 0.022;
       const alpha = Math.max(0, p.life);
-      ctx.fillStyle = `rgba(80,180,255,${alpha})`;
+      ctx.fillStyle = p.color || `rgba(80,180,255,${alpha})`;
       ctx.beginPath();
       ctx.arc(p.x * W, p.y * H, p.size * alpha, 0, Math.PI * 2);
       ctx.fill();
@@ -740,28 +1252,438 @@ function drawWaterParticles(W, H) {
   });
 }
 
-/* ── Hand cursor ─────────────────────────────────────────────── */
-function drawHandCursor(W, H) {
+function drawWateringGauge(W, H, pot) {
+  const px = pot.x * W;
+  const py = pot.y * H - 10;
+  const r = 38;
+
+  ctx.save();
+  // Circular track
+  ctx.beginPath();
+  ctx.arc(px, py, r, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.45)";
+  ctx.lineWidth = 6;
+  ctx.stroke();
+
+  // Progress arc
+  const startA = -Math.PI / 2;
+  const endA = startA + pot.waterProgress * Math.PI * 2;
+  const grad = ctx.createLinearGradient(px - r, py - r, px + r, py + r);
+  grad.addColorStop(0, "#38bdf8");
+  grad.addColorStop(1, "#10b981");
+
+  ctx.beginPath();
+  ctx.arc(px, py, r, startA, endA);
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 6;
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  // Percentage badge
+  ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+  ctx.beginPath();
+  ctx.roundRect(px - 22, py - 10, 44, 18, 9);
+  ctx.fill();
+  ctx.fillStyle = "#38bdf8";
+  ctx.font = "800 10px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`${Math.round(pot.waterProgress * 100)}%`, px, py);
+  ctx.restore();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   POINTER: WATERING CAN (GEMBOR PENYIRAM TANAMAN)
+   ═══════════════════════════════════════════════════════════════ */
+
+function drawWateringCan(W, H) {
   if (!game.handFollow.visible) return;
   const hx = game.handFollow.x * W;
   const hy = game.handFollow.y * H;
-  const pulse = 1 + Math.sin(performance.now() / 200) * 0.06;
+  const now = performance.now();
+  const pot = getTargetPot();
 
-  // Outer glow
-  const glow = ctx.createRadialGradient(hx, hy, 4, hx, hy, 38 * pulse);
-  glow.addColorStop(0, "rgba(100,220,255,0.50)");
-  glow.addColorStop(1, "rgba(100,220,255,0)");
-  ctx.fillStyle = glow;
-  ctx.beginPath(); ctx.arc(hx, hy, 40 * pulse, 0, Math.PI * 2); ctx.fill();
+  // Determine spout direction: points toward the active pot
+  const potX = pot ? pot.x * W : hx - 100;
+  const isFacingLeft = potX <= hx;
 
-  // Ring
-  ctx.strokeStyle = `rgba(255,255,255,${0.80 + game.targetHitFlash * 0.2})`;
-  ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(hx, hy, 18 + game.targetHitFlash * 10, 0, Math.PI * 2); ctx.stroke();
+  // Tilt animation:
+  // When watering: tilt forward towards pot (-32° / -0.55 rad)
+  // When aiming (closed hand): upright with subtle breathing
+  const targetTilt = game.isWatering
+    ? (isFacingLeft ? -0.58 : 0.58)
+    : Math.sin(now / 380) * 0.035;
+  game.canTiltAngle += (targetTilt - game.canTiltAngle) * 0.18;
 
-  // Inner dot
-  ctx.fillStyle = "rgba(100,220,255,0.90)";
-  ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.translate(hx, hy);
+  if (!isFacingLeft) {
+    ctx.scale(-1, 1);
+  }
+  ctx.rotate(isFacingLeft ? game.canTiltAngle : -game.canTiltAngle);
+
+  // 1. Drop shadow under can
+  ctx.save();
+  ctx.fillStyle = "rgba(10, 25, 30, 0.20)";
+  ctx.beginPath();
+  ctx.ellipse(0, 32, 28, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 2. Rear C-shaped Handle
+  ctx.beginPath();
+  ctx.strokeStyle = "#475569";
+  ctx.lineWidth = 4.5;
+  ctx.lineCap = "round";
+  ctx.bezierCurveTo(20, -10, 35, -4, 35, 14);
+  ctx.bezierCurveTo(35, 26, 24, 28, 14, 26);
+  ctx.stroke();
+
+  // Handle metallic highlight
+  ctx.beginPath();
+  ctx.strokeStyle = "#94a3b8";
+  ctx.lineWidth = 1.8;
+  ctx.bezierCurveTo(20, -9, 33, -4, 33, 14);
+  ctx.bezierCurveTo(33, 25, 24, 26, 16, 25);
+  ctx.stroke();
+
+  // 3. Spout (Long angled tube pointing forward/up)
+  ctx.save();
+  const spoutGrad = ctx.createLinearGradient(-12, 10, -48, -26);
+  spoutGrad.addColorStop(0, "#0f766e");
+  spoutGrad.addColorStop(0.5, "#14b8a6");
+  spoutGrad.addColorStop(1, "#0d9488");
+  ctx.fillStyle = spoutGrad;
+  ctx.strokeStyle = "#042f2e";
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+  ctx.moveTo(-8, 18);
+  ctx.lineTo(-44, -20);
+  ctx.lineTo(-48, -27);
+  ctx.lineTo(-42, -31);
+  ctx.lineTo(-6, 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Spout highlight line
+  ctx.beginPath();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+  ctx.lineWidth = 1.2;
+  ctx.moveTo(-8, 11);
+  ctx.lineTo(-43, -24);
+  ctx.stroke();
+  ctx.restore();
+
+  // 4. Sprinkler Rose Head (Shower head at end of spout)
+  ctx.save();
+  ctx.translate(-46, -28);
+  ctx.rotate(-0.75); // Angle facing down
+
+  // Conical flare
+  const roseCone = ctx.createLinearGradient(-8, 0, 8, 0);
+  roseCone.addColorStop(0, "#b45309");
+  roseCone.addColorStop(0.5, "#f59e0b");
+  roseCone.addColorStop(1, "#78350f");
+  ctx.fillStyle = roseCone;
+  ctx.beginPath();
+  ctx.moveTo(-4, -6);
+  ctx.lineTo(4, -6);
+  ctx.lineTo(8, 2);
+  ctx.lineTo(-8, 2);
+  ctx.closePath();
+  ctx.fill();
+
+  // Perforated brass plate face
+  const roseFace = ctx.createRadialGradient(0, 3, 1, 0, 3, 10);
+  roseFace.addColorStop(0, "#fef08a");
+  roseFace.addColorStop(0.7, "#eab308");
+  roseFace.addColorStop(1, "#a16207");
+  ctx.fillStyle = roseFace;
+  ctx.beginPath();
+  ctx.ellipse(0, 3, 9, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#713f12";
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // Shower holes
+  ctx.fillStyle = "#451a03";
+  [[-4, 3], [-1, 2], [2, 2], [5, 3], [-2, 4], [2, 4], [0, 3]].forEach(([sx, sy]) => {
+    ctx.beginPath();
+    ctx.arc(sx, sy, 0.75, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+
+  // 5. Main Body of Can
+  const bodyGrad = ctx.createLinearGradient(-22, -16, 22, 24);
+  bodyGrad.addColorStop(0, "#115e59");
+  bodyGrad.addColorStop(0.25, "#14b8a6");
+  bodyGrad.addColorStop(0.65, "#0d9488");
+  bodyGrad.addColorStop(1, "#042f2e");
+  ctx.fillStyle = bodyGrad;
+  ctx.strokeStyle = "#022c22";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.roundRect(-20, -14, 40, 42, [8, 8, 10, 10]);
+  ctx.fill();
+  ctx.stroke();
+
+  // Embossed metallic bands
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+  ctx.lineWidth = 1.5;
+  [-4, 12].forEach((ry) => {
+    ctx.beginPath();
+    ctx.moveTo(-18, ry);
+    ctx.lineTo(18, ry);
+    ctx.stroke();
+  });
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
+  [-2, 14].forEach((ry) => {
+    ctx.beginPath();
+    ctx.moveTo(-18, ry);
+    ctx.lineTo(18, ry);
+    ctx.stroke();
+  });
+
+  // Specular shine strip
+  const shineGrad = ctx.createLinearGradient(-6, -14, 2, 28);
+  shineGrad.addColorStop(0, "rgba(255,255,255,0.45)");
+  shineGrad.addColorStop(0.5, "rgba(255,255,255,0.18)");
+  shineGrad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = shineGrad;
+  ctx.beginPath();
+  ctx.roundRect(-8, -12, 6, 38, 3);
+  ctx.fill();
+
+  // Sprout emblem on can
+  ctx.fillStyle = "#86efac";
+  ctx.beginPath();
+  ctx.ellipse(2, 4, 4, 7, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(8, 2, 3, 5, -0.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#166534";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(4, 11);
+  ctx.quadraticCurveTo(4, 6, 2, 4);
+  ctx.stroke();
+
+  // 6. Top Arched Handle
+  ctx.beginPath();
+  ctx.strokeStyle = "#475569";
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.moveTo(-14, -14);
+  ctx.bezierCurveTo(-14, -34, 16, -34, 16, -14);
+  ctx.stroke();
+
+  // Wooden grip on handle
+  ctx.save();
+  const woodGrad = ctx.createLinearGradient(-5, -34, 5, -28);
+  woodGrad.addColorStop(0, "#78350f");
+  woodGrad.addColorStop(0.5, "#d97706");
+  woodGrad.addColorStop(1, "#451a03");
+  ctx.fillStyle = woodGrad;
+  ctx.beginPath();
+  ctx.roundRect(-6, -35, 14, 6, 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Compute world nozzle tip location for water emission
+  const localRoseX = isFacingLeft ? -52 : 52;
+  const localRoseY = -30;
+  const curAngle = isFacingLeft ? game.canTiltAngle : -game.canTiltAngle;
+  const cosA = Math.cos(curAngle);
+  const sinA = Math.sin(curAngle);
+  game.canTipPos.x = hx + (cosA * localRoseX - sinA * localRoseY);
+  game.canTipPos.y = hy + (sinA * localRoseX + cosA * localRoseY);
+
+  ctx.restore();
+
+  // 7. Mini floating gesture badge near pointer
+  drawCanFloatingBadge(hx, hy);
+}
+
+function drawCanFloatingBadge(hx, hy) {
+  const badgeY = hy - 48;
+  const badgeX = hx;
+  ctx.save();
+  ctx.font = "800 11px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  const curRom = Math.round(game.clinicalAngle);
+  const pot = getTargetPot();
+  const tRom = pot ? pot.requiredRom : 30;
+
+  let text = `✊ MEMBIDIK (${curRom}°)`;
+  let bgGrad;
+  let borderColor;
+  let textColor = "#ffffff";
+
+  if (game.isWatering) {
+    text = `🖐️ MENYIRAM (${curRom}° / ${tRom}°)`;
+    borderColor = "rgba(52, 211, 153, 0.95)";
+    bgGrad = ctx.createLinearGradient(badgeX - 55, badgeY, badgeX + 55, badgeY);
+    bgGrad.addColorStop(0, "#059669");
+    bgGrad.addColorStop(1, "#10b981");
+  } else if (game.isHandOpen) {
+    if (game.potInRange && !game.isRomMatched) {
+      text = `⚠️ SESUAIKAN ROM (${curRom}° ➔ ${tRom}°)`;
+      borderColor = "rgba(245, 158, 11, 0.95)";
+      bgGrad = ctx.createLinearGradient(badgeX - 65, badgeY, badgeX + 65, badgeY);
+      bgGrad.addColorStop(0, "#b45309");
+      bgGrad.addColorStop(1, "#f59e0b");
+    } else {
+      text = `🖐️ TERBUKA (${curRom}°)`;
+      borderColor = "rgba(56, 189, 248, 0.9)";
+      bgGrad = ctx.createLinearGradient(badgeX - 45, badgeY, badgeX + 45, badgeY);
+      bgGrad.addColorStop(0, "#0284c7");
+      bgGrad.addColorStop(1, "#38bdf8");
+    }
+  } else {
+    if (game.potInRange && game.isRomMatched) {
+      text = `🎯 ROM TEPAT (${curRom}°)! BUKA TANGAN`;
+      borderColor = "rgba(16, 185, 129, 0.9)";
+      bgGrad = ctx.createLinearGradient(badgeX - 65, badgeY, badgeX + 65, badgeY);
+      bgGrad.addColorStop(0, "#065f46");
+      bgGrad.addColorStop(1, "#059669");
+    } else {
+      text = `✊ MEMBIDIK (${curRom}°)`;
+      borderColor = "rgba(148, 163, 184, 0.65)";
+      bgGrad = ctx.createLinearGradient(badgeX - 45, badgeY, badgeX + 45, badgeY);
+      bgGrad.addColorStop(0, "rgba(30, 41, 59, 0.92)");
+      bgGrad.addColorStop(1, "rgba(51, 65, 85, 0.92)");
+    }
+  }
+
+  const textWidth = ctx.measureText(text).width;
+  const pad = 12;
+  const bw = textWidth + pad * 2;
+  const bh = 22;
+
+  ctx.fillStyle = bgGrad;
+  ctx.beginPath();
+  ctx.roundRect(badgeX - bw / 2, badgeY - bh / 2, bw, bh, 11);
+  ctx.fill();
+
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = textColor;
+  ctx.fillText(text, badgeX, badgeY + 1);
+  ctx.restore();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WATER STREAM & SPLASH ANIMATIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+function drawWaterStreams(W, H) {
+  if (!game.isWatering) return;
+  const pot = getTargetPot();
+  if (!pot) return;
+
+  const startX = game.canTipPos.x;
+  const startY = game.canTipPos.y;
+  const targetX = pot.x * W;
+  const targetY = pot.y * H - 8;
+  const now = performance.now();
+
+  ctx.save();
+  // 5 curved water streams with dynamic physics
+  for (let i = 0; i < 5; i++) {
+    const spreadX = (i - 2) * 5;
+    const wave = Math.sin(now * 0.015 + i * 1.3) * 4;
+    const endX = targetX + spreadX;
+    const endY = targetY;
+
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const cp1x = startX + dx * 0.25;
+    const cp1y = startY + dy * 0.15 - 15 + wave;
+    const cp2x = startX + dx * 0.7;
+    const cp2y = startY + dy * 0.55 + wave * 0.5;
+
+    const grad = ctx.createLinearGradient(startX, startY, endX, endY);
+    grad.addColorStop(0, "rgba(224, 242, 254, 0.95)");
+    grad.addColorStop(0.3, "rgba(56, 189, 248, 0.85)");
+    grad.addColorStop(0.7, "rgba(14, 165, 233, 0.75)");
+    grad.addColorStop(1, "rgba(3, 105, 161, 0.6)");
+
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.5 - Math.abs(i - 2) * 0.4;
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    // Flowing droplets traveling along streams
+    for (let d = 0; d < 3; d++) {
+      const t = ((now * 0.0018 + d * 0.33 + i * 0.18) % 1);
+      const bx = Math.pow(1 - t, 3) * startX +
+                 3 * Math.pow(1 - t, 2) * t * cp1x +
+                 3 * (1 - t) * Math.pow(t, 2) * cp2x +
+                 Math.pow(t, 3) * endX;
+      const by = Math.pow(1 - t, 3) * startY +
+                 3 * Math.pow(1 - t, 2) * t * cp1y +
+                 3 * (1 - t) * Math.pow(t, 2) * cp2y +
+                 Math.pow(t, 3) * endY;
+      ctx.fillStyle = "#e0f2fe";
+      ctx.beginPath();
+      ctx.arc(bx, by, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  // Emit splash particles at pot soil impact point
+  if (Math.random() < 0.7) {
+    game.splashParticles.push({
+      x: targetX + (Math.random() - 0.5) * 16,
+      y: targetY + (Math.random() - 0.5) * 6,
+      vx: (Math.random() - 0.5) * 3.5,
+      vy: -Math.random() * 3.5 - 1.2,
+      radius: 1.5 + Math.random() * 2.5,
+      life: 1.0,
+    });
+  }
+}
+
+function drawSplashParticles(W, H) {
+  game.splashParticles.forEach((p) => {
+    ctx.fillStyle = `rgba(186, 230, 253, ${p.life * 0.9})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function drawFloatingPopups(W, H) {
+  game.floatingPopups.forEach((p) => {
+    const px = p.x * W;
+    const py = p.y * H;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.textAlign = "center";
+    ctx.font = "900 18px Inter, sans-serif";
+    ctx.fillStyle = "#f59e0b";
+    ctx.fillText(p.text, px, py);
+    if (p.subText) {
+      ctx.font = "700 12px Inter, sans-serif";
+      ctx.fillStyle = "#34d399";
+      ctx.fillText(p.subText, px, py + 16);
+    }
+    ctx.restore();
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -774,65 +1696,133 @@ function setFeedback(kind, title, text) {
 }
 
 function getRomStatus() {
-  if (!game.cameraStream) return "Waiting for camera";
+  if (!game.cameraStream) return "Menunggu kamera";
   if (!game.running) return game.trackingQuality;
   const clinical = Math.round(game.clinicalAngle);
-  const pot = getActivePot();
-  if (!pot) return "All pots watered!";
-  if (game.cameraAngle >= pot.requiredRom) return `Target reached | clinical ${clinical}°`;
-  if (game.cameraAngle >= pot.requiredRom * 0.72) return `Keep reaching | clinical ${clinical}°`;
-  return `${game.trackingQuality} | raise arm | clinical ${clinical}°`;
+  const pot = getTargetPot();
+  if (!pot) return "Semua pot telah disiram!";
+  const diff = clinical - pot.requiredRom;
+  if (Math.abs(diff) <= 7) return `ROM Tepat ✓ (${clinical}° = Target ${pot.requiredRom}°)`;
+  if (diff < 0) return `Angkat lengan ${Math.abs(diff)}° lagi (Target: ${pot.requiredRom}°)`;
+  return `Turunkan lengan ${diff}° (Target: ${pot.requiredRom}°)`;
 }
 
 function syncHud() {
+  const curRom = Math.round(game.displayAngle);
+  const tRom   = Math.round(game.targetRom);
+
   ui.score.textContent = String(game.score);
   ui.time.textContent  = formatTime(game.timeRemaining);
   ui.level.textContent = String(game.level);
   ui.reps.textContent  = String(game.reps);
-  ui.rom.textContent   = String(Math.round(game.displayAngle));
-  ui.target.textContent = `Target ${Math.round(game.targetRom)}`;
+  ui.rom.textContent   = String(curRom);
+  ui.target.textContent = `Target ${tRom}`;
   ui.romStatus.textContent = getRomStatus();
   ui.feedback.className = `feedback ${game.feedbackKind}`;
   ui.feedbackTitle.textContent = game.feedbackTitle;
   ui.feedbackText.textContent  = game.feedbackText;
+
+  // Dynamic ROM meter UI in top-right corner (Apple Archery style)
+  if (ui.romMeter) {
+    const isMatched = Math.abs(curRom - tRom) <= 7;
+    const progressPct = clamp(Math.round((curRom / (tRom || 1)) * 100), 0, 100);
+
+    if (isMatched) {
+      ui.romMeter.style.background = `conic-gradient(from 210deg, #10b981 0%, #34d399 ${progressPct}%, rgba(255,255,255,0.2) ${progressPct}%), var(--surface)`;
+      ui.rom.style.color = "#34d399";
+      ui.romMeter.style.boxShadow = "0 0 24px rgba(52, 211, 153, 0.45)";
+    } else if (curRom > tRom + 7) {
+      ui.romMeter.style.background = `conic-gradient(from 210deg, #f59e0b 0%, #fb923c 100%), var(--surface)`;
+      ui.rom.style.color = "#fb923c";
+      ui.romMeter.style.boxShadow = "0 0 16px rgba(245, 158, 11, 0.35)";
+    } else {
+      ui.romMeter.style.background = `conic-gradient(from 210deg, var(--accent) 0%, var(--accent-2) ${progressPct}%, rgba(255,255,255,0.15) ${progressPct}%), var(--surface)`;
+      ui.rom.style.color = "var(--accent)";
+      ui.romMeter.style.boxShadow = "var(--shadow-md)";
+    }
+  }
+
+  // Sync gesture card status
+  if (ui.gestureCard && ui.gestureBadge && ui.rangeBadge) {
+    const curRom = Math.round(game.clinicalAngle);
+    const pot = getTargetPot();
+    const tRom = pot ? pot.requiredRom : 30;
+
+    if (game.isWatering) {
+      ui.gestureCard.className = "gesture-card open";
+      ui.gestureBadge.textContent = "🖐️ Terbuka (Menyiram)";
+      ui.rangeBadge.textContent = `💧 ROM Sesuai: ${curRom}° / Target ${tRom}°`;
+    } else if (game.isHandOpen) {
+      ui.gestureCard.className = "gesture-card open";
+      ui.gestureBadge.textContent = "🖐️ Tangan Terbuka";
+      if (!game.potInRange) {
+        ui.rangeBadge.textContent = `↔️ Dekatkan ke pot (Target ${tRom}°)`;
+      } else if (game.isRomMatched) {
+        ui.rangeBadge.textContent = `💧 ROM Tepat: ${curRom}° (Menyiram!)`;
+      } else if (curRom < tRom) {
+        ui.rangeBadge.textContent = `⬆️ Angkat Lengan (${curRom}° ➔ ${tRom}°)`;
+      } else {
+        ui.rangeBadge.textContent = `⬇️ Turunkan Lengan (${curRom}° ➔ ${tRom}°)`;
+      }
+    } else {
+      ui.gestureCard.className = "gesture-card closed";
+      ui.gestureBadge.textContent = "✊ Tangan Tertutup";
+      if (game.potInRange && game.isRomMatched) {
+        ui.rangeBadge.textContent = `🎯 ROM Sesuai (${curRom}°)! Buka tangan untuk menyiram`;
+      } else if (game.potInRange) {
+        ui.rangeBadge.textContent = `🎯 Dekat Pot: Sesuaikan ROM ke ${tRom}° (${curRom}°)`;
+      } else {
+        ui.rangeBadge.textContent = `Mode: Membidik Pointer (ROM: ${curRom}°)`;
+      }
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
    RESET
    ═══════════════════════════════════════════════════════════════ */
 function resetGame() {
-  game.running        = false;
-  game.score          = 0;
-  game.timeRemaining  = 120;
-  game.level          = 1;
-  game.reps           = 0;
-  game.controlAngle   = 20;
-  game.clinicalAngle  = 20;
-  game.displayAngle   = 20;
-  game.rawAngle       = 20;
-  game.cameraAngle    = 20;
-  game.targetRom      = 70;
-  game.repState       = "RESTING";
-  game.peakAngle      = 0;
-  game.targetHitFlash = 0;
-  game.targetCooldown = 0;
-  game.painStop       = false;
-  game.lastRepFrameId = null;
-  game.posePoints     = null;
-  game.lostPoseFrames = 0;
-  game.lastPoseAt     = 0;
-  game.poseBusy       = false;
-  game.handFollow     = { x: 0.5, y: 0.55, visible: false };
-  game.targetAcquired = false;
-  game.pots           = makePots();
-  game.activePotIdx   = 0;
-  game.completedPots  = 0;
-  game.waterStreamPct = 0;
-  setFeedback("neutral", "Ready", "Start camera to water the garden");
+  game.running         = false;
+  game.score           = 0;
+  game.timeRemaining   = 120;
+  game.level           = 1;
+  game.reps            = 0;
+  game.controlAngle    = 20;
+  game.clinicalAngle   = 20;
+  game.displayAngle    = 20;
+  game.rawAngle        = 20;
+  game.cameraAngle     = 20;
+  game.targetRom       = 70;
+  game.repState        = "RESTING";
+  game.peakAngle       = 0;
+  game.targetHitFlash  = 0;
+  game.targetCooldown  = 0;
+  game.painStop        = false;
+  game.lastRepFrameId  = null;
+  game.posePoints      = null;
+  game.lostPoseFrames  = 0;
+  game.lostHandFrames  = 0;
+  game.lastPoseAt      = 0;
+  game.poseBusy        = false;
+  game.handFollow      = { x: 0.5, y: 0.55, visible: false };
+  game.handDetected    = false;
+  game.isHandOpen      = false;
+  game.consecutiveOpenFrames = 0;
+  game.consecutiveClosedFrames = 0;
+  game.isWatering      = false;
+  game.potInRange      = false;
+  game.canTiltAngle    = 0;
+  game.splashParticles = [];
+  game.floatingPopups  = [];
+  game.pots            = makePots();
+  game.activePotIdx    = 0;
+  game.completedPots   = 0;
+  audio.stopWaterSound();
+  setFeedback("neutral", "Siap Memulai", "Tekan Start Camera untuk mulai menyiram kebun");
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MAIN LOOP
+   MAIN ANIMATION LOOP
    ═══════════════════════════════════════════════════════════════ */
 function tick(now) {
   const dt = Math.min(0.05, (now - game.lastTick) / 1000);
@@ -842,33 +1832,53 @@ function tick(now) {
     game.timeRemaining = Math.max(0, game.timeRemaining - dt);
     if (game.timeRemaining <= 0 || game.reps >= game.repsGoal) {
       game.running = false;
-      setFeedback("good", "Session complete! 🌸", `${game.completedPots} pots watered`);
+      audio.stopWaterSound();
+      setFeedback("good", "Sesi Selesai! 🌸", `${game.completedPots} pot berhasil disiram!`);
     }
   }
 
   game.targetHitFlash = Math.max(0, game.targetHitFlash - dt * 2.5);
   game.targetCooldown = Math.max(0, game.targetCooldown - dt);
 
+  // Splash particles physics
+  game.splashParticles.forEach((p) => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.15;
+    p.life -= dt * 2.2;
+  });
+  game.splashParticles = game.splashParticles.filter((p) => p.life > 0);
+
+  // Floating popups physics
+  game.floatingPopups.forEach((p) => {
+    p.y -= dt * 0.04;
+    p.life -= dt * 1.2;
+  });
+  game.floatingPopups = game.floatingPopups.filter((p) => p.life > 0);
+
   updateCameraMotion();
+  updateWateringLogic(dt);
   draw();
   syncHud();
   requestAnimationFrame(tick);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   CONTROLS
+   CONTROLS & INTERACTION
    ═══════════════════════════════════════════════════════════════ */
 ui.startButton.addEventListener("click", async () => {
+  audio.init();
   const ok = await ensureCameraReady();
   if (!ok) return;
   game.running  = true;
   game.painStop = false;
-  setFeedback("neutral", "Mission active 🌿", "Reach toward the glowing pot");
+  setFeedback("neutral", "Misi Aktif 🌿", "Arahkan tangan tertutup untuk membidik, buka untuk menyiram!");
 });
 
 ui.pauseButton.addEventListener("click", () => {
   game.running = false;
-  setFeedback("neutral", "Paused", "Session on hold");
+  audio.stopWaterSound();
+  setFeedback("neutral", "Dijeda", "Sesi latihan sedang dijeda");
 });
 
 ui.resetButton.addEventListener("click", resetGame);
@@ -876,8 +1886,11 @@ ui.painButton.addEventListener("click", () => {
   game.painStop = true;
   game.running  = false;
   game.targetRom = game.minTargetRom;
-  setFeedback("bad", "Stopped", "Rest and contact your therapist");
+  audio.stopWaterSound();
+  setFeedback("bad", "Dihentikan (Pain/Stop)", "Silakan istirahat dan hubungi fisioterapis Anda");
 });
+
+/* Pointer is strictly controlled by camera hand-tracking (no mouse pointer override) */
 
 /* ── Expose edge payload bridge (compatible with Mission 1 API) ── */
 function receiveEdgePayload(payload) {

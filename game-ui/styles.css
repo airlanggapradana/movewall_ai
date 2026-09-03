@@ -188,6 +188,7 @@ a {
     conic-gradient(from 210deg, var(--accent), var(--accent-2), rgba(255,255,255,0.5), var(--accent)),
     var(--surface);
   box-shadow: var(--shadow-md);
+  transition: box-shadow 0.25s ease, background 0.15s ease;
 }
 
 .rom-meter::before {
@@ -210,11 +211,72 @@ a {
   font-size: 34px;
   font-weight: 900;
   line-height: 1;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .rom-meter small {
   color: var(--muted);
   font-size: 9px;
+}
+
+.gesture-card {
+  position: absolute;
+  z-index: 3;
+  right: 140px;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 175px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  transition: border-color var(--ease), box-shadow var(--ease);
+}
+
+.gesture-card .gesture-title {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gesture-card strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.gesture-card small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.gesture-card.open {
+  border-color: rgba(33, 163, 108, 0.6);
+  box-shadow: 0 0 16px rgba(33, 163, 108, 0.28), var(--shadow-md);
+}
+
+.gesture-card.open strong {
+  color: #159947;
+}
+
+.gesture-card.closed {
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.gesture-card.closed strong {
+  color: #2563eb;
 }
 
 .camera-preview {
@@ -505,6 +567,21 @@ a {
 
   .rom-meter strong {
     font-size: 28px;
+  }
+
+  .gesture-card {
+    right: 114px;
+    top: 10px;
+    min-width: 125px;
+    padding: 6px 10px;
+  }
+
+  .gesture-card strong {
+    font-size: 12px;
+  }
+
+  .gesture-card small {
+    display: none;
   }
 
   .camera-preview {

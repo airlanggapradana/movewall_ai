@@ -80,7 +80,10 @@ a {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: #9fcfe0;
+  background:
+    linear-gradient(180deg, rgba(255, 247, 213, 0.06), rgba(23, 56, 34, 0.18)),
+    url("./assets/orchard-archery-reference.jpg") center / cover no-repeat,
+    #9fcfe0;
   box-shadow: var(--shadow-lg);
   isolation: isolate;
 }

@@ -14,7 +14,7 @@ const MEDIAPIPE_SOURCES = [
   },
 ];
 const POSE_MODEL_URL = "./assets/pose_landmarker.task";
-const ORCHARD_BACKGROUND_URL = "./assets/orchard-fpv-background.jpeg";
+const ORCHARD_BACKGROUND_URL = "./assets/orchard-archery-reference.jpg";
 const USE_ORCHARD_REFERENCE = true;
 const MISSION_TARGETS = [30, 45, 60, 75, 90, 105, 120, 135, 150, 165];
 const LEVEL_ONE_HITS = 5;
@@ -23,9 +23,13 @@ const TARGET_HOLD_UNDER_TOLERANCE = 5;
 const TARGET_HOLD_OVER_TOLERANCE = 7;
 const POSE_TARGET_FPS = 30;
 const POSE_FRAME_INTERVAL = 1000 / POSE_TARGET_FPS;
+const APPLE_ARCHER_POSE_EVENT = "apple-archer:pose";
 
 const orchardBackground = new Image();
 if (USE_ORCHARD_REFERENCE) {
+  orchardBackground.onload = () => {
+    if (typeof draw === "function") draw();
+  };
   orchardBackground.src = ORCHARD_BACKGROUND_URL;
 }
 
@@ -359,6 +363,7 @@ function updatePoseTracking(now) {
   let result;
   try {
     result = game.poseLandmarker.detectForVideo(video, now);
+    publishPoseFor3DAvatar(result);
   } catch (error) {
     game.trackingQuality = "Pose inference error";
     setFeedback("bad", "Tracking error", "Refresh the game and start camera again");
@@ -400,6 +405,11 @@ function updatePoseTracking(now) {
     resetTargetHold();
   }
   receiveEdgePayload(payload);
+}
+
+function publishPoseFor3DAvatar(result) {
+  window.__APPLE_ARCHER_LAST_POSE__ = result;
+  window.dispatchEvent(new CustomEvent(APPLE_ARCHER_POSE_EVENT, { detail: result }));
 }
 
 function handlePoseMiss(title, text) {
@@ -641,6 +651,11 @@ function completeRep(status, peakAngle) {
   game.basketApples += 1;
   fireArrowAtTarget();
 
+  /* trigger 3D archer recoil animation on hit */
+  if (typeof window.__archerFPV__?.triggerRecoil === "function") {
+    window.__archerFPV__.triggerRecoil();
+  }
+
   /* mark a random unpicked hanging apple as picked */
   const unpicked = game.hangingApples.filter((a) => !a.picked);
   if (unpicked.length > 0) {
@@ -686,136 +701,6 @@ function completeRep(status, peakAngle) {
   }
 }
 
-function fireArrowAtTarget() {
-  const targetPoint = getTargetPointNorm();
-  game.arrows.push({
-    from: { x: 0.325, y: 0.525 },
-    to: { x: targetPoint.x, y: targetPoint.y },
-    progress: 0,
-    life: 1,
-  });
-}
-
-/* ── feedback helpers ──────────────────────────────── */
-
-function setFeedback(kind, title, text) {
-  game.feedbackKind = kind;
-  game.feedbackTitle = title;
-  game.feedbackText = text;
-}
-
-function updateFeedbackFromAngle(color) {
-  if (color === "GREEN") {
-    const remaining = Math.max(0, TARGET_HOLD_SECONDS - game.holdTimer).toFixed(1);
-    setFeedback("good", "On target", `Hold ${remaining}s to shoot`);
-  } else if (game.controlAngle > game.targetRom + TARGET_HOLD_OVER_TOLERANCE) {
-    setFeedback("warn", "Too high", "Lower your bow hand slightly");
-  } else if (color === "YELLOW") {
-    setFeedback("warn", "Close", "Draw to the apple angle");
-  } else {
-    setFeedback("bad", "Low ROM", "Raise your bow hand");
-  }
-}
-
-function getRomStatus() {
-  if (!game.cameraStream) return "Waiting for camera";
-  if (!game.running) return game.trackingQuality;
-  if (game.trackingQuality.includes("Shoulder hike")) return "Compensation detected";
-  const clinical = Math.round(game.clinicalAngle);
-  if (game.targetAcquired) return `Holding ${game.holdTimer.toFixed(1)}/${TARGET_HOLD_SECONDS}s | clinical ${clinical}`;
-  if (game.controlAngle > game.targetRom + TARGET_HOLD_OVER_TOLERANCE) return `Lower to ${game.targetRom} | clinical ${clinical}`;
-  if (Math.abs(game.controlAngle - game.targetRom) <= 15) return `Close to ${game.targetRom} | clinical ${clinical}`;
-  return `${game.trackingQuality}: raise to ${game.targetRom} | clinical ${clinical}`;
-}
-
-function triggerPainStop() {
-  game.painStop = true;
-  game.running = false;
-  game.targetRom = game.minTargetRom;
-  setFeedback("bad", "Stopped", "Rest and contact your therapist");
-}
-
-function triggerMissionComplete() {
-  if (game.missionCompleted) return;
-  game.missionCompleted = true;
-  game.running = false;
-
-  if (ui.modalScore) ui.modalScore.textContent = game.score.toLocaleString();
-  if (ui.modalHits) ui.modalHits.textContent = `${game.reps}/${game.repsGoal}`;
-  if (ui.modalLevel) ui.modalLevel.textContent = `Lv ${game.level}`;
-  if (ui.modalTime) ui.modalTime.textContent = formatTime(Math.max(0, game.timeRemaining));
-
-  if (ui.missionCompleteOverlay) {
-    ui.missionCompleteOverlay.classList.remove("hidden");
-  }
-
-  setFeedback("good", "Misi Selesai! 🎉", "Target tercapai! Lanjut ke Misi 2");
-
-  /* spawn colorful celebratory particles across the screen */
-  for (let i = 0; i < 50; i += 1) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 0.04 + Math.random() * 0.14;
-    game.sparkles.push({
-      x: 0.3 + Math.random() * 0.4,
-      y: 0.3 + Math.random() * 0.3,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 0.03,
-      life: 1.5 + Math.random() * 0.8,
-      size: 4 + Math.random() * 5,
-      hue: Math.random() > 0.6 ? "#10b981" : Math.random() > 0.3 ? "#f59e0b" : "#fff",
-    });
-  }
-}
-
-function hideMissionCompletionModal() {
-  if (ui.missionCompleteOverlay) {
-    ui.missionCompleteOverlay.classList.add("hidden");
-  }
-}
-
-function resetGame() {
-  game.running = false;
-  game.missionCompleted = false;
-  hideMissionCompletionModal();
-  game.score = 0;
-  game.timeRemaining = 90;
-  game.level = 1;
-  game.reps = 0;
-  game.angle = 20;
-  game.targetRom = MISSION_TARGETS[0];
-  game.repState = "RESTING";
-  game.peakAngle = 0;
-  resetTargetHold();
-  game.targetHitFlash = 0;
-  game.targetCooldown = 0;
-  game.painStop = false;
-  game.lastRepFrameId = null;
-  game.previousCameraFrame = null;
-  game.cameraAngle = 20;
-  game.cameraIdleTimer = 0;
-  game.lastPoseAt = 0;
-  game.poseBusy = false;
-  game.posePoints = null;
-  game.lostPoseFrames = 0;
-  game.rawAngle = 20;
-  game.controlAngle = 20;
-  game.clinicalAngle = 20;
-  game.displayAngle = 20;
-  game.targetAcquired = false;
-  game.shotArmed = true;
-  game.handFollow = {
-    x: 0.35,
-    y: 0.55,
-    visible: false,
-  };
-  game.sparkles = [];
-  game.fallingLeaves = [];
-  game.arrows = [];
-  game.basketApples = 0;
-  game.trees = makeTreeRow();
-  game.hangingApples = makeHangingApples();
-  setFeedback("neutral", "Ready", "Start camera to draw the bow");
-}
 
 /* ══════════════════════════════════════════════════════
    DRAWING — Apple-orchard scene
@@ -864,127 +749,13 @@ function drawScene(width, height) {
     return true;
   }
 
-  /* sky gradient — warm afternoon */
-  const sky = ctx.createLinearGradient(0, 0, 0, height);
-  sky.addColorStop(0, "#7ec8e3");
-  sky.addColorStop(0.35, "#b6e3f4");
-  sky.addColorStop(0.55, "#f6eec9");
-  sky.addColorStop(1, "#fce4b0");
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, width, height);
-
-  /* sun */
-  const sunX = width * 0.88;
-  const sunY = height * 0.12;
-  const sunGlow = ctx.createRadialGradient(sunX, sunY, 8, sunX, sunY, 120);
-  sunGlow.addColorStop(0, "rgba(255, 244, 180, 0.95)");
-  sunGlow.addColorStop(0.35, "rgba(255, 228, 120, 0.35)");
-  sunGlow.addColorStop(1, "rgba(255, 228, 120, 0)");
-  ctx.fillStyle = sunGlow;
-  ctx.beginPath();
-  ctx.arc(sunX, sunY, 120, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#fff8d6";
-  ctx.beginPath();
-  ctx.arc(sunX, sunY, 28, 0, Math.PI * 2);
-  ctx.fill();
-
-  /* fluffy clouds */
-  ctx.fillStyle = "rgba(255, 255, 255, 0.66)";
-  for (let i = 0; i < 3; i += 1) {
-    const cx = width * (0.12 + i * 0.3);
-    const cy = height * (0.1 + (i % 2) * 0.07);
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, 62, 22, 0, 0, Math.PI * 2);
-    ctx.ellipse(cx + 44, cy + 6, 50, 18, 0, 0, Math.PI * 2);
-    ctx.ellipse(cx - 38, cy + 8, 42, 16, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  /* distant hills */
-  ctx.fillStyle = "#8fc48a";
-  ctx.beginPath();
-  ctx.moveTo(0, height * 0.52);
-  ctx.bezierCurveTo(width * 0.18, height * 0.42, width * 0.38, height * 0.5, width * 0.56, height * 0.44);
-  ctx.bezierCurveTo(width * 0.76, height * 0.38, width * 0.92, height * 0.48, width, height * 0.46);
-  ctx.lineTo(width, height * 0.6);
-  ctx.lineTo(0, height * 0.6);
-  ctx.closePath();
-  ctx.fill();
-
-  /* main grass */
-  const lawn = ctx.createLinearGradient(0, height * 0.55, 0, height);
-  lawn.addColorStop(0, "#6db34a");
-  lawn.addColorStop(0.4, "#5a9e3c");
-  lawn.addColorStop(1, "#3d7a2d");
-  ctx.fillStyle = lawn;
-  ctx.beginPath();
-  ctx.moveTo(0, height * 0.58);
-  ctx.bezierCurveTo(width * 0.2, height * 0.54, width * 0.5, height * 0.62, width * 0.75, height * 0.56);
-  ctx.bezierCurveTo(width * 0.9, height * 0.53, width, height * 0.58, width, height * 0.57);
-  ctx.lineTo(width, height);
-  ctx.lineTo(0, height);
-  ctx.closePath();
-  ctx.fill();
-
-  /* grass texture lines */
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
-  ctx.lineWidth = 1.5;
-  for (let i = 0; i < 12; i += 1) {
-    const y = height * (0.62 + i * 0.032);
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.quadraticCurveTo(width * 0.5, y + 14, width, y);
-    ctx.stroke();
-  }
-
-  /* dirt path */
-  const path = ctx.createLinearGradient(width * 0.3, height * 0.62, width * 0.48, height);
-  path.addColorStop(0, "rgba(198, 166, 110, 0.6)");
-  path.addColorStop(1, "rgba(180, 140, 90, 0.8)");
-  ctx.fillStyle = path;
-  ctx.beginPath();
-  ctx.moveTo(width * 0.36, height * 0.62);
-  ctx.bezierCurveTo(width * 0.42, height * 0.72, width * 0.48, height * 0.86, width * 0.54, height);
-  ctx.lineTo(width * 0.28, height);
-  ctx.bezierCurveTo(width * 0.33, height * 0.84, width * 0.34, height * 0.74, width * 0.32, height * 0.62);
-  ctx.closePath();
-  ctx.fill();
-
-  /* small fence posts */
-  ctx.strokeStyle = "#8b6b3d";
-  ctx.lineWidth = 4;
-  for (let i = 0; i < 6; i += 1) {
-    const fx = width * (0.04 + i * 0.036);
-    ctx.beginPath();
-    ctx.moveTo(fx, height * 0.6);
-    ctx.lineTo(fx, height * 0.66);
-    ctx.stroke();
-  }
-  ctx.strokeStyle = "#a07d4a";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(width * 0.04, height * 0.62);
-  ctx.lineTo(width * 0.22, height * 0.62);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(width * 0.04, height * 0.645);
-  ctx.lineTo(width * 0.22, height * 0.645);
-  ctx.stroke();
-
   return false;
 }
-
-/* ── apple trees ───────────────────────────────────── */
 
 function drawCoverImage(image, x, y, width, height) {
   const imageRatio = image.naturalWidth / image.naturalHeight;
   const targetRatio = width / height;
-  let sx = 0;
-  let sy = 0;
-  let sw = image.naturalWidth;
-  let sh = image.naturalHeight;
-
+  let sx = 0, sy = 0, sw = image.naturalWidth, sh = image.naturalHeight;
   if (imageRatio > targetRatio) {
     sw = image.naturalHeight * targetRatio;
     sx = (image.naturalWidth - sw) / 2;
@@ -992,36 +763,17 @@ function drawCoverImage(image, x, y, width, height) {
     sh = image.naturalWidth / targetRatio;
     sy = (image.naturalHeight - sh) / 2;
   }
-
   ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
 }
 
-function drawSceneDepth(width, height) {
-  const nearGround = ctx.createLinearGradient(0, height * 0.62, 0, height);
-  nearGround.addColorStop(0, "rgba(255, 255, 255, 0)");
-  nearGround.addColorStop(0.5, "rgba(33, 84, 45, 0.10)");
-  nearGround.addColorStop(1, "rgba(16, 32, 43, 0.24)");
-  ctx.fillStyle = nearGround;
-  ctx.fillRect(0, height * 0.58, width, height * 0.42);
+function drawSceneDepth(width, height) {}
 
-  ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
-  ctx.beginPath();
-  ctx.ellipse(width * 0.78, height * 0.37, width * 0.23, height * 0.13, -0.08, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "rgba(54, 111, 47, 0.16)";
-  for (let i = 0; i < 7; i += 1) {
-    const x = width * (0.08 + i * 0.145);
-    const y = height * (0.665 + (i % 3) * 0.018);
-    ctx.beginPath();
-    ctx.ellipse(x, y, width * 0.07, height * 0.025, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+function drawPatient(width, height) {
+  // 2D archer character completely removed - exclusively using 3D FBX archer
 }
 
 function drawAppleProgress(width, height) {
   if (width < 760) return;
-
   const total = game.repsGoal;
   const done = game.reps;
   const x = width * 0.34;
@@ -1078,29 +830,7 @@ function drawTrees(width, height) {
     ctx.roundRect(x - trunkWidth / 2, trunkTop + canopyR * 0.24, trunkWidth, trunkH - canopyR * 0.2 + 18, 7);
     ctx.fill();
 
-    /* bark texture */
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.1)";
-    ctx.lineWidth = 1;
-    for (let b = 0; b < 4; b += 1) {
-      const by = trunkTop + canopyR * 0.4 + b * (trunkH * 0.18);
-      ctx.beginPath();
-      ctx.moveTo(x - trunkWidth * 0.28, by);
-      ctx.quadraticCurveTo(x, by + 6, x + trunkWidth * 0.28, by);
-      ctx.stroke();
-    }
-
-    /* branches */
-    ctx.strokeStyle = "#6b4226";
-    ctx.lineWidth = Math.max(5, canopyR * 0.065);
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(x, trunkTop + canopyR * 0.5);
-    ctx.lineTo(x - canopyR * 0.6, trunkTop + canopyR * 0.1);
-    ctx.moveTo(x, trunkTop + canopyR * 0.5);
-    ctx.lineTo(x + canopyR * 0.5, trunkTop + canopyR * 0.2);
-    ctx.stroke();
-
-    /* canopy — layered circles for leafy look */
+    /* canopy */
     const leafColors = [tree.hue, "#4aad42", "#2f8a2d"];
     const offsets = [
       { ox: -canopyR * 0.4, oy: canopyR * 0.15, r: canopyR * 0.68 },
@@ -1122,20 +852,13 @@ function drawTrees(width, height) {
       ctx.fill();
     });
 
-    /* leaf shine highlight */
-    ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
-    ctx.beginPath();
-    ctx.ellipse(x - canopyR * 0.15, trunkTop - canopyR * 0.15, canopyR * 0.4, canopyR * 0.22, -0.3, 0, Math.PI * 2);
-    ctx.fill();
-
-    /* hanging apples on this tree */
+    /* hanging apples */
     game.hangingApples.forEach((apple) => {
       if (apple.treeIdx !== treeIdx || apple.picked) return;
       const ax = x + apple.ox * width;
       const ay = trunkTop + apple.oy * height;
       const appleR = isMainTree ? Math.max(8, canopyR * 0.085) : Math.max(6, canopyR * 0.075);
 
-      /* tiny stem */
       ctx.strokeStyle = "#5a3a18";
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -1143,7 +866,6 @@ function drawTrees(width, height) {
       ctx.lineTo(ax + 2, ay - 15);
       ctx.stroke();
 
-      /* apple body */
       const appleGrad = ctx.createRadialGradient(ax - appleR * 0.3, ay - appleR * 0.3, 2, ax, ay, appleR);
       appleGrad.addColorStop(0, "#ff6b6b");
       appleGrad.addColorStop(0.6, "#e03c3c");
@@ -1152,45 +874,15 @@ function drawTrees(width, height) {
       ctx.beginPath();
       ctx.arc(ax, ay, appleR, 0, Math.PI * 2);
       ctx.fill();
-
-      /* shine */
-      ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
-      ctx.beginPath();
-      ctx.arc(ax - appleR * 0.32, ay - appleR * 0.32, appleR * 0.3, 0, Math.PI * 2);
-      ctx.fill();
     });
   });
 }
 
-function drawOrchardForeground(width, height) {
-  const y = height * 0.86;
-  const grass = ctx.createLinearGradient(0, y, 0, height);
-  grass.addColorStop(0, "rgba(64, 138, 56, 0)");
-  grass.addColorStop(1, "rgba(32, 84, 42, 0.46)");
-  ctx.fillStyle = grass;
-  ctx.fillRect(0, y, width, height - y);
-
-  ctx.strokeStyle = "rgba(240, 249, 218, 0.34)";
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-  for (let i = 0; i < 26; i += 1) {
-    const x = width * ((i * 0.041 + 0.02) % 1);
-    const h = height * (0.018 + (i % 5) * 0.004);
-    ctx.beginPath();
-    ctx.moveTo(x, height);
-    ctx.quadraticCurveTo(x + (i % 2 ? 8 : -8), height - h * 0.55, x + (i % 3 - 1) * 6, height - h);
-    ctx.stroke();
-  }
-}
-
-/* ── reach guide arc ───────────────────────────────── */
+function drawOrchardForeground(width, height) {}
 
 function drawReachGuide(width, height) {
   const target = getTargetPoint(width, height);
-  const origin = {
-    x: width * 0.325,
-    y: height * 0.535,
-  };
+  const origin = { x: width * 0.325, y: height * 0.535 };
   const mid = {
     x: origin.x + (target.x - origin.x) * 0.54,
     y: origin.y + (target.y - origin.y) * 0.54 - height * 0.05,
@@ -1228,14 +920,11 @@ function drawReachGuide(width, height) {
   ctx.restore();
 }
 
-/* ── apple target (glowing apple the patient reaches for) ── */
-
 function drawAppleTarget(width, height) {
   const { x, y } = getTargetPoint(width, height);
   const pulse = 1 + Math.sin(performance.now() / 220) * 0.04 + game.targetHitFlash * 0.2;
   const baseR = 23;
 
-  /* outer glow */
   const halo = ctx.createRadialGradient(x, y, 8, x, y, 48 * pulse);
   halo.addColorStop(0, "rgba(255, 248, 210, 0.36)");
   halo.addColorStop(0.55, "rgba(224, 60, 60, 0.1)");
@@ -1273,7 +962,6 @@ function drawAppleTarget(width, height) {
     ctx.lineCap = "butt";
   }
 
-  /* stem */
   ctx.strokeStyle = "#5a3a18";
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -1281,13 +969,11 @@ function drawAppleTarget(width, height) {
   ctx.lineTo(x + 4, y - baseR * pulse - 12);
   ctx.stroke();
 
-  /* tiny leaf on stem */
   ctx.fillStyle = "#4aad42";
   ctx.beginPath();
   ctx.ellipse(x + 8, y - baseR * pulse - 8, 8, 4, 0.5, 0, Math.PI * 2);
   ctx.fill();
 
-  /* apple body */
   const appleBody = ctx.createRadialGradient(x - 6, y - 6, 4, x, y, baseR * pulse);
   appleBody.addColorStop(0, "#ff8a8a");
   appleBody.addColorStop(0.35, "#e03c3c");
@@ -1298,19 +984,16 @@ function drawAppleTarget(width, height) {
   ctx.arc(x, y, baseR * pulse, 0, Math.PI * 2);
   ctx.fill();
 
-  /* apple top indent */
   ctx.fillStyle = "rgba(100, 20, 20, 0.3)";
   ctx.beginPath();
   ctx.ellipse(x, y - baseR * pulse + 4, 8 * pulse, 3 * pulse, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  /* specular highlight */
   ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
   ctx.beginPath();
   ctx.ellipse(x - 8, y - 8, 8 * pulse, 6 * pulse, -0.4, 0, Math.PI * 2);
   ctx.fill();
 
-  /* label */
   ctx.fillStyle = "rgba(16, 32, 43, 0.78)";
   ctx.beginPath();
   ctx.roundRect(x - 48, y + 42, 96, 26, 8);
@@ -1324,181 +1007,22 @@ function drawAppleTarget(width, height) {
   ctx.fillText(`TARGET ${Math.round(game.targetRom)} deg`, x, y + 59);
 }
 
-/* ── patient figure ────────────────────────────────── */
-
-function drawArcher(width, height) {
-  const target = getTargetPoint(width, height);
-  const footY = height * 0.84;
-  const hip = { x: width * 0.222, y: footY - height * 0.1 };
-  const shoulder = { x: width * 0.242, y: footY - height * 0.255 };
-  const head = { x: shoulder.x - width * 0.008, y: shoulder.y - height * 0.06 };
-  const bowGrip = { x: width * 0.325, y: shoulder.y + height * 0.018 };
-  const drawHand = game.handFollow.visible
-    ? { x: width * game.handFollow.x, y: height * game.handFollow.y }
-    : bowGrip;
-
-  ctx.fillStyle = "rgba(16, 32, 43, 0.2)";
-  ctx.beginPath();
-  ctx.ellipse(hip.x, footY + 8, width * 0.055, height * 0.021, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = "#20314a";
-  ctx.lineWidth = Math.max(9, height * 0.014);
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(hip.x - width * 0.012, hip.y + height * 0.075);
-  ctx.lineTo(hip.x - width * 0.036, footY - height * 0.018);
-  ctx.moveTo(hip.x + width * 0.018, hip.y + height * 0.076);
-  ctx.lineTo(hip.x + width * 0.055, footY - height * 0.026);
-  ctx.stroke();
-
-  ctx.strokeStyle = "#13243a";
-  ctx.lineWidth = Math.max(7, height * 0.011);
-  ctx.beginPath();
-  ctx.moveTo(hip.x - width * 0.048, footY);
-  ctx.lineTo(hip.x - width * 0.015, footY - height * 0.006);
-  ctx.moveTo(hip.x + width * 0.043, footY - height * 0.018);
-  ctx.lineTo(hip.x + width * 0.088, footY - height * 0.018);
-  ctx.stroke();
-
-  const tunicTopY = shoulder.y - height * 0.004;
-  const tunicBottomY = hip.y + height * 0.095;
-  const tunic = ctx.createLinearGradient(shoulder.x - 44, tunicTopY, shoulder.x + 48, tunicBottomY);
-  tunic.addColorStop(0, "#244b93");
-  tunic.addColorStop(0.45, "#3f86cf");
-  tunic.addColorStop(1, "#7ec0df");
-  ctx.fillStyle = tunic;
-  ctx.beginPath();
-  ctx.moveTo(shoulder.x - width * 0.033, tunicTopY + 8);
-  ctx.bezierCurveTo(shoulder.x - width * 0.045, tunicTopY + height * 0.05, shoulder.x - width * 0.043, tunicBottomY - 8, shoulder.x - width * 0.024, tunicBottomY);
-  ctx.lineTo(shoulder.x + width * 0.034, tunicBottomY);
-  ctx.bezierCurveTo(shoulder.x + width * 0.049, tunicBottomY - height * 0.052, shoulder.x + width * 0.045, tunicTopY + height * 0.045, shoulder.x + width * 0.025, tunicTopY);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(17, 42, 74, 0.28)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(shoulder.x - width * 0.026, hip.y + height * 0.026);
-  ctx.lineTo(shoulder.x + width * 0.036, hip.y + height * 0.02);
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(20, 35, 58, 0.92)";
-  ctx.beginPath();
-  ctx.roundRect(shoulder.x - width * 0.031, hip.y + height * 0.022, width * 0.07, height * 0.013, 5);
-  ctx.fill();
-
-  ctx.fillStyle = "#f2c39a";
-  ctx.beginPath();
-  ctx.roundRect(shoulder.x - width * 0.007, shoulder.y - height * 0.027, width * 0.016, height * 0.04, 5);
-  ctx.fill();
-
-  ctx.fillStyle = "#f2c39a";
-  ctx.beginPath();
-  ctx.arc(head.x, head.y, height * 0.027, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "#e8b283";
-  ctx.beginPath();
-  ctx.ellipse(head.x + height * 0.026, head.y + height * 0.002, height * 0.007, height * 0.01, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "#1b2638";
-  ctx.beginPath();
-  ctx.arc(head.x - height * 0.01, head.y - height * 0.008, height * 0.03, Math.PI * 0.55, Math.PI * 1.55);
-  ctx.lineTo(head.x + height * 0.02, head.y + height * 0.03);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = "#10202b";
-  ctx.beginPath();
-  ctx.arc(head.x + height * 0.012, head.y - height * 0.002, Math.max(1.5, height * 0.003), 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = "#24417e";
-  ctx.lineWidth = Math.max(7, height * 0.012);
-  ctx.beginPath();
-  ctx.moveTo(shoulder.x, shoulder.y + height * 0.015);
-  ctx.lineTo(bowGrip.x, bowGrip.y);
-  ctx.stroke();
-
-  ctx.strokeStyle = "#f2c39a";
-  ctx.lineWidth = Math.max(6, height * 0.01);
-  ctx.beginPath();
-  ctx.moveTo(bowGrip.x - width * 0.022, bowGrip.y);
-  ctx.lineTo(bowGrip.x, bowGrip.y);
-  ctx.stroke();
-
-  ctx.strokeStyle = "#5b351e";
-  ctx.lineWidth = Math.max(6, height * 0.01);
-  ctx.beginPath();
-  ctx.moveTo(shoulder.x - width * 0.006, shoulder.y + height * 0.027);
-  ctx.quadraticCurveTo(shoulder.x - width * 0.034, shoulder.y + height * 0.006, shoulder.x - width * 0.058, shoulder.y + height * 0.032);
-  ctx.stroke();
-
-  ctx.strokeStyle = "#6e4b2c";
-  ctx.lineWidth = Math.max(4, height * 0.008);
-  ctx.beginPath();
-  ctx.moveTo(bowGrip.x, bowGrip.y - height * 0.115);
-  ctx.quadraticCurveTo(bowGrip.x + width * 0.03, bowGrip.y, bowGrip.x, bowGrip.y + height * 0.115);
-  ctx.stroke();
-
-  ctx.strokeStyle = "rgba(42, 31, 25, 0.82)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(bowGrip.x, bowGrip.y - height * 0.115);
-  ctx.quadraticCurveTo(bowGrip.x - width * 0.022, bowGrip.y, bowGrip.x, bowGrip.y + height * 0.115);
-  ctx.stroke();
-
-  const aimAngle = Math.atan2(target.y - bowGrip.y, target.x - bowGrip.x);
-  const arrowBack = {
-    x: bowGrip.x - Math.cos(aimAngle) * width * 0.05,
-    y: bowGrip.y - Math.sin(aimAngle) * width * 0.05,
-  };
-  const arrowTip = {
-    x: bowGrip.x + Math.cos(aimAngle) * width * 0.09,
-    y: bowGrip.y + Math.sin(aimAngle) * width * 0.09,
-  };
-
-  ctx.strokeStyle = "#4c2e1e";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(arrowBack.x, arrowBack.y);
-  ctx.lineTo(arrowTip.x, arrowTip.y);
-  ctx.stroke();
-
-  ctx.fillStyle = "#4c2e1e";
-  ctx.save();
-  ctx.translate(arrowTip.x, arrowTip.y);
-  ctx.rotate(aimAngle);
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(-14, -6);
-  ctx.lineTo(-11, 0);
-  ctx.lineTo(-14, 6);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
-  ctx.fillStyle = "#f2c39a";
-  ctx.beginPath();
-  ctx.arc(bowGrip.x, bowGrip.y, Math.max(8, height * 0.014), 0, Math.PI * 2);
-  ctx.fill();
-
-  if (game.handFollow.visible) {
-    ctx.strokeStyle = "rgba(255, 246, 190, 0.9)";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(drawHand.x, drawHand.y, 22 + game.targetHitFlash * 16, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+function drawPatient(width, height) {
+  // 2D archer character completely disabled
 }
 
-function drawPatient(width, height) {
-  const fpvCanvas = document.getElementById("archerFpvCanvas");
-  if (!fpvCanvas?.classList.contains("model-ready")) {
-    drawArcher(width, height);
-  }
+function fireArrowAtTarget() {
+  const target = getTargetPointNorm();
+  const from = game.handFollow.visible
+    ? { x: game.handFollow.x, y: game.handFollow.y }
+    : { x: 0.48, y: 0.58 };
+
+  game.arrows.push({
+    from,
+    to: target,
+    progress: 0,
+    life: 1,
+  });
 }
 
 /* ── pose overlay ──────────────────────────────────── */

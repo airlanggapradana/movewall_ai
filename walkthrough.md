@@ -1,125 +1,137 @@
-# Smart Wall Climbing — AI Engine Walkthrough
+# MoveWall AI — System Architecture & Mission 1 Archer Character Upgrade
 
-## Summary
+## Ringkasan Eksekutif
 
-Implementasi lengkap **AI Engine** untuk sistem Smart Wall Climbing berhasil dibuat dan disesuaikan untuk Python 3.14. Sistem ini terdiri dari 27 file dalam 7 komponen utama, siap digunakan untuk terapi interaktif wall climbing menggunakan Computer Vision.
+Dokumentasi ini merangkum pemahaman arsitektur sistem **MoveWall AI** (sistem tele-rehabilitasi interaktif berbasis Computer Vision dan proyeksi dinding) serta implementasi perombakan visual dan fisik pada **karakter pemanah (Archer)** di **Misi 1: Apple Archer** (`game-ui/app.js`).
 
 ---
 
-## Architecture Overview
+## 1. Arsitektur Sistem MoveWall AI
+
+Sistem MoveWall AI dirancang dengan prinsip **Edge-First Computation**, di mana pemrosesan video dan inferensi biomekanika berjalan 100% di sisi klien (komputer pasien/klinik), sehingga menjaga privasi dan latensi minimal (<33ms @ 30 FPS).
 
 ```mermaid
 graph TB
-    A["📷 Camera<br/>OpenCV VideoCapture"] --> B["🤖 PoseDetector<br/>MediaPipe Tasks API"]
-    B --> C["📐 CoordinateMapper<br/>Camera→Projector"]
-    C --> D["💥 CollisionDetector<br/>Distance + Hold Time"]
-    D --> E["🎮 GameEngine<br/>Main Loop @ 30 FPS"]
-    E --> F["🖥️ Renderer<br/>Pygame Fullscreen"]
-    E --> G["🔊 VoiceEngine<br/>pyttsx3 TTS"]
-    E --> H["📊 ScoreEngine<br/>Points + Combo"]
-    E --> I["🌐 WebSocket<br/>Real-time Events"]
-    E --> J["💾 Database<br/>SQLite + SQLAlchemy"]
-    K["🌍 FastAPI<br/>REST API :8000"] --> J
-    K --> I
+    subgraph Client ["Client (Laptop Pasien / Ruang Terapi)"]
+        Cam["📷 Webcam Capture<br/>getUserMedia (30 FPS)"] --> MP["🤖 Pose Estimation<br/>MediaPipe BlazePose / Tasks Vision"]
+        MP --> Filter["📐 Landmark Filtering<br/>One-Euro / EMA Smoothing + Interp"]
+        Filter --> ROM["📊 Motion & ROM Engine<br/>Vector Math (Hip-Shoulder-Wrist)"]
+        ROM --> StateMachine["⚙️ Rep State Machine<br/>Rest → Concentric → Hold → Eccentric"]
+        StateMachine --> Adaptive["🧠 Adaptive Difficulty Engine<br/>Target ROM: 30° s.d. 165°"]
+        Adaptive --> Projection["🎮 Interactive Projection Engine<br/>HTML5 Canvas 2D / WebGL (1280x720)"]
+    end
+
+    subgraph Hardware ["Hardware Interaktif"]
+        Projection --> Projector["📽️ Proyektor Dinding"]
+        Projector --> Wall["🧱 Dinding Interaktif / Permukaan Latihan"]
+        Patient["🧍 Pasien (Gerakan Tubuh / Bahu)"] -. Ditangkap .-> Cam
+        Wall -. Visual Feedback .-> Patient
+    end
+
+    subgraph Backend ["Backend & Cloud Layer (Opsional/Sync)"]
+        StateData["Aggregated Metrics (Skor, ROM, Akurasi)"] --> API["REST API / WebSocket (FastAPI)"]
+        API --> DB[("SQLite / Encrypted DB")]
+        API --> Dashboard["👨‍⚕️ Therapist Dashboard (Web SPA)"]
+    end
+
+    Projection -. Event Sinkronisasi .-> StateData
 ```
 
----
+### Komponen Utama Arsitektur:
 
-## Files Created (27 total)
+1. **Computer Vision & Kinematic Pipeline (`edge_pipeline.py`)**:
+   - **`landmark_filter.py`**: Melakukan temporal filtering (One-Euro / EMA filter) untuk meredam jitter landmark tanpa menambah lag, serta interpolasi short-term jika terjadi oklusi sementara (grace period hingga 15 frame).
+   - **`angle_calculator.py`**: Menghitung sudut anatomis sendi secara deterministik. Pada Misi 1 (Shoulder Flexion / Elevasi), sudut dihitung dari vektor *shoulder-hip* terhadap vektor *shoulder-wrist*, dilengkapi koreksi rasio aspek kamera.
+   - **`rep_state_machine.py`**: Mengontrol siklus repetisi terapi: `REST` $\rightarrow$ `CONCENTRIC` $\rightarrow$ `HOLD` (verifikasi tahanan 2,0 detik pada sudut target) $\rightarrow$ `ECCENTRIC` $\rightarrow$ `COMPLETED`.
+   - **`adaptive_engine.py`**: Menyesuaikan tingkat kesulitan secara adaptif berdasarkan kualitas gerakan (smoothness, compensation, hold stability).
 
-### Project Setup
-| File | Description |
-|------|-------------|
-| [requirements.txt](file:///d:/Informatika/Projekan/untitled_project/ai_engine/requirements.txt) | Python dependencies (pygame-ce for Python 3.14 compat) |
-| [config.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/config.py) | Centralized configuration (camera, projector, game, colors, JWT) |
-| [main.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/main.py) | Entry point with CLI flags (`--api-only`, `--windowed`, `--no-camera`) |
-
----
-
-### Core AI Modules (`core/`)
-| File | Description |
-|------|-------------|
-| [pose_detector.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/core/pose_detector.py) | MediaPipe Tasks PoseLandmarker tracking (hands, feet, skeleton) |
-| [collision_detector.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/core/collision_detector.py) | Euclidean distance collision with hold-time validation |
-| [voice_engine.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/core/voice_engine.py) | Threaded TTS (pyttsx3), bilingual EN/ID, rotating feedback |
-| [stage_generator.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/core/stage_generator.py) | Random target placement with non-overlap constraints |
-| [score_engine.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/core/score_engine.py) | Scoring with combo multiplier and time bonus |
-| [analytics_engine.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/core/analytics_engine.py) | Progress trends (accuracy, reaction time, improvement %) |
+2. **Interactive Projection Layer (`game-ui/`)**:
+   - Menggunakan kanvas resolusi tinggi yang diproyeksikan ke dinding.
+   - **Misi 1 — Apple Archer**: Pasien mengangkat lengan untuk membidik apel virtual di dahan pohon pada sudut ROM target (Level 1: 30°, 45°, 60°, 75°, 90°; Level 2: 105°, 120°, 135°, 150°, 165°).
+   - **Misi 2 — Restore the Garden**: Pasien meraih pot tanaman untuk menyiram tanaman pada berbagai koordinat ketinggian dinding.
 
 ---
 
-### Game Engine (`game/`)
-| File | Description |
-|------|-------------|
-| [engine.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/game/engine.py) | Main game loop: capture → detect → collide → score → render |
-| [renderer.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/game/renderer.py) | Pygame rendering (pulsing targets, skeleton, HUD, particles) |
-| [session_manager.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/game/session_manager.py) | Session state machine (IDLE→COUNTDOWN→PLAYING→PAUSED→FINISHED) |
-| [modes/base_mode.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/game/modes/base_mode.py) | Abstract base class for game modes |
-| [modes/number_game.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/game/modes/number_game.py) | Number Game with 3 stages (1→3 sequential targets) |
+## 2. Perubahan Karakter pada Misi 1 (Apple Archer)
+
+Karakter pemanah sebelumnya digambar dengan bentuk garis dan poligon kaku (tongkat datar, tanpa anatomi alami, tanpa perlengkapan memanah). Telah dilakukan **perombakan total (visual, animasi, proporsi, dan perlengkapan)** pada fungsi `drawArcher()` di [game-ui/app.js](file:///c:/Users/ASUS/Documents/gitmovewall/game-ui/app.js):
+
+### A. Animasi Pernapasan & Dinamika Angin (Breathing & Idle Sway)
+- Ditambahkan pernapasan dinamis sinusoidal (`Math.sin(t * 0.0028)`) yang membuat dada, bahu, dan kepala bergerak naik-turun halus secara natural.
+- Ditambahkan ayunan angin halus pada ujung bulu topi dan jubah pemanah selaras dengan dedaunan kebun apel.
+
+### B. Anatomi & Postur Memanah Atletis (Archer Stance)
+- **Kaki Belakang (Left Leg)**: Kaki penopang dengan paha dan betis berkontur celana ranger kelabu gelap (`#1b2938`), ditekuk stabil menahan tarikan busur.
+- **Kaki Depan (Right Leg)**: Kaki tumpuan depan yang kokoh menghadap target apel.
+- **Sepatu Bot Kulit (Leather Boots)**: Dilengkapi lipatan kerah bot (*turnover cuffs*) cokelat tua dan sol yang menapak di tanah dengan bayangan kontak (*ground contact shadow*).
+
+### C. Kostum Ranger & Perlengkapan Memanah
+- **Tunic & Rompi**: Jubah ranger hijau zamrud berpola gradien (`#1d472c` ke `#275e3a`) dengan bordir emas di kerah dan keliman, dipadukan rompi kulit (*leather jerkin*) berkancing tali silang.
+- **Sabuk & Pouch**: Sabuk kulit lebar dengan gesper kuningan poles serta kantong utilitas (*utility pouch*) di pinggul.
+- **Quiver & Anak Panah**: Tabung anak panah kulit bersabuk selempang diagonal melintasi dada dengan cincin kuningan. Dari atas tabung mencuat 3 anak panah dengan bulu fletching rapi (merah, emas, hijau) di belakang punggung.
+
+### D. Wajah & Topi Robin Hood / Ranger
+- **Ekspresi Wajah Fokus**: Profil rahang dan dagu yang tegas, mata berfokus tajam menatap lurus ke arah target apel, serta alis miring konsentrasi.
+- **Topi Berbulu (Bycocket Cap)**: Topi pemanah klasik warna hijau dengan pinggiran belakang melengkung ke atas, dihiasi bulu plume panjang (putih & merah marun) yang melambai tertiup angin.
+
+### E. Lengan, Vambrace & Kinematika Busur
+- **Bow Arm (Lengan Depan Pembidik)**: 
+  - Elevasi sendi bahu bergerak dinamis mengikuti sudut ROM pasien (`game.controlAngle`) dari 0° hingga 165°.
+  - Dilengkapi **Vambrace / Arm-Guard kulit** dengan pelat pelindung dan tali gesper kuningan untuk melindungi lengan dari benturan tali busur.
+- **Draw Arm (Lengan Belakang Penarik Tali)**:
+  - Siku ditarik tinggi ke belakang dengan sarung jari (*shooting tab*) yang menahan tali busur di dekat pipi/dagu (*anchor point* alami).
+  - Saat menahan target (`holdRatio`), tangan penarik mundur lebih dalam menciptakan ketegangan fisik.
+- **Recurve Bow & String**:
+  - Busur kayu berlaminasi dengan lekukan recurve realistis dan nock tanduk di ujungnya.
+  - Saat posisi *hold*, kedua ujung busur melengkung ke dalam menahan beban regangan (*limb flex*).
+  - Tali busur ditarik membentuk sudut V tajam tepat di tangan penarik.
+- **Anak Panah pada Busur**:
+  - Anak panah kayu cedar menempel pada *arrow shelf* di gagang busur, membentang dari tangan penarik maju menembus busur dengan mata panah baja bodkin mengkilap yang mengarah tepat ke target apel.
+
+### F. Integrasi Kinematika Tembakan & Guide
+- Fungsi `getBowGripNorm()` ditambahkan agar lintasan proyeksi panah (`fireArrowAtTarget`) dan garis pandu bidikan (`drawReachGuide`) bermula tepat dari genggaman busur pemanah, bukan dari titik statis.
 
 ---
 
-### Database (`db/`)
-| File | Description |
-|------|-------------|
-| [database.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/db/database.py) | SQLite connection (async + sync engines) |
-| [models.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/db/models.py) | ORM: User, Child, Game, Session, SessionResult |
-| [crud.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/db/crud.py) | CRUD operations, analytics helpers, seed data |
+## 3. Checklist Task yang Diselesaikan
+
+- [x] **Mempelajari Arsitektur Sistem**: Analisis mendalam terhadap pipeline Edge CV (`edge_pipeline.py`, `landmark_filter.py`, `angle_calculator.py`, `rep_state_machine.py`, `adaptive_engine.py`) dan Game Projection Layer (`game-ui/`).
+- [x] **Perombakan Visual Karakter Misi 1**: Mengganti karakter stickman/poligon sederhana dengan karakter pemanah berbusur recurve lengkap, jubah ranger, topi bulu, tabung panah, dan vambrace pelindung lengan.
+- [x] **Animasi & Fisika Responsif**: Implementasi animasi napas idle, dinamika angin, lekukan elastis busur saat ditarik (*hold tension*), serta hentakan balik tali panah saat lepas (*release recoil*).
+- [x] **Penyelarasan Kinematika Bidikan**: Koordinasi antara sudut ROM bahu pasien dengan sudut elevasi lengan busur dan titik lepas anak panah.
+- [x] **Perbaikan Anomali Background**: Menghapus artefak elips bayangan/highlight putih kabur (`drawSceneDepth`) yang melayang di atas pohon apel latar belakang dan memastikan efek kedalaman prosedural hanya aktif jika background gambar referensi tidak tersedia.
+- [x] **Verifikasi Browser & Visual Inspection**: Pengujian live di peramban tanpa error konsol dan validasi tangkapan layar tampilan kanvas.
+- [x] **Pembaruan Walkthrough & Dokumentasi Task**: Penyusunan arsitektur sistem dan detail perubahan teknis pada file walkthrough ini.
 
 ---
 
-### API Layer (`api/`)
-| File | Description |
-|------|-------------|
-| [app.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/api/app.py) | FastAPI app with CORS, routers, lifecycle |
-| [schemas.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/api/schemas.py) | Pydantic v2 request/response models |
-| [dependencies.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/api/dependencies.py) | JWT auth + role-based access (Admin/Therapist) |
-| [routes/auth.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/api/routes/auth.py) | `POST /api/login`, `POST /api/logout` |
-| [routes/children.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/api/routes/children.py) | CRUD `/api/children` + progress endpoint |
-| [routes/sessions.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/api/routes/sessions.py) | Start/pause/resume/end + history |
-| [routes/games.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/api/routes/games.py) | List/create game configs |
-| [websocket.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/api/websocket.py) | `ws://localhost:8000/ws/live` real-time events |
+## 4. Perbaikan Anomali Background (Translucent Canopy Ellipse)
 
----
+### Masalah yang Ditemukan:
+Pada tampilan background kebun apel, terlihat sebuah bayangan lonjong/elips putih transparan yang melayang di atas dahan pohon apel sebelah kanan (seperti noda/kabut abu-abu).
 
-### Utilities (`utils/`)
-| File | Description |
-|------|-------------|
-| [calibration.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/utils/calibration.py) | Camera→projector coordinate mapping (linear + homography) |
-| [logger.py](file:///d:/Informatika/Projekan/untitled_project/ai_engine/utils/logger.py) | Centralized logging config |
-
----
-
-## Verification & Compatibility Tweaks
-
-Sistem telah diuji menggunakan **Python 3.14.3** dengan verifikasi sukses pada:
-- **MediaPipe Tasks API**: Migrasi dari `mp.solutions.pose` legacy ke `Vision PoseLandmarker` dengan pengunduhan otomatis model `.task` Google.
-- **Pygame-CE**: Menggunakan `pygame-ce` versi modern yang kompatibel penuh dengan Python 3.14.
-- **FastAPI / Uvicorn Server**: Menjalankan API secara non-blocking di background thread.
-- **SQLite Database**: Menghasilkan database otomatis di startup (`ai_engine/smart_wall_climbing.db`).
-- **VoiceEngine**: Integrasi pengucapan multi-threaded menggunakan `pyttsx3`.
-
----
-
-## How to Run
-
-```bash
-cd d:\Informatika\Projekan\untitled_project
-
-# Jalankan dalam Windowed Mode (tidak Fullscreen) menggunakan Kamera & Game Loop
-python -m ai_engine.main --windowed
-
-# Jalankan hanya API server (untuk pengujian backend tanpa jendela game & kamera)
-python -m ai_engine.main --api-only
+### Penyebab:
+Fungsi `drawSceneDepth()` di `game-ui/app.js` semula dirancang untuk kanvas prosedural fallback (sebelum adanya foto background realistis). Di dalamnya terdapat pemanggilan elips statis:
+```javascript
+ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
+ctx.ellipse(width * 0.78, height * 0.37, width * 0.23, height * 0.13, -0.08, 0, Math.PI * 2);
 ```
+Fungsi ini sebelumnya dipanggil tanpa memeriksa `hasReferenceScene`, sehingga elips tersebut digambar menimpa gambar background realistis.
 
-### Default Login
-- **Email**: `admin@smartwall.local`
-- **Password**: `admin123`
+### Solusi:
+1. Menghapus elips statis tersebut dari `drawSceneDepth()`.
+2. Memasukkan pemanggilan `drawSceneDepth(width, height)` ke dalam blok `if (!hasReferenceScene)` di fungsi `draw()`, sehingga saat gambar referensi `orchardBackground` aktif, tidak ada efek prosedural yang menimpa kejernihan gambar asli.
 
-### Keyboard Controls (saat game window aktif)
-| Key | Action |
-|-----|--------|
-| `P` | Pause / Resume session |
-| `S` | Stop session |
-| `ESC` | Quit application |
+---
+
+## 5. Hasil Verifikasi Visual
+
+Tampilan kanvas setelah perombakan karakter dan perbaikan anomali background:
+
+![Verifikasi Karakter Pemanah dan Perbaikan Background Misi 1](C:/Users/ASUS/.gemini/antigravity-ide/brain/6e90442f-6619-4195-8c77-b1fa5790c11c/bg_tree_anomaly_fix_verify_1788445071145.png)
+
+### Catatan Pengujian:
+- **Status Server**: Berjalan lancar di `http://localhost:3000`.
+- **Background**: Bersih, alami, tanpa artefak/noda kabut transparan di atas pohon.
+- **Error Konsol**: 0 error (bersih).
+- **Interaksi Kamera & Bidikan**: HUD ROM meter, reticle pengarah sudut, dan elevasi busur bergerak responsif dan proporsional.

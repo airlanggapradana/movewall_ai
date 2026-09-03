@@ -817,10 +817,19 @@ function completeRep(status, peakAngle) {
   }
 }
 
+function getBowGripNorm() {
+  const aimNorm = Math.max(0, Math.min(1, game.controlAngle / 165));
+  const yRest = 0.84 - 0.255 + 0.018; // 0.603
+  const yTarget = 0.84 - 0.255 - 0.38 * aimNorm; // 0.585 - 0.38 * aimNorm
+  const gripY = yRest + (yTarget - yRest) * aimNorm;
+  return { x: 0.325, y: gripY };
+}
+
 function fireArrowAtTarget() {
   const targetPoint = getTargetPointNorm();
+  const grip = getBowGripNorm();
   game.arrows.push({
-    from: { x: 0.325, y: 0.525 },
+    from: { x: grip.x, y: grip.y },
     to: { x: targetPoint.x, y: targetPoint.y },
     progress: 0,
     life: 1,
@@ -1049,8 +1058,10 @@ function draw() {
   const height = canvas.clientHeight;
   ctx.clearRect(0, 0, width, height);
   const hasReferenceScene = drawScene(width, height);
-  if (!hasReferenceScene) drawTrees(width, height);
-  drawSceneDepth(width, height);
+  if (!hasReferenceScene) {
+    drawTrees(width, height);
+    drawSceneDepth(width, height);
+  }
   drawAppleProgress(width, height);
   drawReachGuide(width, height);
   drawShotArrows(width, height);
@@ -1284,18 +1295,6 @@ function drawSceneDepth(width, height) {
   ctx.fillStyle = nearGround;
   ctx.fillRect(0, height * 0.58, width, height * 0.42);
 
-  ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
-  ctx.beginPath();
-  ctx.ellipse(
-    width * 0.78,
-    height * 0.37,
-    width * 0.23,
-    height * 0.13,
-    -0.08,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
 
   ctx.fillStyle = "rgba(54, 111, 47, 0.16)";
   for (let i = 0; i < 7; i += 1) {
@@ -1531,9 +1530,10 @@ function drawOrchardForeground(width, height) {
 
 function drawReachGuide(width, height) {
   const target = getTargetPoint(width, height);
+  const gripNorm = getBowGripNorm();
   const origin = {
-    x: width * 0.325,
-    y: height * 0.535,
+    x: width * gripNorm.x,
+    y: height * gripNorm.y,
   };
   const mid = {
     x: origin.x + (target.x - origin.x) * 0.54,
@@ -1691,285 +1691,881 @@ function drawAppleTarget(width, height) {
 
 function drawArcher(width, height) {
   const target = getTargetPoint(width, height);
+  const now = performance.now();
+  const t = now * 0.0028;
+
+  // ── Subtle idle breathing & wind dynamics ───────────────────────────
+  const breath = Math.sin(t);
+  const breathY = breath * height * 0.0025;
+  const windSway = Math.sin(t * 0.8) * 2;
+
   const footY = height * 0.84;
-  const hip = { x: width * 0.222, y: footY - height * 0.1 };
-  const shoulder = { x: width * 0.242, y: footY - height * 0.255 };
-  const head = { x: shoulder.x - width * 0.008, y: shoulder.y - height * 0.06 };
+  const hip = {
+    x: width * 0.226,
+    y: footY - height * 0.115 + breathY * 0.3,
+  };
+  const shoulder = {
+    x: width * 0.238,
+    y: footY - height * 0.26 + breathY,
+  };
+  const head = {
+    x: shoulder.x - width * 0.004,
+    y: shoulder.y - height * 0.062 + breathY * 0.7,
+  };
 
-  // ── Dynamic bow-arm elevation driven by ROM angle ──────────────────────────
-  // Map controlAngle (0–165°) to a bow-grip Y that descends as the arm rises.
-  // At 0°   → bowGrip is at shoulder level (arm at rest).
-  // At 165° → bowGrip rises to shoulder - 38% of height (full overhead reach).
+  // ── Dynamic bow-arm elevation driven by ROM angle ───────────────────
   const aimNorm = Math.max(0, Math.min(1, game.controlAngle / 165));
-  // Smoothly interpolate grip position: low = shoulder+18px, high = shoulder - height*0.38
-  const bowGripYRest = shoulder.y + height * 0.018;
-  const bowGripYTarget = shoulder.y - height * 0.38 * aimNorm;
+  const bowGripYRest = shoulder.y + height * 0.015;
+  const bowGripYTarget = shoulder.y - height * 0.36 * aimNorm;
   const bowGripY = bowGripYRest + (bowGripYTarget - bowGripYRest) * aimNorm;
+  const bowGrip = { x: width * 0.32, y: bowGripY };
 
-  const bowGrip = { x: width * 0.325, y: bowGripY };
+  // ── Draw, Hold & Recoil states ──────────────────────────────────────
+  const isLocked = isAngleInsideTargetWindow(game.controlAngle);
+  const holdRatio = Math.min(1, game.holdTimer / TARGET_HOLD_SECONDS);
+  const recoil = game.targetHitFlash; // 1.0 down to 0
+  const recoilVibe = Math.sin(now * 0.08) * recoil * 4;
 
-  // drawHand: if camera tracking, use tracked wrist; otherwise mirror bowGrip
-  const drawHand = game.handFollow.visible
-    ? { x: width * game.handFollow.x, y: height * game.handFollow.y }
-    : bowGrip;
+  // Draw hand anchor point naturally anchored near the jaw / cheek
+  const anchorRest = {
+    x: head.x + width * 0.008,
+    y: head.y + height * 0.022,
+  };
+  const anchorDrawn = {
+    x: head.x - width * 0.006,
+    y: head.y + height * 0.02,
+  };
+  const drawHandX =
+    anchorRest.x +
+    (anchorDrawn.x - anchorRest.x) * holdRatio -
+    recoil * width * 0.01;
+  const drawHandY =
+    anchorRest.y +
+    (anchorDrawn.y - anchorRest.y) * holdRatio +
+    (recoil > 0 ? recoilVibe * 0.3 : 0);
+  const drawHand = { x: drawHandX, y: drawHandY };
 
-  /* ── shadow ── */
-  ctx.fillStyle = "rgba(16, 32, 43, 0.2)";
+  /* ── 1. GROUND SHADOW ────────────────────────────────────────────── */
+  ctx.save();
+  ctx.fillStyle = "rgba(14, 30, 18, 0.18)";
   ctx.beginPath();
   ctx.ellipse(
-    hip.x,
+    hip.x + width * 0.015,
     footY + 8,
-    width * 0.055,
-    height * 0.021,
+    width * 0.07,
+    height * 0.022,
     0,
     0,
     Math.PI * 2,
   );
   ctx.fill();
 
-  /* ── legs ── */
-  ctx.strokeStyle = "#20314a";
-  ctx.lineWidth = Math.max(9, height * 0.014);
+  // Contact points under boot soles
+  ctx.fillStyle = "rgba(8, 18, 10, 0.38)";
+  ctx.beginPath();
+  ctx.ellipse(
+    hip.x - width * 0.02,
+    footY + 2,
+    width * 0.018,
+    height * 0.007,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(
+    hip.x + width * 0.045,
+    footY - height * 0.01,
+    width * 0.02,
+    height * 0.007,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  ctx.restore();
+
+  /* ── 2. BACK QUIVER & ARROWS (layered on archer's back) ──────────── */
+  ctx.save();
+  const quiverAngle = -0.52; // Angled back over right shoulder
+  ctx.save();
+  ctx.translate(shoulder.x - width * 0.018, shoulder.y + height * 0.01);
+  ctx.rotate(quiverAngle);
+
+  // Quiver leather case
+  const qGrad = ctx.createLinearGradient(-6, 0, 6, 0);
+  qGrad.addColorStop(0, "#4a2610");
+  qGrad.addColorStop(0.5, "#6a3818");
+  qGrad.addColorStop(1, "#361b09");
+  ctx.fillStyle = qGrad;
+  ctx.beginPath();
+  ctx.roundRect(-6, 0, 12, height * 0.12, [3, 3, 6, 6]);
+  ctx.fill();
+  // Brass reinforcement bands
+  ctx.fillStyle = "#d4af37";
+  ctx.fillRect(-6.5, 3, 13, 3.5);
+  ctx.fillRect(-6, height * 0.06, 12, 3);
+
+  // 3 fletched arrows protruding out of quiver top
+  const fletches = ["#c53030", "#d4af37", "#2f855a"];
+  for (let i = 0; i < 3; i++) {
+    const aX = -3 + i * 3;
+    const aLen = 22 + (i % 2) * 5;
+    ctx.strokeStyle = "#c89b65";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(aX, 0);
+    ctx.lineTo(aX, -aLen);
+    ctx.stroke();
+
+    // Vane feathers
+    ctx.fillStyle = fletches[i];
+    ctx.beginPath();
+    ctx.moveTo(aX, -aLen);
+    ctx.lineTo(aX - 4, -aLen + 9);
+    ctx.lineTo(aX, -aLen + 7);
+    ctx.lineTo(aX + 4, -aLen + 9);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.restore();
+
+  /* ── 3. RANGER CLOAK / SASH (flowing behind back) ────────────────── */
+  ctx.save();
+  const cloakGrad = ctx.createLinearGradient(
+    shoulder.x - 20,
+    shoulder.y,
+    shoulder.x - 30,
+    hip.y + height * 0.1,
+  );
+  cloakGrad.addColorStop(0, "#183e25");
+  cloakGrad.addColorStop(0.6, "#13311d");
+  cloakGrad.addColorStop(1, "#0d2214");
+  ctx.fillStyle = cloakGrad;
+  ctx.beginPath();
+  ctx.moveTo(shoulder.x - width * 0.015, shoulder.y + height * 0.015);
+  ctx.bezierCurveTo(
+    shoulder.x - width * 0.035 + windSway,
+    shoulder.y + height * 0.06,
+    shoulder.x - width * 0.038 + windSway * 1.3,
+    hip.y + height * 0.05,
+    shoulder.x - width * 0.026 + windSway * 1.5,
+    hip.y + height * 0.11,
+  );
+  ctx.lineTo(shoulder.x - width * 0.016, hip.y + height * 0.07);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  /* ── 4. BACK LEG (Rear brace leg & boot) ─────────────────────────── */
+  ctx.save();
+  // Thigh & knee
+  ctx.fillStyle = "#1b2938";
+  ctx.beginPath();
+  ctx.moveTo(hip.x - width * 0.014, hip.y + height * 0.02);
+  ctx.lineTo(hip.x - width * 0.002, hip.y + height * 0.02);
+  ctx.lineTo(hip.x - width * 0.016, footY - height * 0.065);
+  ctx.lineTo(hip.x - width * 0.028, footY - height * 0.065);
+  ctx.closePath();
+  ctx.fill();
+
+  // Calf & lower leg
+  ctx.beginPath();
+  ctx.moveTo(hip.x - width * 0.028, footY - height * 0.065);
+  ctx.lineTo(hip.x - width * 0.016, footY - height * 0.065);
+  ctx.lineTo(hip.x - width * 0.02, footY - height * 0.015);
+  ctx.lineTo(hip.x - width * 0.03, footY - height * 0.015);
+  ctx.closePath();
+  ctx.fill();
+
+  // Rear leather boot
+  const bootRearGrad = ctx.createLinearGradient(
+    hip.x - width * 0.03,
+    footY - height * 0.06,
+    hip.x - width * 0.01,
+    footY,
+  );
+  bootRearGrad.addColorStop(0, "#5a351a");
+  bootRearGrad.addColorStop(0.5, "#3d220f");
+  bootRearGrad.addColorStop(1, "#251408");
+  ctx.fillStyle = bootRearGrad;
+  ctx.beginPath();
+  ctx.moveTo(hip.x - width * 0.03, footY - height * 0.045);
+  ctx.lineTo(hip.x - width * 0.016, footY - height * 0.045);
+  ctx.lineTo(hip.x - width * 0.012, footY);
+  ctx.lineTo(hip.x - width * 0.035, footY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Boot folded cuff
+  ctx.fillStyle = "#6e4020";
+  ctx.beginPath();
+  ctx.roundRect(
+    hip.x - width * 0.032,
+    footY - height * 0.052,
+    width * 0.02,
+    height * 0.012,
+    2,
+  );
+  ctx.fill();
+  ctx.restore();
+
+  /* ── 5. FRONT LEG (Lead forward leg & boot) ──────────────────────── */
+  ctx.save();
+  // Front thigh
+  ctx.fillStyle = "#223347";
+  ctx.beginPath();
+  ctx.moveTo(hip.x + width * 0.004, hip.y + height * 0.02);
+  ctx.lineTo(hip.x + width * 0.018, hip.y + height * 0.02);
+  ctx.lineTo(hip.x + width * 0.034, footY - height * 0.062);
+  ctx.lineTo(hip.x + width * 0.02, footY - height * 0.062);
+  ctx.closePath();
+  ctx.fill();
+
+  // Front calf
+  ctx.beginPath();
+  ctx.moveTo(hip.x + width * 0.02, footY - height * 0.062);
+  ctx.lineTo(hip.x + width * 0.034, footY - height * 0.062);
+  ctx.lineTo(hip.x + width * 0.044, footY - height * 0.015);
+  ctx.lineTo(hip.x + width * 0.03, footY - height * 0.015);
+  ctx.closePath();
+  ctx.fill();
+
+  // Front leather boot
+  const bootLeadGrad = ctx.createLinearGradient(
+    hip.x + width * 0.02,
+    footY - height * 0.06,
+    hip.x + width * 0.06,
+    footY,
+  );
+  bootLeadGrad.addColorStop(0, "#6e4020");
+  bootLeadGrad.addColorStop(0.5, "#4a2912");
+  bootLeadGrad.addColorStop(1, "#2d1709");
+  ctx.fillStyle = bootLeadGrad;
+  ctx.beginPath();
+  ctx.moveTo(hip.x + width * 0.028, footY - height * 0.048);
+  ctx.lineTo(hip.x + width * 0.042, footY - height * 0.048);
+  ctx.lineTo(hip.x + width * 0.058, footY - height * 0.008);
+  ctx.lineTo(hip.x + width * 0.026, footY - height * 0.008);
+  ctx.closePath();
+  ctx.fill();
+
+  // Front boot cuff
+  ctx.fillStyle = "#824d26";
+  ctx.beginPath();
+  ctx.roundRect(
+    hip.x + width * 0.026,
+    footY - height * 0.055,
+    width * 0.02,
+    height * 0.013,
+    2,
+  );
+  ctx.fill();
+  ctx.restore();
+
+  /* ── 6. TORSO, TUNIC & LEATHER VEST ──────────────────────────────── */
+  ctx.save();
+  const tunicTopY = shoulder.y - height * 0.005;
+  const tunicBottomY = hip.y + height * 0.065;
+
+  // Base green tunic
+  const tunicGrad = ctx.createLinearGradient(
+    shoulder.x - 25,
+    tunicTopY,
+    shoulder.x + 30,
+    tunicBottomY,
+  );
+  tunicGrad.addColorStop(0, "#1d472c");
+  tunicGrad.addColorStop(0.45, "#275e3a");
+  tunicGrad.addColorStop(1, "#173b23");
+  ctx.fillStyle = tunicGrad;
+  ctx.beginPath();
+  ctx.moveTo(shoulder.x - width * 0.02, tunicTopY + 5);
+  ctx.bezierCurveTo(
+    shoulder.x - width * 0.025,
+    tunicTopY + height * 0.04,
+    shoulder.x - width * 0.024,
+    tunicBottomY - 5,
+    shoulder.x - width * 0.016,
+    tunicBottomY,
+  );
+  ctx.lineTo(shoulder.x + width * 0.022, tunicBottomY);
+  ctx.bezierCurveTo(
+    shoulder.x + width * 0.026,
+    tunicBottomY - height * 0.035,
+    shoulder.x + width * 0.025,
+    tunicTopY + height * 0.03,
+    shoulder.x + width * 0.016,
+    tunicTopY,
+  );
+  ctx.closePath();
+  ctx.fill();
+
+  // Gold hem embroidery
+  ctx.strokeStyle = "#d4af37";
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(shoulder.x - width * 0.015, tunicBottomY - 2);
+  ctx.lineTo(shoulder.x + width * 0.021, tunicBottomY - 2);
+  ctx.stroke();
+
+  // Leather Vest over the tunic
+  const vestGrad = ctx.createLinearGradient(
+    shoulder.x - 16,
+    tunicTopY + 8,
+    shoulder.x + 20,
+    hip.y + height * 0.015,
+  );
+  vestGrad.addColorStop(0, "#5a3418");
+  vestGrad.addColorStop(0.5, "#734320");
+  vestGrad.addColorStop(1, "#44260f");
+  ctx.fillStyle = vestGrad;
+  ctx.beginPath();
+  ctx.moveTo(shoulder.x - width * 0.015, tunicTopY + 8);
+  ctx.lineTo(shoulder.x - width * 0.016, hip.y + height * 0.015);
+  ctx.lineTo(shoulder.x + width * 0.018, hip.y + height * 0.015);
+  ctx.lineTo(shoulder.x + width * 0.015, tunicTopY + 8);
+  ctx.closePath();
+  ctx.fill();
+
+  // Vest center seam & laces
+  ctx.strokeStyle = "#381c08";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(shoulder.x + width * 0.001, tunicTopY + 10);
+  ctx.lineTo(shoulder.x + width * 0.001, hip.y + height * 0.014);
+  ctx.stroke();
+
+  // Quiver baldric strap
+  ctx.strokeStyle = "#3e2210";
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.moveTo(shoulder.x - width * 0.01, tunicTopY + 6);
+  ctx.lineTo(shoulder.x + width * 0.016, hip.y + height * 0.015);
+  ctx.stroke();
+  ctx.fillStyle = "#d4af37";
+  ctx.beginPath();
+  ctx.arc(
+    shoulder.x + width * 0.003,
+    tunicTopY + height * 0.03,
+    3,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+
+  // Belt
+  ctx.fillStyle = "#2c1709";
+  ctx.beginPath();
+  ctx.roundRect(
+    shoulder.x - width * 0.02,
+    hip.y + height * 0.01,
+    width * 0.042,
+    height * 0.012,
+    2.5,
+  );
+  ctx.fill();
+
+  // Belt Buckle
+  ctx.fillStyle = "#d4af37";
+  ctx.beginPath();
+  ctx.roundRect(
+    shoulder.x - width * 0.002,
+    hip.y + height * 0.008,
+    width * 0.01,
+    height * 0.016,
+    2,
+  );
+  ctx.fill();
+  ctx.fillStyle = "#2c1709";
+  ctx.fillRect(
+    shoulder.x,
+    hip.y + height * 0.011,
+    width * 0.006,
+    height * 0.01,
+  );
+
+  // Hip Pouch
+  ctx.fillStyle = "#5c3316";
+  ctx.beginPath();
+  ctx.roundRect(
+    shoulder.x - width * 0.022,
+    hip.y + height * 0.022,
+    width * 0.01,
+    height * 0.015,
+    [2, 2, 4, 4],
+  );
+  ctx.fill();
+  ctx.fillStyle = "#d4af37";
+  ctx.beginPath();
+  ctx.arc(
+    shoulder.x - width * 0.017,
+    hip.y + height * 0.028,
+    1.8,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  ctx.restore();
+
+  /* ── 7. NECK, HEAD, EXPRESSIVE FACE & ARCHER CAP ─────────────────── */
+  ctx.save();
+  // Neck
+  ctx.fillStyle = "#e5b287";
+  ctx.beginPath();
+  ctx.roundRect(
+    shoulder.x - width * 0.004,
+    shoulder.y - height * 0.024,
+    width * 0.012,
+    height * 0.032,
+    3,
+  );
+  ctx.fill();
+
+  // Head base
+  ctx.fillStyle = "#f5c69f";
+  ctx.beginPath();
+  ctx.arc(head.x, head.y, height * 0.024, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Jawline & chin
+  ctx.fillStyle = "#f5c69f";
+  ctx.beginPath();
+  ctx.moveTo(head.x, head.y);
+  ctx.lineTo(head.x + height * 0.022, head.y + height * 0.004);
+  ctx.lineTo(head.x + height * 0.014, head.y + height * 0.022);
+  ctx.lineTo(head.x - height * 0.004, head.y + height * 0.023);
+  ctx.closePath();
+  ctx.fill();
+
+  // Ear
+  ctx.fillStyle = "#e5b085";
+  ctx.beginPath();
+  ctx.ellipse(
+    head.x - height * 0.003,
+    head.y + height * 0.003,
+    height * 0.005,
+    height * 0.008,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+
+  // Hair strands behind cap
+  ctx.fillStyle = "#3e2412";
+  ctx.beginPath();
+  ctx.arc(
+    head.x - height * 0.007,
+    head.y - height * 0.004,
+    height * 0.024,
+    Math.PI * 0.45,
+    Math.PI * 1.6,
+  );
+  ctx.bezierCurveTo(
+    head.x - height * 0.024,
+    head.y + height * 0.02,
+    head.x - height * 0.014,
+    head.y + height * 0.032,
+    head.x + height * 0.001,
+    head.y + height * 0.03,
+  );
+  ctx.closePath();
+  ctx.fill();
+
+  // Focused eye & brow looking towards target apple
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.ellipse(
+    head.x + height * 0.013,
+    head.y - height * 0.002,
+    height * 0.0045,
+    height * 0.0028,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+
+  ctx.fillStyle = "#1e3a5f";
+  ctx.beginPath();
+  ctx.arc(
+    head.x + height * 0.0145,
+    head.y - height * 0.002,
+    height * 0.0022,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+
+  ctx.strokeStyle = "#331c0b";
+  ctx.lineWidth = 1.8;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(hip.x - width * 0.012, hip.y + height * 0.075);
-  ctx.lineTo(hip.x - width * 0.036, footY - height * 0.018);
-  ctx.moveTo(hip.x + width * 0.018, hip.y + height * 0.076);
-  ctx.lineTo(hip.x + width * 0.055, footY - height * 0.026);
+  ctx.moveTo(head.x + height * 0.007, head.y - height * 0.007);
+  ctx.lineTo(head.x + height * 0.018, head.y - height * 0.004);
   ctx.stroke();
 
-  /* ── feet ── */
-  ctx.strokeStyle = "#13243a";
-  ctx.lineWidth = Math.max(7, height * 0.011);
+  // Nose bridge & mouth
+  ctx.strokeStyle = "#c98f65";
+  ctx.lineWidth = 1.4;
   ctx.beginPath();
-  ctx.moveTo(hip.x - width * 0.048, footY);
-  ctx.lineTo(hip.x - width * 0.015, footY - height * 0.006);
-  ctx.moveTo(hip.x + width * 0.043, footY - height * 0.018);
-  ctx.lineTo(hip.x + width * 0.088, footY - height * 0.018);
+  ctx.moveTo(head.x + height * 0.02, head.y - height * 0.003);
+  ctx.lineTo(head.x + height * 0.024, head.y + height * 0.005);
+  ctx.lineTo(head.x + height * 0.018, head.y + height * 0.009);
   ctx.stroke();
 
-  /* ── tunic ── */
-  const tunicTopY = shoulder.y - height * 0.004;
-  const tunicBottomY = hip.y + height * 0.095;
-  const tunic = ctx.createLinearGradient(
-    shoulder.x - 44,
-    tunicTopY,
-    shoulder.x + 48,
-    tunicBottomY,
-  );
-  tunic.addColorStop(0, "#244b93");
-  tunic.addColorStop(0.45, "#3f86cf");
-  tunic.addColorStop(1, "#7ec0df");
-  ctx.fillStyle = tunic;
+  ctx.strokeStyle = "#9d4f3b";
+  ctx.lineWidth = 1.4;
   ctx.beginPath();
-  ctx.moveTo(shoulder.x - width * 0.033, tunicTopY + 8);
-  ctx.bezierCurveTo(
-    shoulder.x - width * 0.045,
-    tunicTopY + height * 0.05,
-    shoulder.x - width * 0.043,
-    tunicBottomY - 8,
-    shoulder.x - width * 0.024,
-    tunicBottomY,
-  );
-  ctx.lineTo(shoulder.x + width * 0.034, tunicBottomY);
-  ctx.bezierCurveTo(
-    shoulder.x + width * 0.049,
-    tunicBottomY - height * 0.052,
-    shoulder.x + width * 0.045,
-    tunicTopY + height * 0.045,
-    shoulder.x + width * 0.025,
-    tunicTopY,
-  );
-  ctx.closePath();
-  ctx.fill();
-
-  /* ── belt ── */
-  ctx.strokeStyle = "rgba(17, 42, 74, 0.28)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(shoulder.x - width * 0.026, hip.y + height * 0.026);
-  ctx.lineTo(shoulder.x + width * 0.036, hip.y + height * 0.02);
+  ctx.moveTo(head.x + height * 0.012, head.y + height * 0.016);
+  ctx.lineTo(head.x + height * 0.019, head.y + height * 0.015);
   ctx.stroke();
 
-  ctx.fillStyle = "rgba(20, 35, 58, 0.92)";
-  ctx.beginPath();
-  ctx.roundRect(
-    shoulder.x - width * 0.031,
-    hip.y + height * 0.022,
-    width * 0.07,
-    height * 0.013,
-    5,
+  // Robin Hood / Ranger Feathered Cap
+  const capGrad = ctx.createLinearGradient(
+    head.x - 16,
+    head.y - 20,
+    head.x + 20,
+    head.y,
   );
-  ctx.fill();
-
-  /* ── neck ── */
-  ctx.fillStyle = "#f2c39a";
+  capGrad.addColorStop(0, "#1d4d2d");
+  capGrad.addColorStop(0.5, "#27683d");
+  capGrad.addColorStop(1, "#153a22");
+  ctx.fillStyle = capGrad;
   ctx.beginPath();
-  ctx.roundRect(
-    shoulder.x - width * 0.007,
-    shoulder.y - height * 0.027,
-    width * 0.016,
-    height * 0.04,
-    5,
+  ctx.moveTo(head.x - height * 0.022, head.y - height * 0.002);
+  ctx.quadraticCurveTo(
+    head.x - height * 0.016,
+    head.y - height * 0.03,
+    head.x + height * 0.004,
+    head.y - height * 0.032,
   );
-  ctx.fill();
-
-  /* ── head ── */
-  ctx.fillStyle = "#f2c39a";
-  ctx.beginPath();
-  ctx.arc(head.x, head.y, height * 0.027, 0, Math.PI * 2);
-  ctx.fill();
-
-  /* ear */
-  ctx.fillStyle = "#e8b283";
-  ctx.beginPath();
-  ctx.ellipse(
-    head.x + height * 0.026,
-    head.y + height * 0.002,
-    height * 0.007,
-    height * 0.01,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
-
-  /* hair */
-  ctx.fillStyle = "#1b2638";
-  ctx.beginPath();
-  ctx.arc(
-    head.x - height * 0.01,
-    head.y - height * 0.008,
-    height * 0.03,
-    Math.PI * 0.55,
-    Math.PI * 1.55,
-  );
-  ctx.lineTo(head.x + height * 0.02, head.y + height * 0.03);
-  ctx.closePath();
-  ctx.fill();
-
-  /* eye */
-  ctx.fillStyle = "#10202b";
-  ctx.beginPath();
-  ctx.arc(
-    head.x + height * 0.012,
+  ctx.lineTo(head.x + height * 0.028, head.y - height * 0.008);
+  ctx.quadraticCurveTo(
+    head.x + height * 0.006,
+    head.y - height * 0.012,
+    head.x - height * 0.022,
     head.y - height * 0.002,
-    Math.max(1.5, height * 0.003),
+  );
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#d4af37";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Plume Feather sweeping back
+  const featherBase = {
+    x: head.x - height * 0.008,
+    y: head.y - height * 0.02,
+  };
+  const featherTip = {
+    x: featherBase.x - width * 0.032 + windSway * 1.2,
+    y: featherBase.y - height * 0.025 - windSway * 0.6,
+  };
+  ctx.save();
+  ctx.strokeStyle = "#e2e8f0";
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(featherBase.x, featherBase.y);
+  ctx.quadraticCurveTo(
+    featherBase.x - width * 0.015,
+    featherBase.y - height * 0.018,
+    featherTip.x,
+    featherTip.y,
+  );
+  ctx.stroke();
+
+  ctx.strokeStyle = "#c53030";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(featherBase.x - width * 0.016, featherBase.y - height * 0.018);
+  ctx.lineTo(featherTip.x, featherTip.y);
+  ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+
+  /* ── 8. DRAW ARM (Drawing elbow behind cheek) ─────────────────────── */
+  ctx.save();
+  const drawShoulder = {
+    x: shoulder.x - width * 0.004,
+    y: shoulder.y + height * 0.01,
+  };
+  // Elbow draws back smoothly based on holdRatio
+  const drawElbow = {
+    x: shoulder.x - width * 0.02 - holdRatio * width * 0.008,
+    y: shoulder.y - height * 0.004 + holdRatio * height * 0.004,
+  };
+
+  // Upper draw-arm sleeve
+  ctx.strokeStyle = "#1d472c";
+  ctx.lineWidth = Math.max(7, height * 0.011);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(drawShoulder.x, drawShoulder.y);
+  ctx.lineTo(drawElbow.x, drawElbow.y);
+  ctx.stroke();
+
+  // Forearm extending to drawHand
+  ctx.strokeStyle = "#e5b085";
+  ctx.lineWidth = Math.max(5, height * 0.008);
+  ctx.beginPath();
+  ctx.moveTo(drawElbow.x, drawElbow.y);
+  ctx.lineTo(drawHand.x, drawHand.y);
+  ctx.stroke();
+
+  // Leather shooting glove / tab
+  ctx.fillStyle = "#5c3316";
+  ctx.beginPath();
+  ctx.arc(drawHand.x, drawHand.y, Math.max(4, height * 0.007), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  /* ── 9. BOW ARM (Aiming arm with Leather Vambrace) ────────────────── */
+  ctx.save();
+  const bowShoulder = {
+    x: shoulder.x + width * 0.008,
+    y: shoulder.y + height * 0.012,
+  };
+  // Leather pauldron on bow shoulder
+  ctx.fillStyle = "#6b3c19";
+  ctx.beginPath();
+  ctx.arc(
+    bowShoulder.x - 1,
+    bowShoulder.y - 1,
+    Math.max(7.5, height * 0.011),
     0,
     Math.PI * 2,
   );
   ctx.fill();
-
-  /* ── upper arm (shoulder → bowGrip) ── */
-  ctx.strokeStyle = "#24417e";
-  ctx.lineWidth = Math.max(7, height * 0.012);
+  ctx.fillStyle = "#d4af37";
   ctx.beginPath();
-  ctx.moveTo(shoulder.x, shoulder.y + height * 0.015);
+  ctx.arc(bowShoulder.x - 1, bowShoulder.y - 1, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Natural elbow joint flexion along vector to bowGrip
+  const armMidRatio = 0.48;
+  const bowElbow = {
+    x: bowShoulder.x + (bowGrip.x - bowShoulder.x) * armMidRatio,
+    y:
+      bowShoulder.y +
+      (bowGrip.y - bowShoulder.y) * armMidRatio +
+      height * 0.018 * (1 - aimNorm * 0.5),
+  };
+
+  // Upper arm sleeve
+  ctx.strokeStyle = "#275e3a";
+  ctx.lineWidth = Math.max(7.5, height * 0.011);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(bowShoulder.x, bowShoulder.y);
+  ctx.lineTo(bowElbow.x, bowElbow.y);
+  ctx.stroke();
+
+  // Forearm base skin
+  ctx.strokeStyle = "#f5c69f";
+  ctx.lineWidth = Math.max(5.5, height * 0.009);
+  ctx.beginPath();
+  ctx.moveTo(bowElbow.x, bowElbow.y);
   ctx.lineTo(bowGrip.x, bowGrip.y);
   ctx.stroke();
 
-  /* ── forearm skin ── */
-  ctx.strokeStyle = "#f2c39a";
-  ctx.lineWidth = Math.max(6, height * 0.01);
-  ctx.beginPath();
-  ctx.moveTo(bowGrip.x - width * 0.022, bowGrip.y);
-  ctx.lineTo(bowGrip.x, bowGrip.y);
-  ctx.stroke();
-
-  /* ── draw-side arm (shoulder → back pull) ── */
-  ctx.strokeStyle = "#5b351e";
-  ctx.lineWidth = Math.max(6, height * 0.01);
-  ctx.beginPath();
-  ctx.moveTo(shoulder.x - width * 0.006, shoulder.y + height * 0.027);
-  ctx.quadraticCurveTo(
-    shoulder.x - width * 0.034,
-    shoulder.y + height * 0.006,
-    shoulder.x - width * 0.058,
-    shoulder.y + height * 0.032,
-  );
-  ctx.stroke();
-
-  /* ── bow limbs ── */
-  ctx.strokeStyle = "#6e4b2c";
-  ctx.lineWidth = Math.max(4, height * 0.008);
-  ctx.beginPath();
-  ctx.moveTo(bowGrip.x, bowGrip.y - height * 0.115);
-  ctx.quadraticCurveTo(
-    bowGrip.x + width * 0.03,
-    bowGrip.y,
-    bowGrip.x,
-    bowGrip.y + height * 0.115,
-  );
-  ctx.stroke();
-
-  /* bow string */
-  ctx.strokeStyle = "rgba(42, 31, 25, 0.82)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(bowGrip.x, bowGrip.y - height * 0.115);
-  ctx.quadraticCurveTo(
-    bowGrip.x - width * 0.022,
-    bowGrip.y,
-    bowGrip.x,
-    bowGrip.y + height * 0.115,
-  );
-  ctx.stroke();
-
-  /* ── arrow aimed at current aim elevation ── */
-  const aimPoint = getAimPoint(width, height);
-  const effectiveAim = game.targetAcquired ? target : aimPoint;
-  const aimAngle = Math.atan2(
-    effectiveAim.y - bowGrip.y,
-    effectiveAim.x - bowGrip.x,
-  );
-  const arrowBack = {
-    x: bowGrip.x - Math.cos(aimAngle) * width * 0.05,
-    y: bowGrip.y - Math.sin(aimAngle) * width * 0.05,
+  // Leather Vambrace (Arm-Guard)
+  const vambraceMid = {
+    x: bowElbow.x + (bowGrip.x - bowElbow.x) * 0.5,
+    y: bowElbow.y + (bowGrip.y - bowElbow.y) * 0.5,
   };
-  const arrowTip = {
-    x: bowGrip.x + Math.cos(aimAngle) * width * 0.09,
-    y: bowGrip.y + Math.sin(aimAngle) * width * 0.09,
-  };
-
-  ctx.strokeStyle = "#4c2e1e";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(arrowBack.x, arrowBack.y);
-  ctx.lineTo(arrowTip.x, arrowTip.y);
-  ctx.stroke();
-
-  ctx.fillStyle = "#4c2e1e";
   ctx.save();
-  ctx.translate(arrowTip.x, arrowTip.y);
-  ctx.rotate(aimAngle);
+  ctx.translate(vambraceMid.x, vambraceMid.y);
+  const armAngle = Math.atan2(
+    bowGrip.y - bowElbow.y,
+    bowGrip.x - bowElbow.x,
+  );
+  ctx.rotate(armAngle);
+  const bracerLen = Math.hypot(
+    bowGrip.x - bowElbow.x,
+    bowGrip.y - bowElbow.y,
+  ) * 0.6;
+  ctx.fillStyle = "#4a2810";
   ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(-14, -6);
-  ctx.lineTo(-11, 0);
-  ctx.lineTo(-14, 6);
-  ctx.closePath();
+  ctx.roundRect(-bracerLen * 0.5, -4.5, bracerLen, 9, 2.5);
+  ctx.fill();
+  ctx.strokeStyle = "#2c1709";
+  ctx.lineWidth = 1.3;
+  ctx.stroke();
+  ctx.fillStyle = "#d4af37";
+  ctx.fillRect(-bracerLen * 0.3, -5.5, 2.2, 11);
+  ctx.fillRect(bracerLen * 0.2, -5.5, 2.2, 11);
+  ctx.restore();
+
+  // Bow Hand gripping the riser
+  ctx.fillStyle = "#f5c69f";
+  ctx.beginPath();
+  ctx.arc(
+    bowGrip.x,
+    bowGrip.y,
+    Math.max(6.5, height * 0.011),
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
   ctx.restore();
 
-  /* arrow nock feathers (gold) */
-  ctx.fillStyle = "#f5c842";
+  /* ── 10. DYNAMIC RECURVE BOW & STRING ────────────────────────────── */
   ctx.save();
-  ctx.translate(arrowBack.x, arrowBack.y);
-  ctx.rotate(aimAngle);
-  ctx.fillRect(0, -3, 12, 6);
-  ctx.restore();
+  const limbFlex = holdRatio * 10;
+  const tipUpper = {
+    x: bowGrip.x - limbFlex - recoilVibe * 0.7,
+    y: bowGrip.y - height * 0.115 + holdRatio * 3,
+  };
+  const tipLower = {
+    x: bowGrip.x - limbFlex - recoilVibe * 0.7,
+    y: bowGrip.y + height * 0.115 - holdRatio * 3,
+  };
 
-  /* ── bow hand knuckle ── */
-  ctx.fillStyle = "#f2c39a";
+  const bowGrad = ctx.createLinearGradient(
+    bowGrip.x,
+    tipUpper.y,
+    bowGrip.x,
+    tipLower.y,
+  );
+  bowGrad.addColorStop(0, "#3e1f0e");
+  bowGrad.addColorStop(0.3, "#82461c");
+  bowGrad.addColorStop(0.5, "#4a240c");
+  bowGrad.addColorStop(0.7, "#82461c");
+  bowGrad.addColorStop(1, "#3e1f0e");
+
+  // Upper Recurve Limb
+  ctx.strokeStyle = bowGrad;
+  ctx.lineWidth = Math.max(4.2, height * 0.0075);
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.arc(bowGrip.x, bowGrip.y, Math.max(8, height * 0.014), 0, Math.PI * 2);
+  ctx.moveTo(bowGrip.x, bowGrip.y);
+  ctx.bezierCurveTo(
+    bowGrip.x + width * 0.03 - limbFlex * 0.5,
+    bowGrip.y - height * 0.045,
+    bowGrip.x + width * 0.015 - limbFlex * 0.8,
+    tipUpper.y + height * 0.022,
+    tipUpper.x,
+    tipUpper.y,
+  );
+  ctx.stroke();
+
+  // Lower Recurve Limb
+  ctx.beginPath();
+  ctx.moveTo(bowGrip.x, bowGrip.y);
+  ctx.bezierCurveTo(
+    bowGrip.x + width * 0.03 - limbFlex * 0.5,
+    bowGrip.y + height * 0.045,
+    bowGrip.x + width * 0.015 - limbFlex * 0.8,
+    tipLower.y - height * 0.022,
+    tipLower.x,
+    tipLower.y,
+  );
+  ctx.stroke();
+
+  // Carved Horn Nocks
+  ctx.fillStyle = "#e2e8f0";
+  ctx.beginPath();
+  ctx.arc(tipUpper.x, tipUpper.y, 2.8, 0, Math.PI * 2);
+  ctx.arc(tipLower.x, tipLower.y, 2.8, 0, Math.PI * 2);
   ctx.fill();
 
-  /* ── hold ring on bow grip ── */
-  if (game.targetAcquired) {
-    const holdRatio = Math.min(1, game.holdTimer / TARGET_HOLD_SECONDS);
-    const trembleR = 26 + Math.sin(performance.now() * 0.046) * holdRatio * 4;
-    ctx.strokeStyle = `rgba(16, 185, 129, ${0.55 + holdRatio * 0.4})`;
+  // Leather wrapped handle grip
+  ctx.fillStyle = "#2b180a";
+  ctx.beginPath();
+  ctx.roundRect(
+    bowGrip.x - 3.5,
+    bowGrip.y - height * 0.018,
+    7,
+    height * 0.036,
+    2,
+  );
+  ctx.fill();
+
+  // Bowstring runs from tipUpper -> drawHand -> tipLower
+  ctx.strokeStyle =
+    recoil > 0
+      ? `rgba(255, 235, 180, ${0.4 + Math.sin(now * 0.1) * 0.3})`
+      : "rgba(240, 240, 230, 0.9)";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(tipUpper.x, tipUpper.y);
+  ctx.lineTo(drawHand.x, drawHand.y);
+  ctx.lineTo(tipLower.x, tipLower.y);
+  ctx.stroke();
+  ctx.restore();
+
+  /* ── 11. ARROW ON THE BOW (resting on shelf, pointing to target) ─── */
+  if (recoil < 0.82) {
+    ctx.save();
+    const aimPoint = getAimPoint(width, height);
+    const effectiveAim = game.targetAcquired ? target : aimPoint;
+    const aimAngle = Math.atan2(
+      effectiveAim.y - bowGrip.y,
+      effectiveAim.x - bowGrip.x,
+    );
+
+    // Arrow extends from drawHand through bowGrip and extends past the bow
+    const arrowForwardLen = width * 0.034;
+    const arrowBack = { x: drawHand.x, y: drawHand.y };
+    const arrowTip = {
+      x: bowGrip.x + Math.cos(aimAngle) * arrowForwardLen,
+      y: bowGrip.y + Math.sin(aimAngle) * arrowForwardLen,
+    };
+
+    // Cedar shaft
+    ctx.strokeStyle = "#d4a373";
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(arrowBack.x, arrowBack.y);
+    ctx.lineTo(arrowTip.x, arrowTip.y);
+    ctx.stroke();
+
+    // Steel Bodkin Point Head
+    ctx.save();
+    ctx.translate(arrowTip.x, arrowTip.y);
+    ctx.rotate(aimAngle);
+    ctx.fillStyle = "#4a5568";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-13, -4.5);
+    ctx.lineTo(-9, 0);
+    ctx.lineTo(-13, 4.5);
+    ctx.closePath();
+    ctx.fill();
+    // Steel shine
+    ctx.fillStyle = "#e2e8f0";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-12, -1.5);
+    ctx.lineTo(-8, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Fletchings near drawHand
+    ctx.save();
+    ctx.translate(arrowBack.x, arrowBack.y);
+    ctx.rotate(aimAngle);
+    ctx.fillStyle = "#c53030";
+    ctx.fillRect(2, -3, 10, 6);
+    ctx.fillStyle = "#d4af37";
+    ctx.fillRect(4, -1.2, 5, 2.4);
+    ctx.restore();
+    ctx.restore();
+  }
+
+  /* ── 12. FOCUS AURA & HOLD RING ON BOW GRIP ──────────────────────── */
+  if (game.targetAcquired || isLocked) {
+    ctx.save();
+    const trembleR =
+      25 + Math.sin(performance.now() * 0.046) * holdRatio * 4;
+    ctx.strokeStyle = `rgba(16, 185, 129, ${0.55 + holdRatio * 0.45})`;
     ctx.lineWidth = 3 + holdRatio * 3;
     ctx.beginPath();
     ctx.arc(
@@ -1980,16 +2576,33 @@ function drawArcher(width, height) {
       Math.PI * 2,
     );
     ctx.stroke();
+
+    if (holdRatio > 0.4) {
+      for (let s = 0; s < 3; s++) {
+        const sAngle = (now * 0.005 + (s * Math.PI * 2) / 3) % (Math.PI * 2);
+        const sDist = trembleR + 7;
+        ctx.fillStyle = "#fde047";
+        ctx.beginPath();
+        ctx.arc(
+          bowGrip.x + Math.cos(sAngle) * sDist,
+          bowGrip.y + Math.sin(sAngle) * sDist,
+          2.2,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 
-  /* ── aim pointer / reticle on the tree following user's hand ROM ── */
-  const isLocked = isAngleInsideTargetWindow(game.controlAngle);
-  const holdRatio = Math.min(1, game.holdTimer / TARGET_HOLD_SECONDS);
+  /* ── 13. AIM POINTER & RETICLE GUIDES ─────────────────────────────── */
+  const aimPoint = getAimPoint(width, height);
   const reticleX = target.x;
   const reticleY = aimPoint.y;
   const reticleR = 24 + (isLocked ? Math.sin(performance.now() * 0.04) * 3 : 0);
 
-  // Connecting dashed line between aim reticle and target apple when approaching
+  // Connecting dashed line between aim reticle and target apple
   if (!isLocked && Math.abs(reticleY - target.y) > 15) {
     ctx.strokeStyle = "rgba(255, 247, 196, 0.45)";
     ctx.lineWidth = 2;

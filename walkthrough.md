@@ -135,3 +135,139 @@ Tampilan kanvas setelah perombakan karakter dan perbaikan anomali background:
 - **Background**: Bersih, alami, tanpa artefak/noda kabut transparan di atas pohon.
 - **Error Konsol**: 0 error (bersih).
 - **Interaksi Kamera & Bidikan**: HUD ROM meter, reticle pengarah sudut, dan elevasi busur bergerak responsif dan proporsional.
+
+---
+
+## Task_2: Therapist Assessment System
+
+### Ringkasan Perubahan
+
+Tiga fitur baru berhasil diimplementasikan:
+
+1. **Halaman Login Therapist** (`game-ui/login.html`) — Entry point baru sistem
+2. **Assessment Form Dialog** — Pop-up form di akhir setiap misi (Mission 1 & 2)
+3. **Backend API** (`game-ui/backend/`) — Node.js + Express + Prisma ORM + PostgreSQL
+
+---
+
+### Backend Architecture (`game-ui/backend/`)
+
+#### File yang Dibuat:
+
+| File | Deskripsi |
+|------|-----------|
+| `server.js` | Express server dengan semua API endpoints |
+| `prisma/schema.prisma` | Prisma schema dengan model Therapist & Assessment |
+| `package.json` | Dependencies: express, prisma, bcryptjs, jsonwebtoken, cors |
+| `.env` | Dummy PostgreSQL URI + JWT secret |
+
+#### API Endpoints:
+
+| Method | Path | Auth | Deskripsi |
+|--------|------|------|-----------|
+| `GET`  | `/api/health` | — | Health check |
+| `POST` | `/api/auth/login` | — | Login terapis |
+| `POST` | `/api/auth/register` | — | Registrasi terapis |
+| `GET`  | `/api/auth/me` | JWT | Ambil data terapis login |
+| `POST` | `/api/assessment` | JWT | Simpan assessment pasien |
+| `GET`  | `/api/assessments` | JWT | List semua assessment terapis |
+| `GET`  | `/api/assessment/:id` | JWT | Detail assessment |
+| `POST` | `/api/dev/seed` | — | Seed dummy therapist |
+
+#### Prisma Schema:
+
+**Therapist** (tabel `therapists`):
+- `id`, `name`, `username` (unique), `password` (bcrypt hashed)
+- `email`, `specialization`, `licenseNumber`, `phoneNumber`
+- `role` (enum: USER / THERAPIST), `isActive`, `createdAt`, `updatedAt`
+
+**Assessment** (tabel `assessments`):
+- `id`, `therapistId` (FK)
+- `patientName`, `patientAge`
+- `painAbduction`, `painFlexion`, `painExternalRotation`, `painInternalRotation`, `painExtension` (Boolean)
+- `notes` (optional text)
+- `missionId`, `sessionScore`, `sessionHits`, `sessionLevel`, `sessionTime`
+- `createdAt`
+
+#### Cara Menjalankan Backend:
+```bash
+cd game-ui/backend
+npm install
+# Pastikan PostgreSQL berjalan & update DATABASE_URL di .env
+npx prisma migrate dev --name init
+node server.js
+# POST /api/dev/seed  untuk seed dummy therapist01 / movewall2026
+```
+
+---
+
+### Login Page (`game-ui/login.html`)
+
+**Desain Premium Glassmorphism:**
+- Background animasi dengan 3 orbs berwarna (biru, hijau, ungu) yang bergerak floating
+- Grid pattern subtle overlay
+- Card glassmorphism dark dengan blur backdrop
+- Input fields dengan icon, toggle show/hide password
+- Error alert dengan animasi shake, success alert dengan redirect otomatis
+- Demo credentials ditampilkan di footer card
+
+**Alur Auth:**
+1. Buka sistem → diredirect ke `login.html` (jika belum ada `mw_token` di sessionStorage)
+2. Input username + password → `POST /api/auth/login`
+3. Sukses → simpan JWT token + therapist info ke `sessionStorage`
+4. Redirect ke `index.html` (Mission 1)
+
+**Dummy Credentials (setelah seed):**
+- Username: `therapist01`
+- Password: `movewall2026`
+
+---
+
+### Assessment Form Dialog — Mission 1 & 2
+
+**Fields yang Ada:**
+
+| Field | Type | Required |
+|-------|------|----------|
+| Nama Lengkap Pasien | Text input | Ya |
+| Usia Pasien | Number input (1–120) | Ya |
+| Nyeri Fleksi Bahu | Checkbox | Tidak |
+| Nyeri Abduksi Bahu | Checkbox | Tidak |
+| Nyeri Rotasi Eksternal | Checkbox | Tidak |
+| Nyeri Rotasi Internal | Checkbox | Tidak |
+| Nyeri Ekstensi Bahu | Checkbox | Tidak |
+| Catatan Terapis | Textarea | Tidak (opsional) |
+
+**Alur Assessment:**
+1. Misi selesai → muncul Mission Complete overlay
+2. Klik tombol **"Isi Assessment"** (hijau) di overlay
+3. Assessment form modal muncul dengan animasi slide-in
+4. Badge terapis (dari sessionStorage) ditampilkan di atas form
+5. Isi form → klik **"Simpan Assessment"**
+6. Loading state → `POST /api/assessment` dengan JWT token
+7. Sukses → tampil animasi ✅ success state
+8. Data tersimpan ke PostgreSQL via Prisma
+
+**UX Detail:**
+- Close dengan tombol ✕, tombol Batal, atau klik backdrop
+- Scroll form jika konten panjang (max-height 90vh)
+- Custom checkbox dengan visual check mark saat dipilih
+- Card checklist berubah warna merah muda saat nyeri dicentang
+- Validation inline sebelum submit
+
+---
+
+### File yang Diubah/Dibuat:
+
+| File | Status | Perubahan |
+|------|--------|-----------|
+| `game-ui/backend/server.js` | ✅ BARU | Express API server |
+| `game-ui/backend/prisma/schema.prisma` | ✅ BARU | Prisma schema |
+| `game-ui/backend/package.json` | ✅ BARU | Backend dependencies |
+| `game-ui/backend/.env` | ✅ BARU | Database URI + JWT secret |
+| `game-ui/login.html` | ✅ BARU | Halaman login therapist |
+| `game-ui/index.html` | ✅ MODIFIKASI | + tombol assessment + modal assessment |
+| `game-ui/mission2.html` | ✅ MODIFIKASI | + tombol assessment + modal assessment |
+| `game-ui/app.js` | ✅ MODIFIKASI | + auth guard + assessment dialog logic |
+| `game-ui/mission2.js` | ✅ MODIFIKASI | + auth guard + assessment dialog logic |
+| `game-ui/styles.css` | ✅ MODIFIKASI | + login page styles + assessment modal styles |

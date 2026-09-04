@@ -1,3 +1,12 @@
+/* ── Auth Guard — redirect to login if no session ─────────────── */
+(function authGuard() {
+  const token = sessionStorage.getItem("mw_token");
+  if (!token) {
+    console.warn("[MoveWall] No auth token found. Redirecting to login.");
+    window.location.replace("./login.html");
+  }
+})();
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const motionCanvas = document.createElement("canvas");
@@ -64,6 +73,19 @@ const ui = {
   timeoutTarget: document.getElementById("timeoutTarget"),
   timeoutRetryButton: document.getElementById("timeoutRetryButton"),
   timeoutResetButton: document.getElementById("timeoutResetButton"),
+  // Assessment dialog
+  modalAssessmentButton: document.getElementById("modalAssessmentButton"),
+  assessmentOverlay: document.getElementById("assessmentOverlay"),
+  assessmentForm: document.getElementById("assessmentForm"),
+  assessmentCloseBtn: document.getElementById("assessmentCloseBtn"),
+  assessmentCancelBtn: document.getElementById("assessmentCancelBtn"),
+  assessmentSubmitBtn: document.getElementById("assessmentSubmitBtn"),
+  assessmentSubmitText: document.getElementById("assessmentSubmitText"),
+  assessmentSubmitLoader: document.getElementById("assessmentSubmitLoader"),
+  assessmentError: document.getElementById("assessmentError"),
+  assessmentSuccess: document.getElementById("assessmentSuccess"),
+  assessmentSuccessCloseBtn: document.getElementById("assessmentSuccessCloseBtn"),
+  assessmentTherapistName: document.getElementById("assessmentTherapistName"),
 };
 
 /* ── apple tree data ───────────────────────────────── */
@@ -3098,3 +3120,173 @@ document.addEventListener("keydown", (e) => {
     console.info(`[MoveWall] Debug overlay ${game.debugMode ? "ON" : "OFF"}`);
   }
 });
+
+/* ═══════════════════════════════════════════════════════════════
+   THERAPIST ASSESSMENT DIALOG — Mission 1
+   ═══════════════════════════════════════════════════════════════ */
+
+const BACKEND_API = "http://localhost:3001/api";
+
+function getAuthToken() {
+  return sessionStorage.getItem("mw_token") || null;
+}
+
+function getTherapistInfo() {
+  try {
+    return JSON.parse(sessionStorage.getItem("mw_therapist") || "null");
+  } catch {
+    return null;
+  }
+}
+
+function openAssessmentDialog() {
+  const overlay = ui.assessmentOverlay;
+  if (!overlay) return;
+
+  // Reset form state
+  if (ui.assessmentForm) ui.assessmentForm.reset();
+  if (ui.assessmentError) {
+    ui.assessmentError.textContent = "";
+    ui.assessmentError.classList.add("hidden");
+  }
+  if (ui.assessmentSuccess) ui.assessmentSuccess.classList.add("hidden");
+  if (ui.assessmentForm) ui.assessmentForm.classList.remove("hidden");
+
+  // Fill therapist name from session
+  const therapist = getTherapistInfo();
+  if (ui.assessmentTherapistName && therapist) {
+    ui.assessmentTherapistName.textContent = `Terapis: ${therapist.name} (${therapist.username})`;
+  }
+
+  overlay.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeAssessmentDialog() {
+  if (ui.assessmentOverlay) {
+    ui.assessmentOverlay.classList.add("hidden");
+  }
+  document.body.style.overflow = "";
+}
+
+function setAssessmentLoading(isLoading) {
+  if (ui.assessmentSubmitBtn) ui.assessmentSubmitBtn.disabled = isLoading;
+  if (ui.assessmentSubmitText) ui.assessmentSubmitText.classList.toggle("hidden", isLoading);
+  if (ui.assessmentSubmitLoader) ui.assessmentSubmitLoader.classList.toggle("hidden", !isLoading);
+}
+
+function showAssessmentError(msg) {
+  if (ui.assessmentError) {
+    ui.assessmentError.textContent = msg;
+    ui.assessmentError.classList.remove("hidden");
+  }
+}
+
+async function submitAssessment(formData) {
+  const token = getAuthToken();
+  if (!token) {
+    window.location.replace("./login.html");
+    return;
+  }
+
+  const payload = {
+    patientName: formData.get("patientName"),
+    patientAge: formData.get("patientAge"),
+    painFlexion: formData.has("painFlexion"),
+    painAbduction: formData.has("painAbduction"),
+    painExternalRotation: formData.has("painExternalRotation"),
+    painInternalRotation: formData.has("painInternalRotation"),
+    painExtension: formData.has("painExtension"),
+    notes: formData.get("notes") || null,
+    missionId: 1,
+    sessionScore: game.score || 0,
+    sessionHits: game.reps || 0,
+    sessionLevel: game.level || 1,
+    sessionTime: ui.time ? ui.time.textContent : null,
+  };
+
+  const res = await fetch(`${BACKEND_API}/assessment`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Gagal menyimpan assessment.");
+  }
+
+  return await res.json();
+}
+
+// Wire up assessment button (from mission complete overlay)
+if (ui.modalAssessmentButton) {
+  ui.modalAssessmentButton.addEventListener("click", () => {
+    openAssessmentDialog();
+  });
+}
+
+// Close button
+if (ui.assessmentCloseBtn) {
+  ui.assessmentCloseBtn.addEventListener("click", closeAssessmentDialog);
+}
+
+// Cancel button
+if (ui.assessmentCancelBtn) {
+  ui.assessmentCancelBtn.addEventListener("click", closeAssessmentDialog);
+}
+
+// Close on backdrop click
+if (ui.assessmentOverlay) {
+  ui.assessmentOverlay.addEventListener("click", (e) => {
+    if (e.target === ui.assessmentOverlay || e.target.classList.contains("assessment-backdrop")) {
+      closeAssessmentDialog();
+    }
+  });
+}
+
+// Success close
+if (ui.assessmentSuccessCloseBtn) {
+  ui.assessmentSuccessCloseBtn.addEventListener("click", closeAssessmentDialog);
+}
+
+// Form submit
+if (ui.assessmentForm) {
+  ui.assessmentForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    if (ui.assessmentError) ui.assessmentError.classList.add("hidden");
+
+    const formData = new FormData(ui.assessmentForm);
+    const patientName = formData.get("patientName")?.trim();
+    const patientAge = formData.get("patientAge");
+
+    if (!patientName) {
+      showAssessmentError("Nama lengkap pasien wajib diisi.");
+      return;
+    }
+    if (!patientAge || parseInt(patientAge) < 1 || parseInt(patientAge) > 120) {
+      showAssessmentError("Usia pasien harus diisi dengan nilai yang valid (1–120 tahun).");
+      return;
+    }
+
+    setAssessmentLoading(true);
+
+    try {
+      await submitAssessment(formData);
+      // Show success state
+      if (ui.assessmentForm) ui.assessmentForm.classList.add("hidden");
+      if (ui.assessmentSuccess) ui.assessmentSuccess.classList.remove("hidden");
+      console.info("[MoveWall] Assessment berhasil disimpan.");
+    } catch (err) {
+      showAssessmentError(err.message || "Terjadi kesalahan. Pastikan server backend berjalan.");
+    } finally {
+      setAssessmentLoading(false);
+    }
+  });
+}
+
+console.info("[MoveWall] Mission 1 — Auth guard & Assessment dialog ready.");

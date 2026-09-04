@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enum ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  THERAPIST
+}
+
+// ─── Therapist / User Table ──────────────────────────────────────────────────
+
+model Therapist {
+  id              Int          @id @default(autoincrement())
+  name            String
+  username        String       @unique
+  password        String       // bcrypt hashed
+  email           String?      @unique
+  specialization  String?      // e.g. "Shoulder Rehabilitation", "Sports Medicine"
+  licenseNumber   String?      // Nomor SIP / lisensi terapis
+  phoneNumber     String?
+  role            Role         @default(THERAPIST)
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  assessments     Assessment[]
+
+  @@map("therapists")
+}
+
+// ─── Assessment Table ─────────────────────────────────────────────────────────
+
+model Assessment {
+  id            Int       @id @default(autoincrement())
+
+  // Patient info
+  patientName   String
+  patientAge    Int
+
+  // Pain checklist per ROM movement
+  painAbduction          Boolean @default(false)  // Nyeri pada Abduksi
+  painFlexion            Boolean @default(false)  // Nyeri pada Fleksi
+  painExternalRotation   Boolean @default(false)  // Nyeri pada Rotasi Eksternal
+  painInternalRotation   Boolean @default(false)  // Nyeri pada Rotasi Internal
+  painExtension          Boolean @default(false)  // Nyeri pada Ekstensi
+
+  // Optional notes from therapist
+  notes         String?
+
+  // Session metadata
+  missionId     Int       // 1 = Apple Archer, 2 = Garden Keeper
+  sessionScore  Int       @default(0)
+  sessionHits   Int       @default(0)
+  sessionLevel  Int       @default(1)
+  sessionTime   String?   // e.g. "01:15" (remaining time)
+
+  // Relation to therapist
+  therapistId   Int
+  therapist     Therapist @relation(fields: [therapistId], references: [id])
+
+  createdAt     DateTime  @default(now())
+
+  @@map("assessments")
+}

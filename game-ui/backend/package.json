@@ -1,0 +1,32 @@
+{
+  "name": "movewall-backend",
+  "version": "1.0.0",
+  "description": "MoveWall AI — Backend API (Therapist Auth + Assessment Storage)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "npx nodemon server.js",
+    "seed": "node prisma/seed.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "7.10.0",
+    "@types/pg": "^8.23.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "nodemon": "^3.1.4",
+    "prisma": "7.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

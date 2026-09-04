@@ -45,6 +45,20 @@ const ui = {
   gestureBadge: document.getElementById("gestureBadge"),
   rangeBadge:   document.getElementById("rangeBadge"),
   romMeter:     document.querySelector(".rom-meter"),
+  missionCompleteOverlay: document.getElementById("missionCompleteOverlay"),
+  modalScore:             document.getElementById("modalScore"),
+  modalHits:              document.getElementById("modalHits"),
+  modalLevel:             document.getElementById("modalLevel"),
+  modalTime:              document.getElementById("modalTime"),
+  modalReplayButton:      document.getElementById("modalReplayButton"),
+  modalNextButton:        document.getElementById("modalNextButton"),
+  timeoutOverlay:         document.getElementById("timeoutOverlay"),
+  timeoutScore:           document.getElementById("timeoutScore"),
+  timeoutHits:            document.getElementById("timeoutHits"),
+  timeoutLevel:           document.getElementById("timeoutLevel"),
+  timeoutTarget:          document.getElementById("timeoutTarget"),
+  timeoutRetryButton:     document.getElementById("timeoutRetryButton"),
+  timeoutResetButton:     document.getElementById("timeoutResetButton"),
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -61,30 +75,30 @@ const ui = {
  */
 function makePots() {
   return [
-    // Pot 1 – Target 30° (Starting therapeutic target, lower shelf left)
-    { x: 0.22, y: 0.66, requiredRom:  30, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 2 – Target 35° (Low shelf right)
-    { x: 0.78, y: 0.66, requiredRom:  35, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 3 – Target 45° (Mid-low center)
-    { x: 0.50, y: 0.58, requiredRom:  45, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 4 – Target 55° (Mid-low left)
-    { x: 0.18, y: 0.52, requiredRom:  55, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 5 – Target 65° (Mid shelf right)
-    { x: 0.82, y: 0.50, requiredRom:  65, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 6 – Target 75° (Mid shelf center)
-    { x: 0.38, y: 0.44, requiredRom:  75, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 7 – Target 85° (Chest / shoulder level)
-    { x: 0.62, y: 0.42, requiredRom:  85, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 8 – Target 95° (Eye level)
-    { x: 0.25, y: 0.34, requiredRom:  95, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 9 – Target 110° (Overhead reach)
-    { x: 0.74, y: 0.30, requiredRom: 110, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 10 – Target 125° (High overhead)
-    { x: 0.50, y: 0.24, requiredRom: 125, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 1 – Target 30° (Starting therapeutic target, lower garden shelf left)
+    { x: 0.22, y: 0.78, requiredRom:  30, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 2 – Target 35° (Lower garden shelf right)
+    { x: 0.78, y: 0.76, requiredRom:  35, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 3 – Target 45° (Low shelf center)
+    { x: 0.50, y: 0.71, requiredRom:  45, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 4 – Target 55° (Mid-low lateral left)
+    { x: 0.20, y: 0.65, requiredRom:  55, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 5 – Target 65° (Mid-low lateral right)
+    { x: 0.80, y: 0.59, requiredRom:  65, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 6 – Target 75° (Mid shelf center-left)
+    { x: 0.36, y: 0.53, requiredRom:  75, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 7 – Target 85° (Chest / shoulder level right)
+    { x: 0.64, y: 0.47, requiredRom:  85, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 8 – Target 95° (Eye level left)
+    { x: 0.26, y: 0.41, requiredRom:  95, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 9 – Target 110° (Overhead reach right)
+    { x: 0.74, y: 0.34, requiredRom: 110, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    // Pot 10 – Target 125° (High overhead center)
+    { x: 0.50, y: 0.28, requiredRom: 125, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
     // Pot 11 – Target 135° (High lateral left)
-    { x: 0.32, y: 0.18, requiredRom: 135, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    { x: 0.30, y: 0.23, requiredRom: 135, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
     // Pot 12 – Target 150° (Peak elevation right)
-    { x: 0.68, y: 0.16, requiredRom: 150, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+    { x: 0.70, y: 0.18, requiredRom: 150, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
   ];
 }
 
@@ -138,7 +152,7 @@ const game = {
   level:           1,
   reps:            0,
   repsGoal:        12,
-  targetRom:       70,
+  targetRom:       30,
   maxTargetRom:    180,
   minTargetRom:    45,
   repState:        "RESTING",
@@ -147,6 +161,8 @@ const game = {
   targetHitFlash:  0,
   targetCooldown:  0,
   painStop:        false,
+  missionCompleted: false,
+  timeoutTriggered: false,
   lastRepFrameId:  null,
   feedbackKind:    "neutral",
   feedbackTitle:   "Ready",
@@ -560,10 +576,10 @@ function updateVisionTracking(now) {
     game.isHandOpen = (game.consecutiveOpenFrames >= 3);
     game.trackingQuality = `Tangan: ${game.isHandOpen ? "Terbuka 🖐️ (Menyiram)" : "Tertutup ✊ (Membidik)"} (${openFingers}/5 jari)`;
 
-    // Jika pose landmarking terhalang/miss, gunakan elevasi vertikal tangan sebagai fallback ROM
+    // Jika pose landmarking terhalang/miss, gunakan elevasi vertikal tangan sebagai fallback ROM yang harmonis dengan penempatan pot
     if (!estimate) {
       const handElevationAngle = clamp(
-        Math.round(((0.82 - palmY) / 0.66) * 135 + 24),
+        Math.round(30 + ((0.78 - palmY) / 0.60) * 120),
         15,
         175
       );
@@ -717,13 +733,13 @@ function getTargetPot() {
     const p = game.pots[i];
     if (!p.watered) {
       const potY = p.y - 0.02;
-      const dxCan = game.handFollow.x - p.x;
-      const dyCan = game.handFollow.y - potY;
-      const distCan = Math.hypot(dxCan, dyCan);
+      const dxCanPx = (game.handFollow.x - p.x) * W;
+      const dyCanPx = (game.handFollow.y - potY) * H;
+      const distCan = Math.hypot(dxCanPx, dyCanPx);
 
-      const dxTip = (game.canTipPos.x / W) - p.x;
-      const dyTip = (game.canTipPos.y / H) - potY;
-      const distTip = Math.hypot(dxTip, dyTip);
+      const dxTipPx = game.canTipPos.x - p.x * W;
+      const dyTipPx = game.canTipPos.y - potY * H;
+      const distTip = Math.hypot(dxTipPx, dyTipPx);
 
       const d = Math.min(distCan, distTip);
       if (d < closestDist) {
@@ -733,8 +749,8 @@ function getTargetPot() {
     }
   }
 
-  // If user reached near any unwatered pot within close range (~100px), lock onto that pot
-  if (closestPot && closestDist < 0.082) {
+  // Jika gembor berada dekat pot yang belum disiram (~95px radius lingkaran), arahkan ke pot tersebut
+  if (closestPot && closestDist < 95) {
     const idx = game.pots.indexOf(closestPot);
     if (idx !== -1) game.activePotIdx = idx;
     return closestPot;
@@ -772,22 +788,22 @@ function updateWateringLogic(dt) {
     return;
   }
 
-  // Calculate distance between watering can (body and spout tip) and pot
+  // Calculate distance between watering can (body and spout tip) and pot in canvas pixel space
   const W = canvas.clientWidth || 1280;
   const H = canvas.clientHeight || 720;
   const potY = pot.y - 0.02;
 
-  const dxCan = game.handFollow.x - pot.x;
-  const dyCan = game.handFollow.y - potY;
-  const distCan = Math.hypot(dxCan, dyCan);
+  const dxCanPx = (game.handFollow.x - pot.x) * W;
+  const dyCanPx = (game.handFollow.y - potY) * H;
+  const distCan = Math.hypot(dxCanPx, dyCanPx);
 
-  const dxTip = (game.canTipPos.x / W) - pot.x;
-  const dyTip = (game.canTipPos.y / H) - potY;
-  const distTip = Math.hypot(dxTip, dyTip);
+  const dxTipPx = game.canTipPos.x - pot.x * W;
+  const dyTipPx = game.canTipPos.y - potY * H;
+  const distTip = Math.hypot(dxTipPx, dyTipPx);
 
-  const dist = Math.min(distCan, distTip);
-  const POT_RANGE = 0.075; // Adjusted tightly to pot proximity (~95px at 1280 width)
-  const inRange = dist < POT_RANGE;
+  const distPx = Math.min(distCan, distTip);
+  const POT_RANGE_PX = 85; // Natural circular reach radius (~85px)
+  const inRange = distPx < POT_RANGE_PX;
   game.potInRange = inRange;
 
   // Evaluasi kesesuaian ROM tangan dengan ROM Target pot
@@ -904,9 +920,133 @@ function waterPot(pot) {
   setFeedback("good", "Pot Berhasil Disiram! 🌸", "Bagus sekali! Lanjut ke pot berikutnya");
 
   if (game.reps >= game.repsGoal) {
-    game.running = false;
-    setFeedback("good", "Kebun Berhasil Dipulihkan! 🌻", `Semua ${game.completedPots} pot telah selesai disiram`);
+    triggerMissionComplete();
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TIMEOUT & MISSION COMPLETION MODAL CONTROLLERS (Sesuai Misi 1)
+   ═══════════════════════════════════════════════════════════════ */
+
+function triggerTimeout() {
+  if (game.timeoutTriggered || game.missionCompleted) return;
+  game.timeoutTriggered = true;
+  game.running = false;
+  game.isWatering = false;
+  audio.stopWaterSound();
+
+  if (ui.timeoutScore)
+    ui.timeoutScore.textContent = game.score.toLocaleString();
+  if (ui.timeoutHits)
+    ui.timeoutHits.textContent = `${game.completedPots}/${game.pots.length}`;
+  if (ui.timeoutLevel) ui.timeoutLevel.textContent = `Lv ${game.level}`;
+  if (ui.timeoutTarget)
+    ui.timeoutTarget.textContent = `${Math.round(game.targetRom)}°`;
+
+  if (ui.timeoutOverlay) {
+    ui.timeoutOverlay.classList.remove("hidden");
+  }
+
+  setFeedback(
+    "warn",
+    "Waktu Habis! ⏳",
+    "Waktu latihan telah selesai. Klik Ulangi Level untuk mencoba lagi.",
+  );
+}
+
+function hideTimeoutModal() {
+  if (ui.timeoutOverlay) {
+    ui.timeoutOverlay.classList.add("hidden");
+  }
+}
+
+function triggerMissionComplete() {
+  if (game.missionCompleted) return;
+  game.missionCompleted = true;
+  game.running = false;
+  game.isWatering = false;
+  audio.stopWaterSound();
+  audio.playChime();
+
+  if (ui.modalScore) ui.modalScore.textContent = game.score.toLocaleString();
+  if (ui.modalHits) ui.modalHits.textContent = `${game.completedPots}/${game.pots.length}`;
+  if (ui.modalLevel) ui.modalLevel.textContent = `Lv ${game.level}`;
+  if (ui.modalTime)
+    ui.modalTime.textContent = formatTime(Math.max(0, game.timeRemaining));
+
+  if (ui.missionCompleteOverlay) {
+    ui.missionCompleteOverlay.classList.remove("hidden");
+  }
+
+  setFeedback("good", "Kebun Pulih Sepenuhnya! 🌻", `Semua ${game.completedPots} pot berhasil disiram!`);
+
+  // Partikel perayaan meriah di layar
+  const W = canvas.clientWidth || 1280;
+  const H = canvas.clientHeight || 720;
+  for (let i = 0; i < 40; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.02 + Math.random() * 0.05;
+    game.splashParticles.push({
+      x: W * (0.3 + Math.random() * 0.4),
+      y: H * (0.3 + Math.random() * 0.3),
+      vx: Math.cos(angle) * speed * W,
+      vy: Math.sin(angle) * speed * H - 2,
+      life: 1.5,
+      size: 4 + Math.random() * 6,
+      color: Math.random() > 0.5 ? "#10b981" : Math.random() > 0.3 ? "#f59e0b" : "#38bdf8",
+    });
+  }
+}
+
+function hideMissionCompletionModal() {
+  if (ui.missionCompleteOverlay) {
+    ui.missionCompleteOverlay.classList.add("hidden");
+  }
+}
+
+function restartLevel() {
+  game.timeoutTriggered = false;
+  game.missionCompleted = false;
+  hideTimeoutModal();
+  hideMissionCompletionModal();
+
+  // Reset waktu kembali 120 detik
+  game.timeRemaining = 120;
+
+  // Level menentukan indeks awal pot:
+  // Level 1 -> index 0 (pots 0, 1, 2)
+  // Level 2 -> index 3 (pots 3, 4, 5)
+  // Level 3 -> index 6 (pots 6, 7, 8)
+  // Level 4 -> index 9 (pots 9, 10, 11)
+  const levelStartIndex = Math.max(0, Math.min(game.pots.length - 1, (game.level - 1) * 3));
+  const levelEndIndex   = Math.min(game.pots.length, levelStartIndex + 3);
+
+  // Reset status pot pada level saat ini (level sebelumnya tetap selesai/berbunga)
+  for (let i = levelStartIndex; i < levelEndIndex; i++) {
+    const p = game.pots[i];
+    p.watered = false;
+    p.waterProgress = 0;
+    p.growPct = 0;
+    p.waterParticles = [];
+  }
+
+  game.activePotIdx = levelStartIndex;
+  game.completedPots = levelStartIndex;
+  game.reps = levelStartIndex;
+  game.targetRom = game.pots[levelStartIndex]?.requiredRom || 30;
+
+  game.isWatering = false;
+  game.potInRange = false;
+  game.targetHitFlash = 0;
+  game.targetCooldown = 0;
+  game.painStop = false;
+  game.running = true;
+
+  setFeedback(
+    "neutral",
+    `Level ${game.level} Dimulai Ulang! 🎯`,
+    `Arahkan gembor ke pot sasaran (Target: ${game.targetRom}°)`,
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1078,6 +1218,18 @@ function drawPots(W, H) {
 
     /* ── Pot body ── */
     const potW = 34, potH = 28;
+
+    // Wooden shelf plank under pot
+    const shelfW = potW * 1.5;
+    const shelfH = 5;
+    const shelfY = py + potH;
+    ctx.fillStyle = "#8b5a2b";
+    ctx.beginPath();
+    ctx.roundRect(px - shelfW / 2, shelfY, shelfW, shelfH, 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+    ctx.fillRect(px - shelfW / 2, shelfY + shelfH - 1.5, shelfW, 1.5);
+
     const gradient = ctx.createLinearGradient(px - potW / 2, py, px + potW / 2, py + potH);
     if (isWatered) {
       gradient.addColorStop(0, "#d4774a");
@@ -1783,6 +1935,10 @@ function syncHud() {
    ═══════════════════════════════════════════════════════════════ */
 function resetGame() {
   game.running         = false;
+  game.missionCompleted = false;
+  game.timeoutTriggered = false;
+  hideMissionCompletionModal();
+  hideTimeoutModal();
   game.score           = 0;
   game.timeRemaining   = 120;
   game.level           = 1;
@@ -1792,7 +1948,7 @@ function resetGame() {
   game.displayAngle    = 20;
   game.rawAngle        = 20;
   game.cameraAngle     = 20;
-  game.targetRom       = 70;
+  game.targetRom       = 30;
   game.repState        = "RESTING";
   game.peakAngle       = 0;
   game.targetHitFlash  = 0;
@@ -1830,10 +1986,10 @@ function tick(now) {
 
   if (game.running && !game.painStop) {
     game.timeRemaining = Math.max(0, game.timeRemaining - dt);
-    if (game.timeRemaining <= 0 || game.reps >= game.repsGoal) {
-      game.running = false;
-      audio.stopWaterSound();
-      setFeedback("good", "Sesi Selesai! 🌸", `${game.completedPots} pot berhasil disiram!`);
+    if (game.reps >= game.repsGoal) {
+      triggerMissionComplete();
+    } else if (game.timeRemaining <= 0) {
+      triggerTimeout();
     }
   }
 
@@ -1902,6 +2058,26 @@ function receiveEdgePayload(payload) {
   if (pot) game.targetRom = pot.requiredRom;
 }
 window.MoveWallGame = { receiveEdgePayload };
+
+if (ui.timeoutRetryButton) {
+  ui.timeoutRetryButton.addEventListener("click", () => {
+    restartLevel();
+  });
+}
+
+if (ui.timeoutResetButton) {
+  ui.timeoutResetButton.addEventListener("click", () => {
+    resetGame();
+  });
+}
+
+if (ui.modalReplayButton) {
+  ui.modalReplayButton.addEventListener("click", () => {
+    resetGame();
+    game.running = true;
+    setFeedback("neutral", "Misi Aktif 🌿", "Arahkan tangan tertutup untuk membidik, buka untuk menyiram!");
+  });
+}
 
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();

@@ -68,6 +68,7 @@ const ui = {
   timeoutTarget:          document.getElementById("timeoutTarget"),
   timeoutRetryButton:     document.getElementById("timeoutRetryButton"),
   timeoutResetButton:     document.getElementById("timeoutResetButton"),
+  timeoutAssessmentButton: document.getElementById("timeoutAssessmentButton"),
   // Assessment dialog
   modalAssessmentButton:     document.getElementById("modalAssessmentButton"),
   assessmentOverlay:         document.getElementById("assessmentOverlay"),
@@ -2124,6 +2125,251 @@ function m2GetTherapistInfo() {
   }
 }
 
+// ─── Patient Combobox Autocomplete (Mission 2) ───────────────────────────────
+
+let m2PatientsCache = [];
+let m2IsPatientsLoaded = false;
+let m2HighlightedPatientIndex = -1;
+
+async function m2FetchPatientsList() {
+  const token = m2GetAuthToken();
+  if (!token) return [];
+
+  const loadingEl = document.getElementById("patientComboboxLoading");
+  if (loadingEl) loadingEl.classList.remove("hidden");
+
+  try {
+    const res = await fetch(`${M2_BACKEND_API}/patients`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      m2PatientsCache = data.patients || [];
+      m2IsPatientsLoaded = true;
+    }
+  } catch (err) {
+    console.warn("[MoveWall] Gagal memuat riwayat pasien M2:", err);
+  } finally {
+    if (loadingEl) loadingEl.classList.add("hidden");
+  }
+  return m2PatientsCache;
+}
+
+function m2EscapeHtml(str) {
+  return str.replace(/[&<>'"]/g, 
+    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+  );
+}
+
+function m2RenderPatientOptions(filterText = "") {
+  const optionsList = document.getElementById("patientOptionsList");
+  const emptyInitial = document.getElementById("patientEmptyInitial");
+  const emptyFilter = document.getElementById("patientEmptyFilter");
+  const newNamePreview = document.getElementById("patientNewNamePreview");
+  if (!optionsList) return;
+
+  optionsList.innerHTML = "";
+  m2HighlightedPatientIndex = -1;
+
+  const query = (filterText || "").trim().toLowerCase();
+
+  // Case 1: Initial empty state (belum ada riwayat pasien sama sekali)
+  if (!m2PatientsCache || m2PatientsCache.length === 0) {
+    if (emptyInitial) emptyInitial.classList.remove("hidden");
+    if (emptyFilter) emptyFilter.classList.add("hidden");
+    optionsList.classList.add("hidden");
+    return;
+  }
+
+  if (emptyInitial) emptyInitial.classList.add("hidden");
+
+  // Filter patients by query
+  const filtered = query
+    ? m2PatientsCache.filter((p) => p.name.toLowerCase().includes(query))
+    : m2PatientsCache;
+
+  // Case 2: Filter yielded no matches (pasien baru)
+  if (filtered.length === 0) {
+    if (emptyFilter) {
+      emptyFilter.classList.remove("hidden");
+      if (newNamePreview) newNamePreview.textContent = filterText.trim();
+    }
+    optionsList.classList.add("hidden");
+    return;
+  }
+
+  // Case 3: Display matching patients
+  if (emptyFilter) emptyFilter.classList.add("hidden");
+  optionsList.classList.remove("hidden");
+
+  filtered.forEach((p, idx) => {
+    const li = document.createElement("li");
+    li.className = "combobox-option";
+    li.dataset.index = idx;
+    li.dataset.name = p.name;
+    li.dataset.age = p.age || "";
+
+    // Highlight query matches in name
+    let displayName = m2EscapeHtml(p.name);
+    if (query) {
+      const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+      displayName = displayName.replace(regex, "<mark>$1</mark>");
+    }
+
+    const firstLetter = p.name.charAt(0).toUpperCase() || "P";
+    const sessionLabel = p.sessionCount > 1 ? `${p.sessionCount}x sesi` : "1x sesi";
+    const ageLabel = p.age ? `${p.age} th · ` : "";
+
+    li.innerHTML = `
+      <div class="combobox-option-info">
+        <span class="combobox-option-avatar">${firstLetter}</span>
+        <span class="combobox-option-name">${displayName}</span>
+      </div>
+      <span class="combobox-option-meta">${ageLabel}${sessionLabel}</span>
+    `;
+
+    optionsList.appendChild(li);
+  });
+}
+
+function m2SelectPatientItem(name, age) {
+  const nameInput = document.getElementById("patientName");
+  const ageInput = document.getElementById("patientAge");
+  if (nameInput) nameInput.value = name;
+  if (ageInput && age) {
+    ageInput.value = age;
+    ageInput.classList.remove("input-autofilled");
+    void ageInput.offsetWidth;
+    ageInput.classList.add("input-autofilled");
+  }
+  m2ClosePatientDropdown();
+}
+
+function m2OpenPatientDropdown() {
+  const dropdown = document.getElementById("patientDropdown");
+  const wrapper = document.getElementById("patientComboboxWrapper");
+  const nameInput = document.getElementById("patientName");
+  if (!dropdown || !wrapper) return;
+
+  dropdown.classList.remove("hidden");
+  wrapper.classList.add("is-open");
+
+  if (!m2IsPatientsLoaded) {
+    m2FetchPatientsList().then(() => {
+      m2RenderPatientOptions(nameInput ? nameInput.value : "");
+    });
+  } else {
+    m2RenderPatientOptions(nameInput ? nameInput.value : "");
+  }
+}
+
+function m2ClosePatientDropdown() {
+  const dropdown = document.getElementById("patientDropdown");
+  const wrapper = document.getElementById("patientComboboxWrapper");
+  if (dropdown) dropdown.classList.add("hidden");
+  if (wrapper) wrapper.classList.remove("is-open");
+  m2HighlightedPatientIndex = -1;
+}
+
+function m2UpdateHighlightedOption(options, newIndex) {
+  options.forEach((opt, idx) => {
+    opt.classList.toggle("is-highlighted", idx === newIndex);
+    if (idx === newIndex) {
+      opt.scrollIntoView({ block: "nearest" });
+    }
+  });
+}
+
+function m2InitPatientCombobox() {
+  const wrapper = document.getElementById("patientComboboxWrapper");
+  const nameInput = document.getElementById("patientName");
+  const toggleBtn = document.getElementById("patientComboboxToggle");
+  const dropdown = document.getElementById("patientDropdown");
+  const optionsList = document.getElementById("patientOptionsList");
+
+  if (!wrapper || !nameInput) return;
+
+  // Input focus & typing
+  nameInput.addEventListener("focus", () => {
+    m2OpenPatientDropdown();
+  });
+
+  nameInput.addEventListener("input", () => {
+    m2OpenPatientDropdown();
+    m2RenderPatientOptions(nameInput.value);
+  });
+
+  // Toggle button click
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dropdown && dropdown.classList.contains("hidden")) {
+        nameInput.focus();
+        m2OpenPatientDropdown();
+      } else {
+        m2ClosePatientDropdown();
+      }
+    });
+  }
+
+  // Keyboard navigation
+  nameInput.addEventListener("keydown", (e) => {
+    if (!dropdown || dropdown.classList.contains("hidden")) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        m2OpenPatientDropdown();
+      }
+      return;
+    }
+
+    const visibleOptions = Array.from(optionsList.querySelectorAll(".combobox-option"));
+    if (visibleOptions.length === 0) {
+      if (e.key === "Escape") {
+        m2ClosePatientDropdown();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      m2HighlightedPatientIndex = (m2HighlightedPatientIndex + 1) % visibleOptions.length;
+      m2UpdateHighlightedOption(visibleOptions, m2HighlightedPatientIndex);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      m2HighlightedPatientIndex = (m2HighlightedPatientIndex - 1 + visibleOptions.length) % visibleOptions.length;
+      m2UpdateHighlightedOption(visibleOptions, m2HighlightedPatientIndex);
+    } else if (e.key === "Enter") {
+      if (m2HighlightedPatientIndex >= 0 && m2HighlightedPatientIndex < visibleOptions.length) {
+        e.preventDefault();
+        const selected = visibleOptions[m2HighlightedPatientIndex];
+        m2SelectPatientItem(selected.dataset.name, selected.dataset.age);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      m2ClosePatientDropdown();
+    }
+  });
+
+  // Click on an option
+  if (optionsList) {
+    optionsList.addEventListener("mousedown", (e) => {
+      const option = e.target.closest(".combobox-option");
+      if (option) {
+        e.preventDefault();
+        m2SelectPatientItem(option.dataset.name, option.dataset.age);
+      }
+    });
+  }
+
+  // Click outside to close
+  document.addEventListener("click", (e) => {
+    if (!wrapper.contains(e.target)) {
+      m2ClosePatientDropdown();
+    }
+  });
+}
+
 function m2OpenAssessmentDialog() {
   const overlay = ui.assessmentOverlay;
   if (!overlay) return;
@@ -2136,6 +2382,10 @@ function m2OpenAssessmentDialog() {
   if (ui.assessmentSuccess) ui.assessmentSuccess.classList.add("hidden");
   if (ui.assessmentForm) ui.assessmentForm.classList.remove("hidden");
 
+  // Reset combobox & fetch fresh list
+  m2ClosePatientDropdown();
+  m2FetchPatientsList().then(() => m2RenderPatientOptions(""));
+
   const therapist = m2GetTherapistInfo();
   if (ui.assessmentTherapistName && therapist) {
     ui.assessmentTherapistName.textContent = `Terapis: ${therapist.name} (${therapist.username})`;
@@ -2146,6 +2396,7 @@ function m2OpenAssessmentDialog() {
 }
 
 function m2CloseAssessmentDialog() {
+  m2ClosePatientDropdown();
   if (ui.assessmentOverlay) ui.assessmentOverlay.classList.add("hidden");
   document.body.style.overflow = "";
 }
@@ -2210,6 +2461,10 @@ if (ui.modalAssessmentButton) {
   ui.modalAssessmentButton.addEventListener("click", () => m2OpenAssessmentDialog());
 }
 
+if (ui.timeoutAssessmentButton) {
+  ui.timeoutAssessmentButton.addEventListener("click", () => m2OpenAssessmentDialog());
+}
+
 if (ui.assessmentCloseBtn) {
   ui.assessmentCloseBtn.addEventListener("click", m2CloseAssessmentDialog);
 }
@@ -2252,6 +2507,23 @@ if (ui.assessmentForm) {
 
     try {
       await m2SubmitAssessment(formData);
+
+      // Update local patients cache so newly added patient appears in combobox
+      const parsedAge = parseInt(patientAge);
+      const existingPatient = m2PatientsCache.find(
+        (p) => p.name.toLowerCase() === patientName.toLowerCase()
+      );
+      if (existingPatient) {
+        existingPatient.age = parsedAge;
+        existingPatient.sessionCount = (existingPatient.sessionCount || 1) + 1;
+      } else {
+        m2PatientsCache.unshift({
+          name: patientName,
+          age: parsedAge,
+          sessionCount: 1,
+        });
+      }
+
       if (ui.assessmentForm) ui.assessmentForm.classList.add("hidden");
       if (ui.assessmentSuccess) ui.assessmentSuccess.classList.remove("hidden");
       console.info("[MoveWall] Assessment M2 berhasil disimpan.");
@@ -2263,4 +2535,7 @@ if (ui.assessmentForm) {
   });
 }
 
-console.info("[MoveWall] Mission 2 — Auth guard & Assessment dialog ready.");
+// Initialize patient combobox autocomplete
+m2InitPatientCombobox();
+
+console.info("[MoveWall] Mission 2 — Auth guard, Assessment dialog & Combobox ready.");

@@ -124,6 +124,16 @@
             </div>
 
             <div class="timeout-actions">
+              <button id="timeoutAssessmentButton" type="button" class="btn-timeout assessment">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                <span>Isi Assessment</span>
+              </button>
               <button id="timeoutRetryButton" type="button" class="btn-timeout primary">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
@@ -225,16 +235,62 @@
           <div class="assessment-section">
             <h3 class="assessment-section-title">Informasi Pasien</h3>
             <div class="assessment-fields-row">
-              <div class="assessment-field">
+              <div class="assessment-field combobox-field">
                 <label for="patientName" class="assessment-label">Nama Lengkap Pasien <span class="required">*</span></label>
-                <input
-                  id="patientName"
-                  name="patientName"
-                  type="text"
-                  class="assessment-input"
-                  placeholder="Masukkan nama lengkap pasien"
-                  required
-                />
+                <div class="combobox-wrapper" id="patientComboboxWrapper">
+                  <div class="combobox-input-wrap">
+                    <input
+                      id="patientName"
+                      name="patientName"
+                      type="text"
+                      class="assessment-input combobox-input"
+                      placeholder="Ketik nama atau pilih pasien..."
+                      autocomplete="off"
+                      required
+                    />
+                    <button
+                      type="button"
+                      id="patientComboboxToggle"
+                      class="combobox-toggle-btn"
+                      aria-label="Buka riwayat pasien"
+                      tabindex="-1"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <!-- Dropdown list -->
+                  <div id="patientDropdown" class="combobox-dropdown hidden" role="listbox">
+                    <!-- Loading state -->
+                    <div id="patientComboboxLoading" class="combobox-loading hidden">
+                      <span class="combobox-spinner"></span>
+                      <span>Memuat data pasien...</span>
+                    </div>
+
+                    <!-- Options list -->
+                    <ul id="patientOptionsList" class="combobox-options"></ul>
+
+                    <!-- Empty state: belum ada riwayat pasien -->
+                    <div id="patientEmptyInitial" class="combobox-empty hidden">
+                      <div class="combobox-empty-icon">👤</div>
+                      <div class="combobox-empty-content">
+                        <strong class="combobox-empty-title">Belum Ada Riwayat Pasien</strong>
+                        <p class="combobox-empty-desc">Ketik nama pasien baru di atas untuk memulai sesi pertama.</p>
+                      </div>
+                    </div>
+
+                    <!-- Empty state: pencarian nama tidak ditemukan -->
+                    <div id="patientEmptyFilter" class="combobox-empty hidden">
+                      <div class="combobox-empty-icon">➕</div>
+                      <div class="combobox-empty-content">
+                        <strong class="combobox-empty-title">Pasien Baru</strong>
+                        <p class="combobox-empty-desc">Gunakan "<span id="patientNewNamePreview"></span>" sebagai pasien baru.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="assessment-field field-short">
                 <label for="patientAge" class="assessment-label">Usia Pasien <span class="required">*</span></label>

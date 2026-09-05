@@ -279,6 +279,45 @@ app.get("/api/assessment/:id", authenticateToken, async (req, res) => {
   }
 });
 
+// ── Patients: Get distinct patient list for current therapist ─────────────────
+
+app.get("/api/patients", authenticateToken, async (req, res) => {
+  try {
+    const assessments = await prisma.assessment.findMany({
+      where: { therapistId: req.therapist.id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        patientName: true,
+        patientAge: true,
+        createdAt: true,
+        missionId: true,
+      },
+    });
+
+    const patientMap = new Map();
+    for (const a of assessments) {
+      const key = a.patientName.trim().toLowerCase();
+      if (!patientMap.has(key)) {
+        patientMap.set(key, {
+          name: a.patientName.trim(),
+          age: a.patientAge,
+          lastSession: a.createdAt,
+          lastMissionId: a.missionId,
+          sessionCount: 1,
+        });
+      } else {
+        patientMap.get(key).sessionCount += 1;
+      }
+    }
+
+    const patients = Array.from(patientMap.values());
+    res.json({ patients });
+  } catch (err) {
+    console.error("[Patients List Error]", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ─── Seed dummy therapist (only in development) ───────────────────────────────
 
 app.post("/api/dev/seed", async (req, res) => {
@@ -366,6 +405,7 @@ async function main() {
       console.log(`           POST   /api/assessment`);
       console.log(`           GET    /api/assessments`);
       console.log(`           GET    /api/assessment/:id`);
+      console.log(`           GET    /api/patients`);
       console.log(`           POST   /api/dev/seed  (dummy data)`);
     });
   } catch (err) {

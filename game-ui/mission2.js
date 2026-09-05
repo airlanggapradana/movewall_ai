@@ -89,40 +89,76 @@ const ui = {
    ═══════════════════════════════════════════════════════════════ */
 
 /**
- * 12 pot positions distributed across the wall at varying heights
- * and horizontal positions. Each pot requires a different shoulder
- * ROM to reach:
- *   x  — normalised horizontal [0..1]
- *   y  — normalised vertical   [0..1]  (lower y = higher on screen)
- *   requiredRom — approximate shoulder flexion needed (degrees)
+ * 12 pot positions placed along the arc of a large ROM semicircle.
+ *
+ * Arc geometry (normalised to 16:9 canvas, W/H = 16/9 ≈ 1.778):
+ *   Centre : cx = 0.50, cy = 0.92  (ground-level centre)
+ *   Radius : R_y = 0.80 × H  (in height units)
+ *            R_x = R_y × (9/16) = 0.45 × W  (corrected for aspect ratio)
+ *
+ * For a pot with requiredRom = θ° (shoulder flexion 0°–180°):
+ *   x = 0.50 − R_x × cos(θ × π/180)
+ *   y = 0.92 − R_y × sin(θ × π/180)
+ *
+ * θ = 0°  → left end of diameter (arm fully down)
+ * θ = 90° → dome apex (arm horizontal / overhead approach)
+ * θ = 180°→ right end of diameter
+ *
+ * ARC_CX, ARC_CY, ARC_RX, ARC_RY are shared constants used by
+ * both makePots() and drawRomArc().
  */
+const ARC_CX = 0.50;   // normalised arc centre x
+const ARC_CY = 0.92;   // normalised arc centre y  (ground-level)
+const ARC_RY = 0.80;   // radius as fraction of canvas HEIGHT
+const ARC_RX = ARC_RY * (9 / 16); // radius as fraction of canvas WIDTH ≈ 0.45
+
+function arcPotPos(romDeg) {
+  const rad = romDeg * Math.PI / 180;
+  return {
+    x: parseFloat((ARC_CX - ARC_RX * Math.cos(rad)).toFixed(4)),
+    y: parseFloat((ARC_CY - ARC_RY * Math.sin(rad)).toFixed(4)),
+  };
+}
+
 function makePots() {
-  return [
-    // Pot 1 – Target 30° (Starting therapeutic target, lower garden shelf left)
-    { x: 0.22, y: 0.78, requiredRom:  30, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 2 – Target 35° (Lower garden shelf right)
-    { x: 0.78, y: 0.76, requiredRom:  35, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 3 – Target 45° (Low shelf center)
-    { x: 0.50, y: 0.71, requiredRom:  45, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 4 – Target 55° (Mid-low lateral left)
-    { x: 0.20, y: 0.65, requiredRom:  55, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 5 – Target 65° (Mid-low lateral right)
-    { x: 0.80, y: 0.59, requiredRom:  65, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 6 – Target 75° (Mid shelf center-left)
-    { x: 0.36, y: 0.53, requiredRom:  75, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 7 – Target 85° (Chest / shoulder level right)
-    { x: 0.64, y: 0.47, requiredRom:  85, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 8 – Target 95° (Eye level left)
-    { x: 0.26, y: 0.41, requiredRom:  95, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 9 – Target 110° (Overhead reach right)
-    { x: 0.74, y: 0.34, requiredRom: 110, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 10 – Target 125° (High overhead center)
-    { x: 0.50, y: 0.28, requiredRom: 125, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 11 – Target 135° (High lateral left)
-    { x: 0.30, y: 0.23, requiredRom: 135, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
-    // Pot 12 – Target 150° (Peak elevation right)
-    { x: 0.70, y: 0.18, requiredRom: 150, watered: false, waterProgress: 0, growPct: 0, waterParticles: [] },
+  /**
+   * requiredRom = ROM yang BENAR-BENAR dibutuhkan pasien saat tangan
+   * berada di posisi y pot tersebut pada frame kamera.
+   *
+   * Derivasi fisik (perkiraan tipikal webcam):
+   *   y_shoulder ≈ 0.38 (posisi bahu ternormalisasi di frame kamera)
+   *   arm_length ≈ 0.33 (panjang lengan di frame)
+   *   requiredRom = arccos((y_pot - y_shoulder) / arm_length)
+   *
+   * Urutan ROM membentuk pola "gunung":
+   *   Mulai rendah (kiri-bawah) → naik ke puncak (atas) → turun kembali (kanan-bawah)
+   *   Ini terapeutik: pasien melatih ROM naik dan turun secara simetris.
+   */
+  const potData = [
+    // Arc kiri bawah → atas (ROM meningkat)
+    { arcAngle:  30, requiredRom:  65 }, // y≈0.52  → butuh ≈65° flexion
+    { arcAngle:  40, requiredRom:  85 }, // y≈0.41  → butuh ≈85°
+    { arcAngle:  50, requiredRom: 100 }, // y≈0.31  → butuh ≈100°
+    { arcAngle:  60, requiredRom: 115 }, // y≈0.23  → butuh ≈115°
+    { arcAngle:  70, requiredRom: 128 }, // y≈0.17  → butuh ≈128°
+    { arcAngle:  80, requiredRom: 138 }, // y≈0.13  → butuh ≈138°
+    // Puncak arc
+    { arcAngle:  90, requiredRom: 142 }, // y≈0.12  → butuh ≈142° (overhead)
+    // Arc kanan (ROM menurun secara simetris)
+    { arcAngle: 100, requiredRom: 138 }, // y≈0.13  → butuh ≈138° (mirror pot6)
+    { arcAngle: 110, requiredRom: 128 }, // y≈0.17  → butuh ≈128° (mirror pot5)
+    { arcAngle: 120, requiredRom: 115 }, // y≈0.23  → butuh ≈115° (mirror pot4)
+    { arcAngle: 135, requiredRom:  95 }, // y≈0.35  → butuh ≈95°
+    { arcAngle: 150, requiredRom:  65 }, // y≈0.52  → butuh ≈65° (mirror pot1)
   ];
+  return potData.map(({ arcAngle, requiredRom }) => ({
+    ...arcPotPos(arcAngle),
+    requiredRom,
+    watered:       false,
+    waterProgress: 0,
+    growPct:       0,
+    waterParticles:[],
+  }));
 }
 
 /* ── Clouds in sky (static, generated once) ──────────────────── */
@@ -175,7 +211,7 @@ const game = {
   level:           1,
   reps:            0,
   repsGoal:        12,
-  targetRom:       30,
+  targetRom:       65,    // ROM pot pertama (disesuaikan dengan posisi fisik)
   maxTargetRom:    180,
   minTargetRom:    45,
   repState:        "RESTING",
@@ -833,9 +869,10 @@ function updateWateringLogic(dt) {
   const currentRom = Math.round(game.clinicalAngle);
   const targetRom  = pot.requiredRom;
 
-  // Toleransi terapeutik klinis (misal Target 30°, jangkauan valid 24° - 37°)
-  const ROM_UNDER_TOLERANCE = 6;
-  const ROM_OVER_TOLERANCE  = 8;
+  // Toleransi terapeutik klinis — lebih longgar untuk akurasi tiap pengguna
+  // Rentang valid: [targetRom - 12°, targetRom + 12°] (total window 24°)
+  const ROM_UNDER_TOLERANCE = 12;
+  const ROM_OVER_TOLERANCE  = 12;
   const isRomMatched = (currentRom >= targetRom - ROM_UNDER_TOLERANCE) && (currentRom <= targetRom + ROM_OVER_TOLERANCE);
   game.isRomMatched = isRomMatched;
 
@@ -1081,12 +1118,123 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   drawGardenScene(W, H);
   drawGardenProgress(W, H);
+  drawRomArc(W, H);          // ← ROM semicircle track (behind pots & fence)
   drawFence(W, H);
   drawPots(W, H);
   drawWaterStreams(W, H);
   drawSplashParticles(W, H);
   drawWateringCan(W, H);
   drawFloatingPopups(W, H);
+}
+
+/* ── ROM Semicircle Arc Guide ─────────────────────────────── */
+/**
+ * Draws the large semicircle arc that acts as the ROM track.
+ * Pots sit on this arc at positions matching their required ROM angle.
+ *
+ * Canvas geometry:
+ *   arcCX = W * ARC_CX,  arcCY = H * ARC_CY
+ *   arcRX = W * ARC_RX,  arcRY = H * ARC_RY
+ *
+ * Because the canvas may not be exactly 16:9 at runtime we draw an
+ * elliptical arc using a save/scale trick so the arc pixel coords
+ * match the pot pixel coords exactly.
+ */
+function drawRomArc(W, H) {
+  const cx = W * ARC_CX;
+  const cy = H * ARC_CY;
+  const rx = W * ARC_RX;   // horizontal pixel radius
+  const ry = H * ARC_RY;   // vertical   pixel radius
+
+  ctx.save();
+
+  /* ── 1. Wide outer glow halo ── */
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(1, ry / rx); // stretch circle into ellipse matching rx:ry ratio
+  ctx.strokeStyle = "rgba(147, 197, 253, 0.10)";
+  ctx.lineWidth = 28 * (rx / (W * 0.45)); // scale linewidth with radius
+  ctx.beginPath();
+  ctx.arc(0, 0, rx, Math.PI, 0, true);
+  ctx.stroke();
+  ctx.restore();
+
+  /* ── 2. Main dashed arc track ── */
+  // Gradient from orange (low ROM) through sky-blue (90°) to orange (high ROM)
+  const arcGrad = ctx.createLinearGradient(cx - rx, cy, cx + rx, cy);
+  arcGrad.addColorStop(0,    "rgba(251, 146,  60, 0.60)");  // left  — warm orange
+  arcGrad.addColorStop(0.38, "rgba(250, 204,  21, 0.65)");  // mid-low — yellow
+  arcGrad.addColorStop(0.50, "rgba( 56, 189, 248, 0.85)");  // apex  — sky blue
+  arcGrad.addColorStop(0.62, "rgba(250, 204,  21, 0.65)");
+  arcGrad.addColorStop(1,    "rgba(251, 146,  60, 0.60)");
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(1, ry / rx);
+  ctx.strokeStyle = arcGrad;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([12, 8]);
+  ctx.beginPath();
+  ctx.arc(0, 0, rx, Math.PI, 0, true);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  /* ── 3. Tick marks & labels at every 30° ── */
+  const tickRoms   = [30, 60, 90, 120, 150];
+  const labelRoms  = new Set([30, 90, 150]);
+  const apexRoms   = new Set([90]);
+
+  tickRoms.forEach((romDeg) => {
+    const rad = romDeg * Math.PI / 180;
+    const isApex  = apexRoms.has(romDeg);
+    const hasLabel = labelRoms.has(romDeg);
+
+    // Outer point on arc
+    const ox = cx - rx * Math.cos(rad);
+    const oy = cy - ry * Math.sin(rad);
+    // Inner tick point (5% closer to centre)
+    const tf = isApex ? 0.91 : 0.94;
+    const ix = cx - rx * tf * Math.cos(rad);
+    const iy = cy - ry * tf * Math.sin(rad);
+
+    ctx.strokeStyle = isApex
+      ? "rgba( 56, 189, 248, 0.95)"
+      : "rgba(255, 255, 255, 0.45)";
+    ctx.lineWidth = isApex ? 2.8 : 1.6;
+    ctx.beginPath();
+    ctx.moveTo(ix, iy);
+    ctx.lineTo(ox, oy);
+    ctx.stroke();
+
+    // Small dot on arc
+    ctx.fillStyle = isApex ? "rgba(56,189,248,0.90)" : "rgba(255,255,255,0.35)";
+    ctx.beginPath();
+    ctx.arc(ox, oy, isApex ? 3.5 : 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Label (slightly outside arc)
+    if (hasLabel) {
+      const lf = isApex ? 1.10 : 1.09;
+      const lx = cx - rx * lf * Math.cos(rad);
+      const ly = cy - ry * lf * Math.sin(rad);
+      ctx.fillStyle = isApex
+        ? "rgba(147, 210, 255, 0.95)"
+        : "rgba(255, 255, 255, 0.60)";
+      ctx.font = `${isApex ? 700 : 600} ${isApex ? 13 : 11}px Inter, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${romDeg}°`, lx, ly);
+    }
+  });
+
+  /* ── 4. Arc-centre ground dot (subtle) ── */
+  ctx.fillStyle = "rgba(255,255,255,0.12)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
 }
 
 /* ── Sky + ground ────────────────────────────────────────────── */
@@ -1224,6 +1372,12 @@ function drawFence(W, H) {
 }
 
 /* ── Pot drawing & growth ────────────────────────────────────── */
+/**
+ * Pot shape: Semicircle / dome design (per reference image)
+ *   - Flat bottom: horizontal line = diameter of circle
+ *   - Rounded dome top: upper half of circle
+ *   - POT_R = radius of the semicircle dome
+ */
 function drawPots(W, H) {
   const activePot = getTargetPot();
   const now = performance.now();
@@ -1239,96 +1393,157 @@ function drawPots(W, H) {
       pot.growPct = Math.min(1, pot.growPct + 0.016);
     }
 
-    /* ── Pot body ── */
-    const potW = 34, potH = 28;
+    /* ── Pot body: Semicircle / Dome Shape ── */
+    // POT_R = radius of the dome; flat bottom sits at py, dome apex at py - POT_R
+    const POT_R = 22;          // dome radius (px)
+    const flatY  = py;         // y-coordinate of the flat bottom line
+    const domeTopY = py - POT_R; // apex of the dome
 
-    // Wooden shelf plank under pot
-    const shelfW = potW * 1.5;
+    // --- Drop shadow beneath pot ---
+    ctx.save();
+    ctx.fillStyle = "rgba(20, 10, 5, 0.18)";
+    ctx.beginPath();
+    ctx.ellipse(px, flatY + 4, POT_R * 0.95, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // --- Wooden shelf plank under pot ---
+    const shelfW = POT_R * 3.2;
     const shelfH = 5;
-    const shelfY = py + potH;
+    const shelfY = flatY;
     ctx.fillStyle = "#8b5a2b";
     ctx.beginPath();
     ctx.roundRect(px - shelfW / 2, shelfY, shelfW, shelfH, 2);
     ctx.fill();
+    // shelf shadow strip
     ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
     ctx.fillRect(px - shelfW / 2, shelfY + shelfH - 1.5, shelfW, 1.5);
 
-    const gradient = ctx.createLinearGradient(px - potW / 2, py, px + potW / 2, py + potH);
+    // --- Dome body gradient ---
+    const domeGrad = ctx.createRadialGradient(
+      px - POT_R * 0.28, flatY - POT_R * 0.55, POT_R * 0.08,
+      px, flatY - POT_R * 0.3, POT_R * 1.35
+    );
     if (isWatered) {
-      gradient.addColorStop(0, "#d4774a");
-      gradient.addColorStop(1, "#8b4a28");
+      domeGrad.addColorStop(0,   "#e8925e");  // highlight
+      domeGrad.addColorStop(0.45,"#c96c40");  // mid-tone
+      domeGrad.addColorStop(1,   "#7a3c1e");  // deep shadow
     } else {
-      gradient.addColorStop(0, "#c4634a");
-      gradient.addColorStop(1, "#7a3820");
+      domeGrad.addColorStop(0,   "#d97e5a");  // highlight
+      domeGrad.addColorStop(0.45,"#b85538");  // mid-tone
+      domeGrad.addColorStop(1,   "#6b2c14");  // deep shadow
     }
-    ctx.fillStyle = gradient;
+    ctx.fillStyle = domeGrad;
+
+    // Dome path: upper semicircle + flat bottom line
     ctx.beginPath();
-    ctx.moveTo(px - potW / 2, py);
-    ctx.lineTo(px - potW * 0.36, py + potH);
-    ctx.lineTo(px + potW * 0.36, py + potH);
-    ctx.lineTo(px + potW / 2, py);
-    ctx.closePath();
+    ctx.arc(px, flatY, POT_R, Math.PI, 0, false); // top arc (π → 0 = upper half)
+    ctx.closePath();                                // closes with flat line at flatY
     ctx.fill();
 
-    // Pot rim
-    ctx.strokeStyle = isWatered ? "#e08855" : "#c46040";
-    ctx.lineWidth = 4;
+    // --- Dome outline ---
+    ctx.strokeStyle = isWatered ? "#e8955f" : "#c86248";
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(px - potW / 2 - 2, py);
-    ctx.lineTo(px + potW / 2 + 2, py);
+    ctx.arc(px, flatY, POT_R, Math.PI, 0, false);
+    ctx.closePath();
     ctx.stroke();
 
-    // Soil (darker when moist/watered)
-    const isMoist = isWatered || (pot.waterProgress > 0.1);
-    ctx.fillStyle = isMoist ? "#3a2210" : "#523318";
+    // --- Specular highlight on dome (left-upper arc gleam) ---
+    ctx.save();
+    ctx.globalAlpha = isWatered ? 0.38 : 0.28;
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.ellipse(px, py + 3, potW * 0.42, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(px, flatY, POT_R * 0.75, Math.PI * 1.15, Math.PI * 1.65, false);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
 
-    /* ── Plant rendering ── */
+    // --- Soil surface (visible inside dome opening at flat bottom) ---
+    const isMoist = isWatered || (pot.waterProgress > 0.1);
+    ctx.fillStyle = isMoist ? "#2e1a08" : "#3e2510";
+    ctx.beginPath();
+    ctx.ellipse(px, flatY, POT_R * 0.88, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // moist sheen on soil
+    if (isMoist) {
+      ctx.fillStyle = "rgba(80,160,255,0.13)";
+      ctx.beginPath();
+      ctx.ellipse(px, flatY, POT_R * 0.6, 3.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    /* ── Plant rendering (stem & flower emerge from dome top) ── */
+    // Stem origin is at the dome apex (flatY - POT_R)
+    const stemOriginX = px;
+    const stemOriginY = flatY - POT_R;
+
     if (!isWatered) {
-      // Wilted stem
+      // Wilted / drooping stem
       ctx.strokeStyle = "#7a9e3a";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5;
       ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.moveTo(px, py);
-      ctx.bezierCurveTo(px + 6, py - 12, px + 2, py - 20, px - 4, py - 22);
+      ctx.moveTo(stemOriginX, stemOriginY);
+      ctx.bezierCurveTo(
+        stemOriginX + 5, stemOriginY - 10,
+        stemOriginX + 2, stemOriginY - 18,
+        stemOriginX - 5, stemOriginY - 20
+      );
       ctx.stroke();
+      // wilted leaf bud
       ctx.fillStyle = "#8aaf4a";
       ctx.beginPath();
-      ctx.ellipse(px - 4, py - 22, 7, 4, -0.6, 0, Math.PI * 2);
+      ctx.ellipse(stemOriginX - 5, stemOriginY - 20, 6, 3.5, -0.6, 0, Math.PI * 2);
       ctx.fill();
     } else {
       // Flourishing plant & flower
-      const h = pot.growPct * 52;
+      const h = pot.growPct * 48;
       ctx.strokeStyle = "#3a9a2a";
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 3.5;
       ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.moveTo(px, py);
-      ctx.bezierCurveTo(px - 4, py - h * 0.3, px + 6, py - h * 0.6, px, py - h);
+      ctx.moveTo(stemOriginX, stemOriginY);
+      ctx.bezierCurveTo(
+        stemOriginX - 4, stemOriginY - h * 0.3,
+        stemOriginX + 6, stemOriginY - h * 0.6,
+        stemOriginX,     stemOriginY - h
+      );
       ctx.stroke();
 
       if (pot.growPct > 0.25) {
         const lAlpha = Math.min(1, (pot.growPct - 0.25) / 0.4);
         ctx.globalAlpha = lAlpha;
         ctx.fillStyle = "#4ac83a";
-        [[px - 18, py - h * 0.55, 0.6], [px + 16, py - h * 0.7, -0.5], [px - 12, py - h, 0.8]].forEach(([lx, ly, rot]) => {
+        [
+          [stemOriginX - 17, stemOriginY - h * 0.50, 0.6],
+          [stemOriginX + 15, stemOriginY - h * 0.65, -0.5],
+          [stemOriginX - 11, stemOriginY - h,        0.8],
+        ].forEach(([lx, ly, rot]) => {
           ctx.save(); ctx.translate(lx, ly); ctx.rotate(rot);
-          ctx.beginPath(); ctx.ellipse(0, 0, 14, 6, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.ellipse(0, 0, 13, 5.5, 0, 0, Math.PI * 2); ctx.fill();
           ctx.restore();
         });
 
         if (pot.growPct > 0.65) {
           const fAlpha = Math.min(1, (pot.growPct - 0.65) / 0.35);
           ctx.globalAlpha = fAlpha;
+          // flower center
           ctx.fillStyle = "#f5c842";
-          ctx.beginPath(); ctx.arc(px, py - h, 8, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(stemOriginX, stemOriginY - h, 7.5, 0, Math.PI * 2); ctx.fill();
+          // petals
           ctx.fillStyle = "#f06050";
           for (let p = 0; p < 6; p++) {
             const pa = (p / 6) * Math.PI * 2;
-            ctx.beginPath(); ctx.arc(px + Math.cos(pa) * 10, py - h + Math.sin(pa) * 10, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath();
+            ctx.arc(
+              stemOriginX + Math.cos(pa) * 10,
+              stemOriginY - h + Math.sin(pa) * 10,
+              4.5, 0, Math.PI * 2
+            );
+            ctx.fill();
           }
         }
         ctx.globalAlpha = 1;
@@ -1336,43 +1551,46 @@ function drawPots(W, H) {
     }
 
     /* ── Active pot target glow & range halo ── */
+    // Visual center of dome for glow: midpoint between flatY and apex
+    const domeCY = flatY - POT_R * 0.5;
     if (isActive && !isWatered) {
       const pulse = 1 + Math.sin(now / 220) * 0.07;
-      const glow = ctx.createRadialGradient(px, py - 10, 6, px, py - 10, 60 * pulse);
-      glow.addColorStop(0, "rgba(56,189,248,0.45)");
-      glow.addColorStop(0.5,"rgba(56,189,248,0.18)");
-      glow.addColorStop(1, "rgba(56,189,248,0)");
+      const glowR  = (POT_R + 38) * pulse;
+      const glow = ctx.createRadialGradient(px, domeCY, 5, px, domeCY, glowR);
+      glow.addColorStop(0,   "rgba(56,189,248,0.48)");
+      glow.addColorStop(0.5, "rgba(56,189,248,0.18)");
+      glow.addColorStop(1,   "rgba(56,189,248,0)");
       ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(px, py - 10, 62 * pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, domeCY, glowR, 0, Math.PI * 2); ctx.fill();
 
-      // Dashed proximity circle (matched to POT_RANGE)
+      // Dashed proximity circle
       ctx.strokeStyle = game.potInRange
         ? `rgba(52, 211, 153, ${0.85 + Math.sin(now / 150) * 0.15})`
         : `rgba(56, 189, 248, ${0.45 + Math.sin(now / 220) * 0.2})`;
       ctx.lineWidth = game.potInRange ? 3.5 : 2;
       ctx.setLineDash([6, 6]);
-      ctx.beginPath(); ctx.arc(px, py - 10, 44 * pulse, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(px, domeCY, (POT_R + 22) * pulse, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);
 
-      // Required ROM badge under pot (dynamic matching feedback)
+      // ROM badge — positioned below the shelf
       const curRom = Math.round(game.clinicalAngle);
       const isRomOk = Math.abs(curRom - pot.requiredRom) <= 7;
-      let badgeText = `${pot.requiredRom}° Flexion`;
-      let badgeBg = "rgba(16,32,43,0.88)";
+      let badgeText   = `${pot.requiredRom}° Flexion`;
+      let badgeBg     = "rgba(16,32,43,0.88)";
       let badgeBorder = "rgba(255,255,255,0.28)";
 
       if (game.potInRange) {
         if (isRomOk) {
-          badgeText = `✓ ${pot.requiredRom}° ROM TEPAT`;
-          badgeBg = "rgba(6, 95, 70, 0.95)";
+          badgeText   = `✓ ${pot.requiredRom}° ROM TEPAT`;
+          badgeBg     = "rgba(6, 95, 70, 0.95)";
           badgeBorder = "#34d399";
         } else if (curRom < pot.requiredRom) {
-          badgeText = `⬆️ ${pot.requiredRom}° (Lengan: ${curRom}°)`;
-          badgeBg = "rgba(154, 52, 18, 0.95)";
+          badgeText   = `⬆️ ${pot.requiredRom}° (Lengan: ${curRom}°)`;
+          badgeBg     = "rgba(154, 52, 18, 0.95)";
           badgeBorder = "#fb923c";
         } else {
-          badgeText = `⬇️ ${pot.requiredRom}° (Lengan: ${curRom}°)`;
-          badgeBg = "rgba(154, 52, 18, 0.95)";
+          badgeText   = `⬇️ ${pot.requiredRom}° (Lengan: ${curRom}°)`;
+          badgeBg     = "rgba(154, 52, 18, 0.95)";
           badgeBorder = "#fb923c";
         }
       }
@@ -1380,18 +1598,20 @@ function drawPots(W, H) {
       ctx.save();
       ctx.font = "800 11px Inter, sans-serif";
       const bTextWidth = ctx.measureText(badgeText).width;
-      const bw = Math.max(92, bTextWidth + 20);
+      const bw = Math.max(96, bTextWidth + 22);
+      // badge sits below shelf (shelfY + shelfH + gap)
+      const badgeTop = shelfY + shelfH + 6;
 
       ctx.fillStyle = badgeBg;
       ctx.beginPath();
-      ctx.roundRect(px - bw / 2, py + potH + 8, bw, 24, 8);
+      ctx.roundRect(px - bw / 2, badgeTop, bw, 24, 8);
       ctx.fill();
       ctx.strokeStyle = badgeBorder;
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.fillStyle = "#fff";
       ctx.textAlign = "center";
-      ctx.fillText(badgeText, px, py + potH + 24);
+      ctx.fillText(badgeText, px, badgeTop + 16);
       ctx.restore();
 
       // Water filling circular gauge
@@ -1400,14 +1620,16 @@ function drawPots(W, H) {
       }
     }
 
-    // Success checkmark on completed pots
+    // Success checkmark on completed pots (top-right of dome)
     if (isWatered && pot.growPct >= 0.95) {
+      const ckX = px + POT_R * 0.75;
+      const ckY = flatY - POT_R * 0.75;
       ctx.fillStyle = "rgba(26,158,85,0.92)";
-      ctx.beginPath(); ctx.arc(px + 20, py - 32, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ckX, ckY, 9, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.lineJoin = "round";
       ctx.beginPath();
-      ctx.moveTo(px + 15, py - 32); ctx.lineTo(px + 19, py - 27); ctx.lineTo(px + 26, py - 38);
+      ctx.moveTo(ckX - 4.5, ckY); ctx.lineTo(ckX - 1, ckY + 3.5); ctx.lineTo(ckX + 5, ckY - 5);
       ctx.stroke();
     }
 
@@ -1429,8 +1651,10 @@ function drawPots(W, H) {
 
 function drawWateringGauge(W, H, pot) {
   const px = pot.x * W;
-  const py = pot.y * H - 10;
-  const r = 38;
+  // Center gauge at the dome's visual midpoint
+  const POT_R = 22;
+  const py = pot.y * H - POT_R * 0.5;
+  const r = 36;
 
   ctx.save();
   // Circular track

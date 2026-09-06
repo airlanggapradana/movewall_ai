@@ -291,26 +291,56 @@ app.get("/api/patients", authenticateToken, async (req, res) => {
         patientAge: true,
         createdAt: true,
         missionId: true,
+        sessionScore: true,
+        sessionHits: true,
+        sessionLevel: true,
+        sessionTime: true,
+        painAbduction: true,
+        painFlexion: true,
+        painExternalRotation: true,
+        painInternalRotation: true,
+        painExtension: true,
+        notes: true,
       },
     });
 
     const patientMap = new Map();
     for (const a of assessments) {
       const key = a.patientName.trim().toLowerCase();
+      const hasPain =
+        a.painAbduction ||
+        a.painFlexion ||
+        a.painExternalRotation ||
+        a.painInternalRotation ||
+        a.painExtension;
+
       if (!patientMap.has(key)) {
         patientMap.set(key, {
           name: a.patientName.trim(),
           age: a.patientAge,
           lastSession: a.createdAt,
           lastMissionId: a.missionId,
+          latestScore: a.sessionScore,
+          latestLevel: a.sessionLevel,
+          latestTime: a.sessionTime || "—",
+          latestNotes: a.notes || null,
+          latestHasPain: hasPain,
+          painSessionCount: hasPain ? 1 : 0,
           sessionCount: 1,
         });
       } else {
-        patientMap.get(key).sessionCount += 1;
+        const item = patientMap.get(key);
+        item.sessionCount += 1;
+        if (hasPain) item.painSessionCount += 1;
       }
     }
 
-    const patients = Array.from(patientMap.values());
+    const patients = Array.from(patientMap.values()).map((p) => ({
+      ...p,
+      hasPainHistory: p.painSessionCount > 0,
+      painRatePercent: Math.round((p.painSessionCount / p.sessionCount) * 100),
+    }));
+
     res.json({ patients });
   } catch (err) {
     console.error("[Patients List Error]", err);
@@ -318,74 +348,312 @@ app.get("/api/patients", authenticateToken, async (req, res) => {
   }
 });
 
-// ─── Seed dummy therapist (only in development) ───────────────────────────────
+// ── Dashboard: Global & Therapist Analytics ──────────────────────────────────
+
+app.get("/api/dashboard/stats", authenticateToken, async (req, res) => {
+  try {
+    const assessments = await prisma.assessment.findMany({
+      where: { therapistId: req.therapist.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        therapist: {
+          select: { name: true, specialization: true, licenseNumber: true },
+        },
+      },
+    });
+
+    const totalSessions = assessments.length;
+    const patientNames = new Set(assessments.map((a) => a.patientName.trim().toLowerCase()));
+    const totalPatients = patientNames.size;
+
+    let totalScore = 0;
+    let totalHits = 0;
+    let m1Count = 0;
+    let m2Count = 0;
+
+    let painAbductionCount = 0;
+    let painFlexionCount = 0;
+    let painExtRotCount = 0;
+    let painIntRotCount = 0;
+    let painExtensionCount = 0;
+    let sessionsWithPain = 0;
+
+    assessments.forEach((a) => {
+      totalScore += a.sessionScore || 0;
+      totalHits += a.sessionHits || 0;
+      if (a.missionId === 1) m1Count++;
+      if (a.missionId === 2) m2Count++;
+
+      const hasPain =
+        a.painAbduction ||
+        a.painFlexion ||
+        a.painExternalRotation ||
+        a.painInternalRotation ||
+        a.painExtension;
+
+      if (hasPain) sessionsWithPain++;
+      if (a.painAbduction) painAbductionCount++;
+      if (a.painFlexion) painFlexionCount++;
+      if (a.painExternalRotation) painExtRotCount++;
+      if (a.painInternalRotation) painIntRotCount++;
+      if (a.painExtension) painExtensionCount++;
+    });
+
+    const avgScore = totalSessions > 0 ? Math.round(totalScore / totalSessions) : 0;
+    const avgHits = totalSessions > 0 ? (totalHits / totalSessions).toFixed(1) : "0.0";
+    const painRate = totalSessions > 0 ? Math.round((sessionsWithPain / totalSessions) * 100) : 0;
+
+    res.json({
+      summary: {
+        totalPatients,
+        totalSessions,
+        avgScore,
+        avgHits,
+        painPrevalencePercent: painRate,
+        sessionsWithPain,
+        sessionsPainFree: totalSessions - sessionsWithPain,
+        missions: {
+          mission1: m1Count,
+          mission2: m2Count,
+        },
+      },
+      painStats: {
+        abduction: painAbductionCount,
+        flexion: painFlexionCount,
+        externalRotation: painExtRotCount,
+        internalRotation: painIntRotCount,
+        extension: painExtensionCount,
+      },
+      recentAssessments: assessments.slice(0, 8),
+    });
+  } catch (err) {
+    console.error("[Dashboard Stats Error]", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Patient Detail: Deep Analytics & Timeline ────────────────────────────────
+
+app.get("/api/patients/:name/summary", authenticateToken, async (req, res) => {
+  try {
+    const rawName = decodeURIComponent(req.params.name).trim();
+    const allAssessments = await prisma.assessment.findMany({
+      where: {
+        therapistId: req.therapist.id,
+      },
+      orderBy: { createdAt: "asc" },
+      include: {
+        therapist: {
+          select: { name: true, licenseNumber: true, specialization: true },
+        },
+      },
+    });
+
+    // Match patient name case-insensitively
+    const patientAssessments = allAssessments.filter(
+      (a) => a.patientName.trim().toLowerCase() === rawName.toLowerCase()
+    );
+
+    if (patientAssessments.length === 0) {
+      return res.status(404).json({ error: "Pasien tidak ditemukan" });
+    }
+
+    const latest = patientAssessments[patientAssessments.length - 1];
+    const first = patientAssessments[0];
+
+    let totalScore = 0;
+    let maxScore = 0;
+    let totalHits = 0;
+    let painAbduction = 0;
+    let painFlexion = 0;
+    let painExternalRotation = 0;
+    let painInternalRotation = 0;
+    let painExtension = 0;
+    let painSessions = 0;
+
+    const sessionHistory = patientAssessments.map((a, idx) => {
+      totalScore += a.sessionScore;
+      if (a.sessionScore > maxScore) maxScore = a.sessionScore;
+      totalHits += a.sessionHits;
+
+      const hasPain =
+        a.painAbduction ||
+        a.painFlexion ||
+        a.painExternalRotation ||
+        a.painInternalRotation ||
+        a.painExtension;
+
+      if (hasPain) painSessions++;
+      if (a.painAbduction) painAbduction++;
+      if (a.painFlexion) painFlexion++;
+      if (a.painExternalRotation) painExternalRotation++;
+      if (a.painInternalRotation) painInternalRotation++;
+      if (a.painExtension) painExtension++;
+
+      return {
+        sessionNumber: idx + 1,
+        id: a.id,
+        date: a.createdAt,
+        missionId: a.missionId,
+        missionName: a.missionId === 1 ? "Apple Archer (Shoulder Flexion)" : "Garden Keeper (Reaching & Hand)",
+        level: a.sessionLevel,
+        score: a.sessionScore,
+        hits: a.sessionHits,
+        time: a.sessionTime || "—",
+        hasPain,
+        painAbduction: a.painAbduction,
+        painFlexion: a.painFlexion,
+        painExternalRotation: a.painExternalRotation,
+        painInternalRotation: a.painInternalRotation,
+        painExtension: a.painExtension,
+        notes: a.notes,
+        therapistName: a.therapist?.name || "Terapis",
+      };
+    });
+
+    const totalSessions = patientAssessments.length;
+
+    res.json({
+      patient: {
+        name: latest.patientName,
+        age: latest.patientAge,
+        firstSessionDate: first.createdAt,
+        lastSessionDate: latest.createdAt,
+        totalSessions,
+        latestLevel: latest.sessionLevel,
+        latestScore: latest.sessionScore,
+        avgScore: Math.round(totalScore / totalSessions),
+        maxScore,
+        avgHits: (totalHits / totalSessions).toFixed(1),
+        painFreeSessions: totalSessions - painSessions,
+        painSessionCount: painSessions,
+        painRatePercent: Math.round((painSessions / totalSessions) * 100),
+      },
+      painMetrics: {
+        abductionCount: painAbduction,
+        flexionCount: painFlexion,
+        externalRotationCount: painExternalRotation,
+        internalRotationCount: painInternalRotation,
+        extensionCount: painExtension,
+      },
+      sessionHistory, // ordered chronologically ascending
+    });
+  } catch (err) {
+    console.error("[Patient Summary Error]", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Patient Detail: Report Payload for PDF Generation ────────────────────────
+
+app.get("/api/patients/:name/report", authenticateToken, async (req, res) => {
+  try {
+    const rawName = decodeURIComponent(req.params.name).trim();
+    const therapist = await prisma.therapist.findUnique({
+      where: { id: req.therapist.id },
+      select: {
+        id: true,
+        name: true,
+        licenseNumber: true,
+        specialization: true,
+        email: true,
+        phoneNumber: true,
+      },
+    });
+
+    const allAssessments = await prisma.assessment.findMany({
+      where: { therapistId: req.therapist.id },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const patientAssessments = allAssessments.filter(
+      (a) => a.patientName.trim().toLowerCase() === rawName.toLowerCase()
+    );
+
+    if (patientAssessments.length === 0) {
+      return res.status(404).json({ error: "Pasien tidak ditemukan" });
+    }
+
+    const latest = patientAssessments[patientAssessments.length - 1];
+    const first = patientAssessments[0];
+
+    const painSessionsCount = patientAssessments.filter(
+      (a) =>
+        a.painAbduction ||
+        a.painFlexion ||
+        a.painExternalRotation ||
+        a.painInternalRotation ||
+        a.painExtension
+    ).length;
+    const painRate = Math.round((painSessionsCount / patientAssessments.length) * 100);
+    const latestNotes = latest.notes;
+
+    const dynamicRecommendation = latestNotes
+      ? `Evaluasi Klinis Sesi Terakhir: "${latestNotes}". Rekomendasi Terapi: Pasien telah menyelesaikan ${patientAssessments.length} sesi latihan aktif pada Level ${latest.sessionLevel} dengan akurasi ${latest.sessionHits}/10 target (Skor: ${latest.sessionScore}). ${
+          painRate > 0
+            ? `Terdapat keluhan nyeri pada ${painSessionsCount} dari ${patientAssessments.length} sesi (${painRate}%). Disarankan pembatasan elevasi lengan di atas zona nyeri dan kompres dingin pasca-latihan.`
+            : `Pasien telah mencapai kondisi bebas nyeri optimal (pain-free). Disarankan melanjutkan ke level kesulitan lebih tinggi untuk peningkatan ketahanan isometrik dan rentang gerak bahu.`
+        }`
+      : `Pasien telah menyelesaikan seluruh rangkaian ${patientAssessments.length} sesi latihan dengan tingkat kesulitan adaptif Level ${latest.sessionLevel}. Disarankan pemantauan ROM berkala.`;
+
+    const reportData = {
+      reportId: `MW-${Date.now().toString().slice(-6)}`,
+      generatedAt: new Date().toISOString(),
+      therapist,
+      patient: {
+        name: latest.patientName,
+        age: latest.patientAge,
+        firstSession: first.createdAt,
+        lastSession: latest.createdAt,
+        totalSessions: patientAssessments.length,
+        latestNotes,
+      },
+      recommendation: dynamicRecommendation,
+      sessions: patientAssessments.map((a, i) => ({
+        index: i + 1,
+        id: a.id,
+        date: a.createdAt,
+        missionId: a.missionId,
+        missionTitle: a.missionId === 1 ? "Apple Archer" : "Garden Keeper",
+        targetMovement: a.missionId === 1 ? "Shoulder Flexion & Elevation" : "Shoulder Abduction & Hand Reaching",
+        level: a.sessionLevel,
+        score: a.sessionScore,
+        hits: a.sessionHits,
+        time: a.sessionTime || "—",
+        painChecklist: {
+          abduction: a.painAbduction,
+          flexion: a.painFlexion,
+          externalRotation: a.painExternalRotation,
+          internalRotation: a.painInternalRotation,
+          extension: a.painExtension,
+        },
+        notes: a.notes || "Tidak ada catatan khusus dari terapis.",
+      })),
+    };
+
+    res.json({ report: reportData });
+  } catch (err) {
+    console.error("[Patient Report Error]", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── Seed database (calls prisma/seed.js dynamically) ──────────────────────────
 
 app.post("/api/dev/seed", async (req, res) => {
   try {
-    const defaultPassword = "movewall2026";
-    const hashedPassword = await bcrypt.hash(defaultPassword, 12);
-
-    const therapistsData = [
-      {
-        name: "Dr. Rina Setiawati, Sp.KFR",
-        username: "therapist01",
-        password: hashedPassword,
-        email: "rina.setiawati@movewall.ai",
-        specialization: "Rehabilitasi Medik & Shoulder ROM Therapy",
-        licenseNumber: "SIP-2026-001",
-        phoneNumber: "+62812345678",
-        role: "THERAPIST",
-        isActive: true,
-      },
-      {
-        name: "Dr. Budi Santoso, Sp.OT",
-        username: "therapist02",
-        password: hashedPassword,
-        email: "budi.santoso@movewall.ai",
-        specialization: "Sports Medicine & Upper Extremity Rehabilitation",
-        licenseNumber: "SIP-2026-002",
-        phoneNumber: "+62812987654",
-        role: "THERAPIST",
-        isActive: true,
-      },
-    ];
-
-    const results = [];
-    for (const data of therapistsData) {
-      const therapist = await prisma.therapist.upsert({
-        where: { username: data.username },
-        update: {
-          name: data.name,
-          email: data.email,
-          specialization: data.specialization,
-          licenseNumber: data.licenseNumber,
-          phoneNumber: data.phoneNumber,
-          role: data.role,
-          isActive: data.isActive,
-        },
-        create: data,
-        select: {
-          id: true,
-          name: true,
-          username: true,
-          email: true,
-          specialization: true,
-          licenseNumber: true,
-          role: true,
-          isActive: true,
-        },
-      });
-      results.push(therapist);
-    }
-
+    const { seedDatabase } = require("./prisma/seed");
+    await seedDatabase();
     res.status(201).json({
-      message: "2 data therapist berhasil di-seed!",
-      defaultPassword,
-      therapists: results,
+      message: "Database berhasil di-seed secara dinamis menggunakan dataset prisma/seed.js!",
+      credentials: [
+        { username: "therapist01", password: "movewall2026" },
+        { username: "therapist02", password: "movewall2026" },
+      ],
     });
   } catch (err) {
     console.error("[Seed Error]", err);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error: " + err.message });
   }
 });
 

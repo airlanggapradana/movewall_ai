@@ -271,3 +271,125 @@ node server.js
 | `game-ui/app.js` | ✅ MODIFIKASI | + auth guard + assessment dialog logic |
 | `game-ui/mission2.js` | ✅ MODIFIKASI | + auth guard + assessment dialog logic |
 | `game-ui/styles.css` | ✅ MODIFIKASI | + login page styles + assessment modal styles |
+
+---
+
+## 6. Task_3: Therapist Admin Dashboard & Patient PDF Reporting System
+
+### Ringkasan Eksekutif Task 3
+
+Pada Task 3, sistem MoveWall AI dilengkapi dengan **Portal Dashboard Admin & Analitik Klinis Terapis** (`game-ui/dashboard.html`) serta generator **Laporan Rekam Medis PDF per Pasien** berstandar klinis rumah sakit/rehabilitasi medik.
+
+Fitur ini memungkinkan terapis untuk:
+1. Memantau performa dan perkembangan pemulihan pasien dari sesi ke sesi secara longitudinal.
+2. Menganalisis korelasi keluhan nyeri sendi bahu (*Shoulder ROM Pain Checklist*) terhadap rentang gerak (abduksi, fleksi, rotasi internal/eksternal, ekstensi).
+3. Mengekspor dokumen rekam medis resmi dalam format PDF siap cetak dengan satu kali klik.
+
+---
+
+### Diagram Alur Data & Arsitektur Sistem Lengkap
+
+```mermaid
+graph TB
+    subgraph EdgeClient ["1. Edge Client & Gameplay Layer"]
+        M1["🎯 Misi 1: Apple Archer<br/>(Shoulder Flexion)"]
+        M2["🌿 Misi 2: Garden Keeper<br/>(Shoulder Reaching & Hand Tracking)"]
+        Form["📋 Assessment Form Dialog<br/>(Pain Checklist + Notes)"]
+        M1 --> Form
+        M2 --> Form
+    end
+
+    subgraph BackendAPI ["2. Backend API Service (Node.js + Express)"]
+        AuthMe["/api/auth/me<br/>(JWT Verification)"]
+        DashStats["/api/dashboard/stats<br/>(Agregasi KPI Klinik)"]
+        PatSummary["/api/patients/:name/summary<br/>(Deep Analytics & History)"]
+        PatReport["/api/patients/:name/report<br/>(Structured Medical Payload)"]
+    end
+
+    subgraph DatabaseLayer ["3. Database Layer (Prisma + PostgreSQL)"]
+        DB_T[("Tabel: therapists<br/>Akun, SIP, Spesialisasi")]
+        DB_A[("Tabel: assessments<br/>Pasien, ROM Pain, Skor, Hits, Notes")]
+    end
+
+    subgraph ClinicalDashboard ["4. Clinical Dashboard & PDF Engine"]
+        KPI["📊 Global KPI Overview<br/>Total Pasien, Total Sesi, Avg Skor, Prevalensi Nyeri"]
+        Directory["👥 Direktori & Pencarian Pasien<br/>Filter Nyeri / Bebas Nyeri"]
+        Analytics["🩺 Evaluasi Biomekanika<br/>Pain Matrix Bars + Score Trend"]
+        History["📜 Riwayat Longitudinal Sesi<br/>Tabel Terperinci Sesi #1..#N"]
+        PDF["📄 1-Click Clinical PDF Engine<br/>html2pdf.js + Kop Medis + Tanda Tangan"]
+    end
+
+    Form -- POST /api/assessment --> BackendAPI
+    BackendAPI <--> DatabaseLayer
+    ClinicalDashboard <--> BackendAPI
+    Analytics --> PDF
+    History --> PDF
+```
+
+---
+
+### Komponen Utama Dashboard Admin (`game-ui/dashboard.html` & `dashboard.js`)
+
+#### A. Global KPI Overview Cards
+- **Total Pasien Aktif**: Menghitung jumlah pasien unik yang terdaftar dan menjalani sesi bersama terapis.
+- **Total Sesi Latihan**: Total sesi rehabilitasi yang berhasil diselesaikan, dilengkapi rincian distribusi Misi 1 (Archer) vs Misi 2 (Garden).
+- **Rata-Rata Skor Sesi**: Rata-rata skor latihan seluruh sesi dan akurasi rata-rata hits/target per sesi.
+- **Prevalensi Nyeri ROM**: Persentase sesi latihan yang mendeteksi keluhan rasa nyeri pada salah satu gerakan bahu, beserta jumlah sesi bebas nyeri (*pain-free sessions*).
+
+#### B. Direktori & Pencarian Pasien Real-Time
+- Input pencarian interaktif untuk menemukan pasien berdasarkan nama.
+- Filter cepat: *Semua*, *Keluhan Nyeri*, dan *Bebas Nyeri*.
+- Avatar inisial dengan badge usia dan jumlah sesi selesai.
+
+#### C. Analisis Mendalam Pasien (Selected Patient Workspace)
+- **Header Banner Pasien**: Menampilkan nama lengkap, usia, total sesi, rentang periode latihan, dan tombol aksi utama **"Unduh Laporan PDF"**.
+- **Quick Stat Tiles**: Rata-rata skor, skor tertinggi (personal best), rata-rata target hits, tingkat keberhasilan adaptif, dan frekuensi nyeri.
+- **Checklist Nyeri per Gerakan ROM**: Visualisasi batang status berkode warna (Hijau: 0% bebas nyeri; Kuning: 1–50%; Merah: >50% nyeri menetap) untuk 5 gerakan anatomis:
+  1. *Fleksi Bahu (Shoulder Flexion / Elevasi Sagital)*
+  2. *Abduksi Bahu (Shoulder Abduction / Elevasi Koronal)*
+  3. *Rotasi Eksternal Bahu (External Rotation)*
+  4. *Rotasi Internal Bahu (Internal Rotation)*
+  5. *Ekstensi Bahu (Shoulder Extension)*
+- **Progresivitas Skor Sesi**: Grafik batang horizontal yang memetakan skor setiap sesi secara berurutan, level kesulitan yang dicapai, dan hits akurasi.
+- **Tabel Riwayat Longitudinal**: Rekam jejak setiap sesi secara kronologis mundur (sesi terbaru di atas) mencakup tanggal, waktu, nama misi, tingkat level, target hits, skor poin, tag keluhan nyeri yang terdeteksi, dan catatan klinis terapis.
+
+---
+
+### Generator Laporan PDF Pasien (`html2pdf.js`)
+
+Laporan PDF dirancang dengan layout kop medis resmi A4 siap cetak:
+1. **Kop Surat Resmi Medis**: *MOVEWALL AI CLINICAL REPORT* lengkap dengan ID Rekam Medis unik (`MW-xxxxxx`), tanggal cetak, dan status rekam terverifikasi.
+2. **Identitas Pasien & Terapis**: Nama pasien, usia, total sesi, periode latihan, nama terapis penanggung jawab, spesialisasi, dan nomor lisensi/SIP.
+3. **Ringkasan Eksekutif & Toleransi Latihan**: Matriks rata-rata skor, skor tertinggi, akurasi hits, dan prevalensi rasa sakit.
+4. **Tabel Evaluasi Nyeri per Gerakan ROM**: Rekapitulasi jumlah insidensi nyeri per gerakan sendi bahu beserta status toleransi klinis (*Optimal*, *Cukup Baik*, atau *Terganggu*).
+5. **Log Kronologis Seluruh Sesi**: Tabel lengkap sesi latihan beserta level, target hits, skor, status nyeri, dan catatan evaluasi terapis.
+6. **Rekomendasi Terapi & Blok Tanda Tangan**: Kolom anjuran tindak lanjut klinis serta kolom tanda tangan basah/digital dan stempel terapis.
+
+---
+
+### Endpoint Backend Baru (`game-ui/backend/server.js`)
+
+| Method | Endpoint | Auth | Deskripsi |
+|---|---|---|---|
+| `GET` | `/api/dashboard/stats` | JWT | Menghasilkan ringkasan agregat klinik: total pasien, total sesi, distribusi misi, rata-rata skor & hits, serta frekuensi keluhan nyeri ROM. |
+| `GET` | `/api/patients` | JWT | Mengambil daftar nama pasien unik beserta usia, tanggal sesi terakhir, dan jumlah sesi. |
+| `GET` | `/api/patients/:name/summary` | JWT | Menghasilkan analitik mendalam pasien tertentu: profil, metrik skor/hits, breakdown nyeri per gerakan, dan riwayat sesi kronologis. |
+| `GET` | `/api/patients/:name/report` | JWT | Menyediakan payload rekam medis terstruktur untuk perakitan dokumen PDF laporan klinis. |
+
+---
+
+### File yang Dibuat / Dimodifikasi pada Task 3:
+
+| File | Status | Keterangan |
+|---|---|---|
+| `game-ui/dashboard.html` | ✅ BARU | Halaman portal dashboard terapis, layout analitik, dan template cetak PDF |
+| `game-ui/dashboard.js` | ✅ BARU | Logika auth guard, fetching data analitik, switching pasien, dan ekspor PDF |
+| `Task_3.md` | ✅ BARU | Spesifikasi formal dan target pengerjaan Task 3 |
+| `game-ui/backend/server.js` | ✅ MODIFIKASI | Penambahan endpoint `/api/dashboard/stats`, `/api/patients/:name/summary`, dan `/api/patients/:name/report` |
+| `game-ui/backend/prisma/seed.js` | ✅ MODIFIKASI | Seeding data 4 pasien realistis (12 rekam sesi asesmen longitudinal) |
+| `game-ui/styles.css` | ✅ MODIFIKASI | Styling lengkap Dashboard Dark Clinical Theme dan aturan cetak dokumen PDF |
+| `game-ui/index.html` | ✅ MODIFIKASI | Penambahan navigasi pintas ke Dashboard Admin (`📊 Admin`) |
+| `game-ui/mission2.html` | ✅ MODIFIKASI | Penambahan navigasi pintas ke Dashboard Admin (`📊 Admin`) |
+| `game-ui/login.html` | ✅ MODIFIKASI | Redirect otomatis ke Dashboard Admin setelah login sukses |
+| `walkthrough.md` | ✅ MODIFIKASI | Pembaruan arsitektur sistem dan dokumentasi komprehensif Task 3 |
+

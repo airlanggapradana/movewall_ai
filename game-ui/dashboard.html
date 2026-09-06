@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MoveWall AI – Dashboard Admin Terapis & Statistik Pasien</title>
+    <meta name="description" content="Portal klinis terapis MoveWall AI: analisis statistik pasien, riwayat rehabilitasi ROM bahu, evaluasi asesmen, dan ekspor laporan rekam medis PDF." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css?v=3" />
+    <!-- Local html2pdf with fallback -->
+    <script src="./assets/html2pdf.bundle.min.js"></script>
+    <script>
+      if (typeof html2pdf === "undefined") {
+        document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>');
+      }
+    </script>
+  </head>
+  <body class="dashboard-body">
+    <!-- Top Navigation Bar -->
+    <header class="dash-navbar" role="banner">
+      <div class="dash-nav-brand">
+        <span class="dash-nav-logo">🧠</span>
+        <div>
+          <div class="dash-brand-title">MoveWall AI</div>
+          <div class="dash-brand-sub">Clinical Tele-Rehabilitation Portal</div>
+        </div>
+      </div>
+
+      <nav class="dash-nav-links" aria-label="Navigasi Utama">
+        <a href="./index.html" class="dash-nav-link" title="Mainkan Misi 1">
+          <span>🎯</span> Misi 1 (Archer)
+        </a>
+        <a href="./mission2.html" class="dash-nav-link" title="Mainkan Misi 2">
+          <span>🌿</span> Misi 2 (Garden)
+        </a>
+        <a href="./dashboard.html" class="dash-nav-link active" aria-current="page">
+          <span>📊</span> Dashboard Admin
+        </a>
+      </nav>
+
+      <div class="dash-nav-user">
+        <div class="dash-user-chip">
+          <div class="dash-avatar">👨‍⚕️</div>
+          <div class="dash-user-info">
+            <span id="dashTherapistName" class="dash-user-name">Memuat...</span>
+            <span id="dashTherapistSpec" class="dash-user-role">Terapis</span>
+          </div>
+        </div>
+        <button id="dashLogoutBtn" class="dash-btn-logout" title="Keluar dari sistem" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Keluar</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="dash-main-container">
+      <!-- Section: Global KPI Overview -->
+      <section class="dash-kpi-grid" aria-label="Statistik Utama">
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-header">
+            <span class="dash-kpi-title">Total Pasien</span>
+            <span class="dash-kpi-icon">👥</span>
+          </div>
+          <div class="dash-kpi-value" id="kpiTotalPatients">—</div>
+          <div class="dash-kpi-footer">
+            <span class="dash-kpi-badge positive">Terdaftar Aktif</span>
+            <span class="dash-kpi-subtext">Di bawah pengawasan terapis</span>
+          </div>
+        </div>
+
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-header">
+            <span class="dash-kpi-title">Total Sesi Latihan</span>
+            <span class="dash-kpi-icon">🎯</span>
+          </div>
+          <div class="dash-kpi-value" id="kpiTotalSessions">—</div>
+          <div class="dash-kpi-footer">
+            <span class="dash-kpi-breakdown" id="kpiMissionBreakdown">M1: 0 · M2: 0</span>
+            <span class="dash-kpi-subtext">Sesi selesai dievaluasi</span>
+          </div>
+        </div>
+
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-header">
+            <span class="dash-kpi-title">Rata-Rata Skor Sesi</span>
+            <span class="dash-kpi-icon">⭐</span>
+          </div>
+          <div class="dash-kpi-value" id="kpiAvgScore">—</div>
+          <div class="dash-kpi-footer">
+            <span class="dash-kpi-badge neutral" id="kpiAvgHits">Avg Hits: —</span>
+            <span class="dash-kpi-subtext">Performa biomekanika</span>
+          </div>
+        </div>
+
+        <div class="dash-kpi-card">
+          <div class="dash-kpi-header">
+            <span class="dash-kpi-title">Prevalensi Nyeri ROM</span>
+            <span class="dash-kpi-icon">🩺</span>
+          </div>
+          <div class="dash-kpi-value" id="kpiPainRate">—%</div>
+          <div class="dash-kpi-footer">
+            <span class="dash-kpi-badge warning" id="kpiPainFree">0 sesi bebas nyeri</span>
+            <span class="dash-kpi-subtext">Berdasarkan checklist terapis</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: 2-Column Patient Analytics Workspace -->
+      <section class="dash-workspace-grid">
+        <!-- Left Sidebar: Patient Directory -->
+        <aside class="dash-patient-sidebar">
+          <div class="dash-sidebar-header">
+            <h2 class="dash-sidebar-title">Daftar Pasien</h2>
+            <span id="dashPatientCountBadge" class="dash-count-pill">0 Pasien</span>
+          </div>
+
+          <div class="dash-search-box">
+            <svg class="dash-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="patientSearchInput" placeholder="Cari nama pasien..." autocomplete="off" />
+          </div>
+
+          <div class="dash-filter-chips">
+            <button class="dash-filter-btn active" data-filter="all" type="button">Semua</button>
+            <button class="dash-filter-btn" data-filter="pain" type="button">Keluhan Nyeri</button>
+            <button class="dash-filter-btn" data-filter="painfree" type="button">Bebas Nyeri</button>
+          </div>
+
+          <!-- Patient list container -->
+          <div class="dash-patient-list" id="patientListContainer" role="listbox">
+            <div class="dash-loading-state">Memuat data pasien...</div>
+          </div>
+        </aside>
+
+        <!-- Right Content: Active Patient Detail Workspace -->
+        <div class="dash-patient-content" id="patientDetailContent">
+          <!-- Placeholder when no patient selected -->
+          <div class="dash-empty-prompt" id="emptyPatientPrompt">
+            <div class="dash-empty-icon">👈</div>
+            <h3>Pilih Pasien</h3>
+            <p>Silakan pilih pasien dari panel di sebelah kiri untuk melihat statistik mendalam, riwayat latihan, evaluasi ROM, dan mengunduh laporan klinis PDF.</p>
+          </div>
+
+          <!-- Patient Profile Workspace (Hidden initially) -->
+          <div id="patientWorkspaceWrapper" class="hidden">
+            <!-- Patient Header Banner -->
+            <div class="dash-patient-banner">
+              <div class="dash-patient-banner-left">
+                <div class="dash-patient-big-avatar" id="pAvatar">👤</div>
+                <div>
+                  <div class="dash-patient-heading">
+                    <h2 id="pName" class="dash-patient-name">—</h2>
+                    <span id="pAgeBadge" class="dash-badge-age">— tahun</span>
+                  </div>
+                  <div class="dash-patient-subline">
+                    <span id="pSessionCount">0 Sesi Selesai</span>
+                    <span class="dash-dot-divider">·</span>
+                    <span id="pPeriod">Periode: —</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dash-patient-banner-actions">
+                <button id="btnDownloadPdf" class="dash-btn-pdf" type="button" title="Unduh langsung sebagai berkas file .pdf">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="12" y1="18" x2="12" y2="12"></line>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                  </svg>
+                  <span>Unduh File PDF (.pdf)</span>
+                </button>
+                <button id="btnPrintPdf" class="dash-btn-print" type="button" title="Buka dialog cetak atau Simpan sebagai PDF">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                    <rect x="6" y="14" width="12" height="8"></rect>
+                  </svg>
+                  <span>Cetak / Print PDF</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Patient Quick Stats Cards -->
+            <div class="dash-p-stats-row">
+              <div class="dash-p-stat-card">
+                <span class="dash-p-stat-label">Rata-rata Skor</span>
+                <strong class="dash-p-stat-val" id="pAvgScore">—</strong>
+                <span class="dash-p-stat-sub" id="pMaxScore">Max: —</span>
+              </div>
+              <div class="dash-p-stat-card">
+                <span class="dash-p-stat-label">Rata-rata Target Hits</span>
+                <strong class="dash-p-stat-val" id="pAvgHits">—</strong>
+                <span class="dash-p-stat-sub">dari 10 target per sesi</span>
+              </div>
+              <div class="dash-p-stat-card">
+                <span class="dash-p-stat-label">Level Tertinggi</span>
+                <strong class="dash-p-stat-val" id="pLatestLevel">Level —</strong>
+                <span class="dash-p-stat-sub">Tingkat kesulitan adaptif</span>
+              </div>
+              <div class="dash-p-stat-card">
+                <span class="dash-p-stat-label">Frekuensi Nyeri</span>
+                <strong class="dash-p-stat-val" id="pPainRate">—%</strong>
+                <span class="dash-p-stat-sub" id="pPainFreeSessions">— sesi bebas nyeri</span>
+              </div>
+            </div>
+
+            <!-- Two-Panel: Pain Matrix & Score Progress -->
+            <div class="dash-analytics-row">
+              <!-- Pain Matrix per Movement -->
+              <div class="dash-analytics-card">
+                <div class="dash-card-header">
+                  <h3 class="dash-card-title">Checklist Nyeri per Gerakan ROM</h3>
+                  <span class="dash-card-badge">Biomekanika Bahu</span>
+                </div>
+                <p class="dash-card-desc">Frekuensi rasa nyeri yang dilaporkan saat melakukan gerakan sendi bahu:</p>
+
+                <div class="dash-pain-matrix" id="painMatrixContainer">
+                  <!-- Generated dynamically in JS -->
+                </div>
+              </div>
+
+              <!-- Score Progression -->
+              <div class="dash-analytics-card">
+                <div class="dash-card-header">
+                  <h3 class="dash-card-title">Progres Skor & Level Latihan</h3>
+                  <span class="dash-card-badge">Performa Sesi</span>
+                </div>
+                <p class="dash-card-desc">Perkembangan skor yang diraih pasien pada setiap sesi latihan berturut-turut:</p>
+
+                <div class="dash-chart-box">
+                  <canvas id="uiTrendCanvas" width="560" height="140" style="width: 100%; height: auto; display: block; border-radius: 8px; margin-bottom: 12px;"></canvas>
+                </div>
+
+                <div class="dash-score-progress-list" id="scoreProgressContainer">
+                  <!-- Generated dynamically in JS -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Section: Full Chronological Session & Assessment Table -->
+            <div class="dash-table-card">
+              <div class="dash-card-header">
+                <div>
+                  <h3 class="dash-card-title">Riwayat Lengkap Latihan & Catatan Asesmen</h3>
+                  <p class="dash-card-desc">Rekam jejak setiap misi, performa numerik, checklist rasa sakit, dan catatan klinis dari terapis.</p>
+                </div>
+                <span class="dash-table-badge" id="pTableCountBadge">0 Sesi</span>
+              </div>
+
+              <div class="dash-table-wrapper">
+                <table class="dash-table" aria-label="Tabel Riwayat Sesi Pasien">
+                  <thead>
+                    <tr>
+                      <th>Sesi</th>
+                      <th>Tanggal & Waktu</th>
+                      <th>Misi</th>
+                      <th>Level</th>
+                      <th>Durasi</th>
+                      <th>Hits</th>
+                      <th>Skor</th>
+                      <th>Keluhan Nyeri ROM</th>
+                      <th>Catatan Terapis</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sessionTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         HIDDEN PDF REPORT TEMPLATE CONTAINER
+         Layout khusus untuk konversi ke format cetak PDF medis A4
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="pdfReportContainer" class="pdf-report-hidden-container">
+      <div id="pdfReportContent" class="pdf-report-document">
+        <!-- Letterhead Kop Medis -->
+        <div class="pdf-header">
+          <div class="pdf-brand">
+            <div class="pdf-logo-box">🧠</div>
+            <div>
+              <h1 class="pdf-title">MOVEWALL AI CLINICAL REPORT</h1>
+              <p class="pdf-subtitle">Sistem Tele-Rehabilitasi Interaktif Proyeksi Dinding & Kinematika Bahu</p>
+            </div>
+          </div>
+          <div class="pdf-meta">
+            <div class="pdf-meta-item"><strong>ID Rekam:</strong> <span id="pdfReportId">MW-000000</span></div>
+            <div class="pdf-meta-item"><strong>Tanggal Cetak:</strong> <span id="pdfGeneratedDate">—</span></div>
+            <div class="pdf-meta-item"><strong>Status:</strong> <span class="pdf-badge-verified">Verified Clinical Record</span></div>
+          </div>
+        </div>
+
+        <div class="pdf-divider"></div>
+
+        <!-- Demographic Info Cards -->
+        <div class="pdf-info-grid">
+          <div class="pdf-info-box">
+            <h3 class="pdf-box-title">Identitas Pasien</h3>
+            <table class="pdf-meta-table">
+              <tr>
+                <td>Nama Pasien</td>
+                <td>: <strong id="pdfPatientName">—</strong></td>
+              </tr>
+              <tr>
+                <td>Usia</td>
+                <td>: <span id="pdfPatientAge">— tahun</span></td>
+              </tr>
+              <tr>
+                <td>Total Sesi</td>
+                <td>: <span id="pdfTotalSessions">— sesi</span></td>
+              </tr>
+              <tr>
+                <td>Periode Latihan</td>
+                <td>: <span id="pdfPeriod">—</span></td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="pdf-info-box">
+            <h3 class="pdf-box-title">Dokter / Terapis Pemeriksa</h3>
+            <table class="pdf-meta-table">
+              <tr>
+                <td>Nama Terapis</td>
+                <td>: <strong id="pdfTherapistName">—</strong></td>
+              </tr>
+              <tr>
+                <td>Nomor SIP / Lisensi</td>
+                <td>: <span id="pdfTherapistLicense">—</span></td>
+              </tr>
+              <tr>
+                <td>Spesialisasi</td>
+                <td>: <span id="pdfTherapistSpec">—</span></td>
+              </tr>
+              <tr>
+                <td>Kontak</td>
+                <td>: <span id="pdfTherapistEmail">—</span></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- Summary Clinical Findings -->
+        <div class="pdf-section">
+          <h3 class="pdf-section-title">Ringkasan Metrik & Toleransi Latihan Pasien</h3>
+          <div class="pdf-kpi-summary">
+            <div class="pdf-kpi-col">
+              <span class="pdf-kpi-lbl">Rata-rata Skor</span>
+              <strong class="pdf-kpi-num" id="pdfAvgScore">0</strong>
+            </div>
+            <div class="pdf-kpi-col">
+              <span class="pdf-kpi-lbl">Skor Tertinggi</span>
+              <strong class="pdf-kpi-num" id="pdfMaxScore">0</strong>
+            </div>
+            <div class="pdf-kpi-col">
+              <span class="pdf-kpi-lbl">Akurasi Rata-rata Hits</span>
+              <strong class="pdf-kpi-num" id="pdfAvgHits">0 / 10</strong>
+            </div>
+            <div class="pdf-kpi-col">
+              <span class="pdf-kpi-lbl">Prevalensi Nyeri</span>
+              <strong class="pdf-kpi-num" id="pdfPainRate">0%</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Graphic Progression by Date/Time -->
+        <div class="pdf-section">
+          <h3 class="pdf-section-title">Grafik Tren Progresi Performa Latihan Berdasarkan Waktu</h3>
+          <div class="pdf-chart-box">
+            <canvas id="pdfTrendCanvas" width="720" height="170" style="width: 100%; height: auto; display: block; border-radius: 6px;"></canvas>
+            <div class="pdf-chart-legend">
+              <span class="pdf-legend-item"><span class="pdf-legend-dot blue"></span> Garis Skor Latihan (Poin)</span>
+              <span class="pdf-legend-item"><span class="pdf-legend-dot green"></span> Sesi Bebas Nyeri (Optimal)</span>
+              <span class="pdf-legend-item"><span class="pdf-legend-dot red"></span> Sesi dengan Keluhan Nyeri</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ROM Pain Checklist Summary Table -->
+        <div class="pdf-section">
+          <h3 class="pdf-section-title">Evaluasi Nyeri Berdasarkan Gerakan ROM (Range of Motion)</h3>
+          <table class="pdf-table">
+            <thead>
+              <tr>
+                <th>Gerakan Fungsional Bahu</th>
+                <th>Target Biomekanika Misi</th>
+                <th>Insidensi Nyeri</th>
+                <th>Tingkat Toleransi Klinis</th>
+              </tr>
+            </thead>
+            <tbody id="pdfPainSummaryTbody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Detailed Session History Log -->
+        <div class="pdf-section">
+          <h3 class="pdf-section-title">Log Kronologis Sesi & Catatan Asesmen</h3>
+          <table class="pdf-table pdf-table-sessions">
+            <thead>
+              <tr>
+                <th style="width: 5%">#</th>
+                <th style="width: 14%">Tanggal</th>
+                <th style="width: 18%">Misi Rehabilitasi</th>
+                <th style="width: 7%">Level</th>
+                <th style="width: 8%">Durasi</th>
+                <th style="width: 7%">Hits</th>
+                <th style="width: 9%">Skor</th>
+                <th style="width: 14%">Nyeri Terdeteksi</th>
+                <th style="width: 18%">Catatan Terapis</th>
+              </tr>
+            </thead>
+            <tbody id="pdfSessionHistoryTbody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Therapist Recommendation & Signature Block -->
+        <div class="pdf-section pdf-signature-section">
+          <div class="pdf-recommendation-box">
+            <h4 class="pdf-rec-title">Rekomendasi Terapi Lanjutan:</h4>
+            <p id="pdfRecommendationText" class="pdf-rec-text">
+              Memuat rekomendasi klinis dinamis...
+            </p>
+          </div>
+
+          <div class="pdf-sig-block">
+            <p class="pdf-sig-city">Jakarta, <span id="pdfSigDate">—</span></p>
+            <p class="pdf-sig-role">Terapis Penanggung Jawab,</p>
+            <div class="pdf-sig-space"></div>
+            <strong id="pdfSigName" class="pdf-sig-name">—</strong>
+            <p id="pdfSigLicense" class="pdf-sig-lic">SIP: —</p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="pdf-doc-footer">
+          <span>MoveWall AI &bull; Tele-Rehabilitation Telemetry & Clinical System &bull; Dokumen Rahasia Medis</span>
+          <span>Halaman 1 / 1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Script Logic -->
+    <script src="./dashboard.js?v=2"></script>
+  </body>
+</html>

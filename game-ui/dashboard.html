@@ -3,12 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MoveWall AI – Dashboard Admin Terapis & Statistik Pasien</title>
-    <meta name="description" content="Portal klinis terapis MoveWall AI: analisis statistik pasien, riwayat rehabilitasi ROM bahu, evaluasi asesmen, dan ekspor laporan rekam medis PDF." />
+    <title>MoveWall AI — Dashboard Terapis & Statistik Pasien (Studio v1.0)</title>
+    <meta name="description" content="Portal klinis terapis MoveWall AI: analisis statistik pasien, riwayat rehabilitasi ROM bahu, evaluasi keluhan nyeri, dan ekspor laporan rekam medis PDF." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=3" />
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,400..700;1,400..700&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" type="image/png" href="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" />
     <!-- Local html2pdf with fallback -->
     <script src="./assets/html2pdf.bundle.min.js"></script>
     <script>
@@ -17,39 +18,64 @@
       }
     </script>
   </head>
-  <body class="dashboard-body">
-    <!-- Top Navigation Bar -->
+  <body class="dashboard-body" data-surface="studio">
+    <!-- Top Navigation Bar (Studio Mode) -->
     <header class="dash-navbar" role="banner">
       <div class="dash-nav-brand">
-        <span class="dash-nav-logo">🧠</span>
-        <div>
-          <div class="dash-brand-title">MoveWall AI</div>
-          <div class="dash-brand-sub">Clinical Tele-Rehabilitation Portal</div>
+        <a href="./dashboard.html" class="dash-nav-brand-link" title="MoveWall AI — Dashboard Terapis">
+          <img src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" alt="MoveWall AI" class="dash-nav-logo-img" />
+        </a>
+        <div class="dash-nav-divider" aria-hidden="true"></div>
+        <div class="dash-brand-info">
+          <div class="dash-brand-sub">Portal Klinis & Tele-Rehabilitasi (Studio v1.0)</div>
         </div>
       </div>
 
+      <!-- Navigation links with bespoke line SVGs -->
       <nav class="dash-nav-links" aria-label="Navigasi Utama">
         <a href="./index.html" class="dash-nav-link" title="Mainkan Misi 1">
-          <span>🎯</span> Misi 1 (Archer)
+          <svg class="dash-nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="6"/>
+            <circle cx="12" cy="12" r="2"/>
+          </svg>
+          <span>Misi 1 (Archer)</span>
         </a>
         <a href="./mission2.html" class="dash-nav-link" title="Mainkan Misi 2">
-          <span>🌿</span> Misi 2 (Garden)
+          <svg class="dash-nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2a9 9 0 0 1 9 9c0 4.97-4.03 9-9 9a9 9 0 0 1-9-9c0-4.97 4.03-9 9-9z"/>
+            <path d="M12 7v10"/>
+            <path d="M8 12c2-2 4-2 4 0s2 2 4 0"/>
+          </svg>
+          <span>Misi 2 (Garden)</span>
         </a>
         <a href="./dashboard.html" class="dash-nav-link active" aria-current="page">
-          <span>📊</span> Dashboard Admin
+          <svg class="dash-nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <span>Dashboard Terapis</span>
         </a>
       </nav>
 
+      <!-- Therapist Profile & RBAC Role Chip -->
       <div class="dash-nav-user">
         <div class="dash-user-chip">
-          <div class="dash-avatar">👨‍⚕️</div>
+          <div class="dash-avatar" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
           <div class="dash-user-info">
             <span id="dashTherapistName" class="dash-user-name">Memuat...</span>
-            <span id="dashTherapistSpec" class="dash-user-role">Terapis</span>
+            <div class="dash-user-meta">
+              <span id="dashTherapistSpec" class="dash-user-role">Terapis</span>
+              <span class="dash-role-badge">Akses Penuh</span>
+            </div>
           </div>
         </div>
         <button id="dashLogoutBtn" class="dash-btn-logout" title="Keluar dari sistem" type="button">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
             <polyline points="16 17 21 12 16 7"></polyline>
             <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -61,96 +87,134 @@
 
     <!-- Main Dashboard Container -->
     <main class="dash-main-container">
-      <!-- Section: Global KPI Overview -->
-      <section class="dash-kpi-grid" aria-label="Statistik Utama">
+      <!-- Section: Global KPI Overview (Studio Paper Cards) -->
+      <section class="dash-kpi-grid" aria-label="Statistik Utama Terapis">
         <div class="dash-kpi-card">
           <div class="dash-kpi-header">
-            <span class="dash-kpi-title">Total Pasien</span>
-            <span class="dash-kpi-icon">👥</span>
+            <span class="dash-kpi-title">Total Pasien Terdaftar</span>
+            <span class="dash-kpi-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </span>
           </div>
           <div class="dash-kpi-value" id="kpiTotalPatients">—</div>
           <div class="dash-kpi-footer">
-            <span class="dash-kpi-badge positive">Terdaftar Aktif</span>
-            <span class="dash-kpi-subtext">Di bawah pengawasan terapis</span>
+            <span class="dash-kpi-badge positive"><span class="badge-shape">●</span> Terdaftar Aktif</span>
+            <span class="dash-kpi-subtext">Di bawah pengawasan klinis terapis</span>
           </div>
         </div>
 
         <div class="dash-kpi-card">
           <div class="dash-kpi-header">
-            <span class="dash-kpi-title">Total Sesi Latihan</span>
-            <span class="dash-kpi-icon">🎯</span>
+            <span class="dash-kpi-title">Total Sesi Selesai</span>
+            <span class="dash-kpi-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </span>
           </div>
           <div class="dash-kpi-value" id="kpiTotalSessions">—</div>
           <div class="dash-kpi-footer">
             <span class="dash-kpi-breakdown" id="kpiMissionBreakdown">M1: 0 · M2: 0</span>
-            <span class="dash-kpi-subtext">Sesi selesai dievaluasi</span>
+            <span class="dash-kpi-subtext">Sesi telah tervalidasi sistem</span>
           </div>
         </div>
 
         <div class="dash-kpi-card">
           <div class="dash-kpi-header">
             <span class="dash-kpi-title">Rata-Rata Skor Sesi</span>
-            <span class="dash-kpi-icon">⭐</span>
+            <span class="dash-kpi-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+            </span>
           </div>
           <div class="dash-kpi-value" id="kpiAvgScore">—</div>
           <div class="dash-kpi-footer">
-            <span class="dash-kpi-badge neutral" id="kpiAvgHits">Avg Hits: —</span>
-            <span class="dash-kpi-subtext">Performa biomekanika</span>
+            <span class="dash-kpi-badge neutral" id="kpiAvgHits"><span class="badge-shape">◆</span> Avg Hits: —</span>
+            <span class="dash-kpi-subtext">Performa biomekanika & capaian target</span>
           </div>
         </div>
 
         <div class="dash-kpi-card">
           <div class="dash-kpi-header">
             <span class="dash-kpi-title">Prevalensi Nyeri ROM</span>
-            <span class="dash-kpi-icon">🩺</span>
+            <span class="dash-kpi-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+            </span>
           </div>
           <div class="dash-kpi-value" id="kpiPainRate">—%</div>
           <div class="dash-kpi-footer">
-            <span class="dash-kpi-badge warning" id="kpiPainFree">0 sesi bebas nyeri</span>
-            <span class="dash-kpi-subtext">Berdasarkan checklist terapis</span>
+            <span class="dash-kpi-badge warning" id="kpiPainFree"><span class="badge-shape">▲</span> 0 sesi bebas nyeri</span>
+            <span class="dash-kpi-subtext">Berdasarkan evaluasi checklist terapis</span>
           </div>
         </div>
       </section>
 
-      <!-- Section: 2-Column Patient Analytics Workspace -->
+      <!-- Section: 2-Column Patient Analytics Workspace (Triage FR-D.1) -->
       <section class="dash-workspace-grid">
-        <!-- Left Sidebar: Patient Directory -->
+        <!-- Left Column: Patient Directory & Triage -->
         <aside class="dash-patient-sidebar">
           <div class="dash-sidebar-header">
             <h2 class="dash-sidebar-title">Daftar Pasien</h2>
             <span id="dashPatientCountBadge" class="dash-count-pill">0 Pasien</span>
           </div>
 
+          <!-- Search Input -->
           <div class="dash-search-box">
-            <svg class="dash-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg class="dash-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             <input type="text" id="patientSearchInput" placeholder="Cari nama pasien..." autocomplete="off" />
           </div>
 
+          <!-- Triage Filter Chips (Dual-Indicator: Color + Shape + Text) -->
           <div class="dash-filter-chips">
             <button class="dash-filter-btn active" data-filter="all" type="button">Semua</button>
-            <button class="dash-filter-btn" data-filter="pain" type="button">Keluhan Nyeri</button>
-            <button class="dash-filter-btn" data-filter="painfree" type="button">Bebas Nyeri</button>
+            <button class="dash-filter-btn" data-filter="pain" type="button">
+              <span class="chip-shape">▲</span> Keluhan Nyeri
+            </button>
+            <button class="dash-filter-btn" data-filter="painfree" type="button">
+              <span class="chip-shape">●</span> Bebas Nyeri
+            </button>
           </div>
 
-          <!-- Patient list container -->
+          <!-- Patient List Container -->
           <div class="dash-patient-list" id="patientListContainer" role="listbox">
             <div class="dash-loading-state">Memuat data pasien...</div>
           </div>
         </aside>
 
-        <!-- Right Content: Active Patient Detail Workspace -->
+        <!-- Right Column: Active Patient Detail Workspace -->
         <div class="dash-patient-content" id="patientDetailContent">
           <!-- Placeholder when no patient selected -->
           <div class="dash-empty-prompt" id="emptyPatientPrompt">
-            <div class="dash-empty-icon">👈</div>
-            <h3>Pilih Pasien</h3>
-            <p>Silakan pilih pasien dari panel di sebelah kiri untuk melihat statistik mendalam, riwayat latihan, evaluasi ROM, dan mengunduh laporan klinis PDF.</p>
+            <div class="dash-empty-icon" aria-hidden="true">
+              <svg width="48" height="48" viewBox="0 0 56 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 6 32 A 22 22 0 0 1 50 32" stroke="#8C8472" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="4" y1="32" x2="52" y2="32" stroke="#8C8472" stroke-width="2" stroke-linecap="round"/>
+                <line x1="28" y1="10" x2="28" y2="16" stroke="#8C8472" stroke-width="2"/>
+                <circle cx="28" cy="32" r="2.5" fill="#8C8472"/>
+                <circle cx="28" cy="10" r="3.5" fill="#C2410C"/>
+              </svg>
+            </div>
+            <h3>Pilih Pasien dari Panel Kiri</h3>
+            <p>
+              Silakan pilih pasien untuk melihat riwayat kinematika ROM bahu, evaluasi toleransi nyeri, progres level latihan, serta mengunduh dokumen rekam medis PDF.
+            </p>
           </div>
 
-          <!-- Patient Profile Workspace (Hidden initially) -->
+          <!-- Patient Profile Workspace (Hidden initially until patient selected) -->
           <div id="patientWorkspaceWrapper" class="hidden">
             <!-- Patient Header Banner -->
             <div class="dash-patient-banner">
@@ -163,15 +227,16 @@
                   </div>
                   <div class="dash-patient-subline">
                     <span id="pSessionCount">0 Sesi Selesai</span>
-                    <span class="dash-dot-divider">·</span>
+                    <span class="dash-dot-divider" aria-hidden="true">&middot;</span>
                     <span id="pPeriod">Periode: —</span>
                   </div>
                 </div>
               </div>
 
+              <!-- Action buttons for Medical PDF Report -->
               <div class="dash-patient-banner-actions">
                 <button id="btnDownloadPdf" class="dash-btn-pdf" type="button" title="Unduh langsung sebagai berkas file .pdf">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                     <polyline points="14 2 14 8 20 8"></polyline>
                     <line x1="12" y1="18" x2="12" y2="12"></line>
@@ -180,7 +245,7 @@
                   <span>Unduh File PDF (.pdf)</span>
                 </button>
                 <button id="btnPrintPdf" class="dash-btn-print" type="button" title="Buka dialog cetak atau Simpan sebagai PDF">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="6 9 6 2 18 2 18 9"></polyline>
                     <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
                     <rect x="6" y="14" width="12" height="8"></rect>
@@ -193,7 +258,7 @@
             <!-- Patient Quick Stats Cards -->
             <div class="dash-p-stats-row">
               <div class="dash-p-stat-card">
-                <span class="dash-p-stat-label">Rata-rata Skor</span>
+                <span class="dash-p-stat-label">Rata-rata Skor Sesi</span>
                 <strong class="dash-p-stat-val" id="pAvgScore">—</strong>
                 <span class="dash-p-stat-sub" id="pMaxScore">Max: —</span>
               </div>
@@ -203,12 +268,12 @@
                 <span class="dash-p-stat-sub">dari 10 target per sesi</span>
               </div>
               <div class="dash-p-stat-card">
-                <span class="dash-p-stat-label">Level Tertinggi</span>
+                <span class="dash-p-stat-label">Level Tertinggi Adaptif</span>
                 <strong class="dash-p-stat-val" id="pLatestLevel">Level —</strong>
-                <span class="dash-p-stat-sub">Tingkat kesulitan adaptif</span>
+                <span class="dash-p-stat-sub">Tingkat kesulitan klinis</span>
               </div>
               <div class="dash-p-stat-card">
-                <span class="dash-p-stat-label">Frekuensi Nyeri</span>
+                <span class="dash-p-stat-label">Frekuensi Keluhan Nyeri</span>
                 <strong class="dash-p-stat-val" id="pPainRate">—%</strong>
                 <span class="dash-p-stat-sub" id="pPainFreeSessions">— sesi bebas nyeri</span>
               </div>
@@ -225,34 +290,43 @@
                 <p class="dash-card-desc">Frekuensi rasa nyeri yang dilaporkan saat melakukan gerakan sendi bahu:</p>
 
                 <div class="dash-pain-matrix" id="painMatrixContainer">
-                  <!-- Generated dynamically in JS -->
+                  <!-- Populated dynamically in JS -->
                 </div>
               </div>
 
-              <!-- Score Progression -->
+              <!-- Score Progression & Estimasi Kamera Chart (Temuan #8 & FR-D.2) -->
               <div class="dash-analytics-card">
                 <div class="dash-card-header">
                   <h3 class="dash-card-title">Progres Skor & Level Latihan</h3>
-                  <span class="dash-card-badge">Performa Sesi</span>
+                  <!-- Tag Estimasi Kamera Wajib sesuai PRD Temuan #8 -->
+                  <span class="dash-card-badge badge-camera-tag">Estimasi kamera</span>
                 </div>
                 <p class="dash-card-desc">Perkembangan skor yang diraih pasien pada setiap sesi latihan berturut-turut:</p>
 
                 <div class="dash-chart-box">
-                  <canvas id="uiTrendCanvas" width="560" height="140" style="width: 100%; height: auto; display: block; border-radius: 8px; margin-bottom: 12px;"></canvas>
+                  <canvas id="uiTrendCanvas" width="560" height="150"></canvas>
+                  <div class="dash-chart-legend">
+                    <span class="legend-item"><span class="legend-dot reach">●</span> Sesi Bebas Nyeri</span>
+                    <span class="legend-item"><span class="legend-dot comp">▲</span> Sesi Keluhan Nyeri</span>
+                    <span class="legend-item"><span class="legend-line line-main"></span> Garis Skor</span>
+                    <span class="legend-item"><span class="legend-line line-ceiling"></span> Batas Aman / Ceiling</span>
+                  </div>
                 </div>
 
                 <div class="dash-score-progress-list" id="scoreProgressContainer">
-                  <!-- Generated dynamically in JS -->
+                  <!-- Populated dynamically in JS -->
                 </div>
               </div>
             </div>
 
-            <!-- Section: Full Chronological Session & Assessment Table -->
+            <!-- Full Chronological Session & Assessment Table (FR-D.4 & FR-D.5) -->
             <div class="dash-table-card">
               <div class="dash-card-header">
                 <div>
                   <h3 class="dash-card-title">Riwayat Lengkap Latihan & Catatan Asesmen</h3>
-                  <p class="dash-card-desc">Rekam jejak setiap misi, performa numerik, checklist rasa sakit, dan catatan klinis dari terapis.</p>
+                  <p class="dash-card-desc">
+                    Rekam jejak setiap sesi, performa numerik, checklist rasa sakit, dan pemisahan data otomatis sistem vs catatan klinis terapis (FR-D.5).
+                  </p>
                 </div>
                 <span class="dash-table-badge" id="pTableCountBadge">0 Sesi</span>
               </div>
@@ -261,19 +335,19 @@
                 <table class="dash-table" aria-label="Tabel Riwayat Sesi Pasien">
                   <thead>
                     <tr>
-                      <th>Sesi</th>
-                      <th>Tanggal & Waktu</th>
-                      <th>Misi</th>
-                      <th>Level</th>
-                      <th>Durasi</th>
-                      <th>Hits</th>
-                      <th>Skor</th>
-                      <th>Keluhan Nyeri ROM</th>
-                      <th>Catatan Terapis</th>
+                      <th style="width: 5%">Sesi</th>
+                      <th style="width: 14%">Tanggal & Waktu</th>
+                      <th style="width: 13%">Misi</th>
+                      <th style="width: 8%">Level</th>
+                      <th style="width: 8%">Durasi</th>
+                      <th style="width: 7%">Hits</th>
+                      <th style="width: 8%">Skor</th>
+                      <th style="width: 15%">Keluhan Nyeri ROM</th>
+                      <th style="width: 22%">Catatan Terapis vs Data Otomatis</th>
                     </tr>
                   </thead>
                   <tbody id="sessionTableBody">
-                    <!-- Populated dynamically -->
+                    <!-- Populated dynamically in JS -->
                   </tbody>
                 </table>
               </div>
@@ -292,10 +366,11 @@
         <!-- Letterhead Kop Medis -->
         <div class="pdf-header">
           <div class="pdf-brand">
-            <div class="pdf-logo-box">🧠</div>
+            <img src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" alt="MoveWall AI" class="pdf-logo-img" />
+            <div class="pdf-brand-divider" aria-hidden="true"></div>
             <div>
               <h1 class="pdf-title">MOVEWALL AI CLINICAL REPORT</h1>
-              <p class="pdf-subtitle">Sistem Tele-Rehabilitasi Interaktif Proyeksi Dinding & Kinematika Bahu</p>
+              <p class="pdf-subtitle">Sistem Tele-Rehabilitasi Kinematika & Biomekanika Sendi Bahu</p>
             </div>
           </div>
           <div class="pdf-meta">
@@ -381,9 +456,9 @@
         <div class="pdf-section">
           <h3 class="pdf-section-title">Grafik Tren Progresi Performa Latihan Berdasarkan Waktu</h3>
           <div class="pdf-chart-box">
-            <canvas id="pdfTrendCanvas" width="720" height="170" style="width: 100%; height: auto; display: block; border-radius: 6px;"></canvas>
+            <canvas id="pdfTrendCanvas" width="720" height="170"></canvas>
             <div class="pdf-chart-legend">
-              <span class="pdf-legend-item"><span class="pdf-legend-dot blue"></span> Garis Skor Latihan (Poin)</span>
+              <span class="pdf-legend-item"><span class="pdf-legend-dot teal"></span> Garis Skor Sesi (Poin)</span>
               <span class="pdf-legend-item"><span class="pdf-legend-dot green"></span> Sesi Bebas Nyeri (Optimal)</span>
               <span class="pdf-legend-item"><span class="pdf-legend-dot red"></span> Sesi dengan Keluhan Nyeri</span>
             </div>
@@ -458,6 +533,6 @@
     </div>
 
     <!-- Script Logic -->
-    <script src="./dashboard.js?v=2"></script>
+    <script src="./dashboard.js"></script>
   </body>
 </html>

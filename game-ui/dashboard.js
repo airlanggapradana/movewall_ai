@@ -204,8 +204,8 @@ function renderPatientList() {
 
     const initials = p.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
     const statusChip = (p.hasPainHistory || p.latestHasPain)
-      ? `<span class="dash-p-status-chip pain" title="Ada keluhan rasa nyeri">⚠️ Nyeri</span>`
-      : `<span class="dash-p-status-chip free" title="Bebas keluhan rasa nyeri">✅ Bebas Nyeri</span>`;
+      ? `<span class="dash-p-status-chip pain" title="Ada keluhan rasa nyeri"><span class="chip-shape">▲</span> Keluhan Nyeri</span>`
+      : `<span class="dash-p-status-chip free" title="Bebas keluhan rasa nyeri"><span class="chip-shape">●</span> Bebas Nyeri</span>`;
 
     item.innerHTML = `
       <div class="dash-p-item-avatar">${initials}</div>
@@ -242,7 +242,6 @@ filterBtns.forEach((btn) => {
     filterBtns.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     activeFilter = btn.dataset.filter;
-    // Filtering logic can be combined with search
     renderPatientList();
   });
 });
@@ -257,9 +256,10 @@ async function selectPatient(name) {
     emptyPrompt.classList.add("hidden");
     patientWorkspace.classList.remove("hidden");
 
-    // Show loading skeleton
+    // Show loading skeleton & patient initials avatar
     pName.textContent = name;
     pSessionCount.textContent = "Memuat rincian...";
+    pAvatar.textContent = name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 
     const res = await fetch(`${API_BASE}/patients/${encodeURIComponent(name)}/summary`, {
       headers: { Authorization: `Bearer ${currentToken}` },
@@ -289,7 +289,7 @@ async function selectPatient(name) {
 
     // Render Score Progression Bars
     renderScoreProgress(sessions);
-    drawTrendChart(document.getElementById("uiTrendCanvas"), sessions, true);
+    drawTrendChart(document.getElementById("uiTrendCanvas"), sessions, false);
 
     // Render Session Table
     renderSessionTable(sessions);
@@ -298,7 +298,7 @@ async function selectPatient(name) {
   }
 }
 
-// ── Biomechanics & Score Timeline Trend Chart ────────────────────────────────
+// ── Biomechanics & Score Timeline Trend Chart (Studio Palette) ───────────────
 
 function drawTrendChart(canvas, sessions, isDark = false) {
   if (!canvas) return;
@@ -306,22 +306,22 @@ function drawTrendChart(canvas, sessions, isDark = false) {
   const w = canvas.width;
   const h = canvas.height;
 
-  // Clear background
+  // Clear background (Studio clean white canvas)
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = isDark ? "#0f172a" : "#f8fafc";
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, h);
 
   if (!sessions || sessions.length === 0) {
-    ctx.fillStyle = isDark ? "#64748b" : "#94a3b8";
-    ctx.font = "11px Inter, sans-serif";
+    ctx.fillStyle = "#5C6B66";
+    ctx.font = '12px "Atkinson Hyperlegible Next", sans-serif';
     ctx.textAlign = "center";
     ctx.fillText("Belum ada data sesi untuk digambar pada grafik", w / 2, h / 2);
     return;
   }
 
   // Padding
-  const padLeft = 50;
-  const padRight = 40;
+  const padLeft = 48;
+  const padRight = 36;
   const padTop = 26;
   const padBottom = 34;
 
@@ -331,27 +331,43 @@ function drawTrendChart(canvas, sessions, isDark = false) {
   // Max score reference
   const scores = sessions.map((s) => s.score || 0);
   const rawMax = Math.max(...scores, 600);
-  const maxVal = Math.ceil(rawMax / 400) * 400; // 800, 1200, 1600, etc.
+  const maxVal = Math.ceil(rawMax / 400) * 400;
 
   // Draw Grid Lines & Y-axis labels
   const yTicks = 4;
   ctx.lineWidth = 1;
-  ctx.font = "9px Inter, sans-serif";
+  ctx.font = '10px "Atkinson Hyperlegible Next", sans-serif';
   ctx.textAlign = "right";
 
   for (let i = 0; i <= yTicks; i++) {
     const val = Math.round((maxVal / yTicks) * i);
     const y = padTop + chartH - (i / yTicks) * chartH;
 
-    ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.08)" : "#e2e8f0";
+    ctx.strokeStyle = "#E3DCCD"; // bone-200
     ctx.beginPath();
     ctx.moveTo(padLeft, y);
     ctx.lineTo(w - padRight, y);
     ctx.stroke();
 
-    ctx.fillStyle = isDark ? "#64748b" : "#64748b";
+    ctx.fillStyle = "#5C6B66"; // ink-500
     ctx.fillText(val.toString(), padLeft - 8, y + 3);
   }
+
+  // Draw Target Ceiling Guideline (Dashed line in Ember-600)
+  const ceilingY = padTop + chartH - (0.85 * chartH);
+  ctx.save();
+  ctx.strokeStyle = "#C2410C"; // ember-600
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(padLeft, ceilingY);
+  ctx.lineTo(w - padRight, ceilingY);
+  ctx.stroke();
+  ctx.fillStyle = "#C2410C";
+  ctx.font = '8.5px "Atkinson Hyperlegible Next", sans-serif';
+  ctx.textAlign = "right";
+  ctx.fillText("Batas Aman / Ceiling", w - padRight - 4, ceilingY - 4);
+  ctx.restore();
 
   // Calculate points
   const pts = sessions.map((s, idx) => {
@@ -363,11 +379,11 @@ function drawTrendChart(canvas, sessions, isDark = false) {
     return { x, y, session: s };
   });
 
-  // Area under curve
+  // Area under curve with subtle clinical teal gradient
   if (pts.length > 1) {
     const grad = ctx.createLinearGradient(0, padTop, 0, padTop + chartH);
-    grad.addColorStop(0, isDark ? "rgba(56, 189, 248, 0.28)" : "rgba(37, 99, 235, 0.2)");
-    grad.addColorStop(1, isDark ? "rgba(56, 189, 248, 0.0)" : "rgba(37, 99, 235, 0.0)");
+    grad.addColorStop(0, "rgba(23, 89, 79, 0.16)"); // primary-600 soft
+    grad.addColorStop(1, "rgba(23, 89, 79, 0.0)");
 
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -378,9 +394,11 @@ function drawTrendChart(canvas, sessions, isDark = false) {
     ctx.fill();
   }
 
-  // Connecting Line
-  ctx.strokeStyle = isDark ? "#38bdf8" : "#2563eb";
+  // Connecting Line (primary-600: #17594F)
+  ctx.strokeStyle = "#17594F";
   ctx.lineWidth = 2.5;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
   ctx.beginPath();
   pts.forEach((p, i) => {
     if (i === 0) ctx.moveTo(p.x, p.y);
@@ -388,24 +406,38 @@ function drawTrendChart(canvas, sessions, isDark = false) {
   });
   ctx.stroke();
 
-  // Draw Dots & Labels
+  // Draw Dual-Indicator Markers & Labels
   pts.forEach((p, idx) => {
     const s = p.session;
     const hasPain = s.hasPain || (s.painChecklist && Object.values(s.painChecklist).some(Boolean));
 
-    // Outer circle
-    ctx.fillStyle = hasPain ? "#ef4444" : "#10b981";
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
-    ctx.fill();
+    if (hasPain) {
+      // Triangle marker for Pain (Status Koreksi: #A82C16)
+      ctx.fillStyle = "#A82C16";
+      ctx.beginPath();
+      const r = 6;
+      ctx.moveTo(p.x, p.y - r);
+      ctx.lineTo(p.x + r, p.y + r);
+      ctx.lineTo(p.x - r, p.y + r);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    } else {
+      // Circle marker for Pain-Free (Status Tercapai: #0B6B4A)
+      ctx.fillStyle = "#0B6B4A";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
 
-    ctx.strokeStyle = isDark ? "#0f172a" : "#ffffff";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Value tag above point
-    ctx.fillStyle = isDark ? "#ffffff" : "#1e3a8a";
-    ctx.font = "bold 9.5px Inter, sans-serif";
+    // Value tag above point (ink-900: #13211F)
+    ctx.fillStyle = "#13211F";
+    ctx.font = 'bold 9.5px "Atkinson Hyperlegible Next", sans-serif';
     ctx.textAlign = "center";
     ctx.fillText(`${s.score} pt`, p.x, p.y - 9);
 
@@ -413,27 +445,47 @@ function drawTrendChart(canvas, sessions, isDark = false) {
     const dateStr = s.date
       ? new Date(s.date).toLocaleDateString("id-ID", { day: "numeric", month: "short" })
       : `S${idx + 1}`;
-    ctx.fillStyle = isDark ? "#cbd5e1" : "#334155";
-    ctx.font = "9.5px Inter, sans-serif";
+    ctx.fillStyle = "#34443F"; // ink-700
+    ctx.font = '9.5px "Atkinson Hyperlegible Next", sans-serif';
     ctx.fillText(`S${idx + 1} (${dateStr})`, p.x, padTop + chartH + 15);
 
-    // Time / Level tag below date
-    ctx.fillStyle = isDark ? "#38bdf8" : "#2563eb";
-    ctx.font = "8.5px Inter, sans-serif";
+    // Level tag below date
+    ctx.fillStyle = "#17594F"; // primary-600
+    ctx.font = '8.5px "Atkinson Hyperlegible Next", sans-serif';
     const timeInfo = s.time && s.time !== "—" ? ` · ${s.time}` : "";
     ctx.fillText(`Lv.${s.level}${timeInfo}`, p.x, padTop + chartH + 26);
   });
 }
 
-// ── Pain Matrix Visualization ─────────────────────────────────────────────────
+// ── Pain Matrix Visualization (Biomekanika Sendi Bahu) ───────────────────────
 
 function renderPainMatrix(pm, totalSessions) {
   const movements = [
-    { label: "Fleksi Bahu (Shoulder Flexion)", count: pm.flexionCount, icon: "📐" },
-    { label: "Abduksi Bahu (Shoulder Abduction)", count: pm.abductionCount, icon: "🏹" },
-    { label: "Rotasi Eksternal (External Rotation)", count: pm.externalRotationCount, icon: "🔄" },
-    { label: "Rotasi Internal (Internal Rotation)", count: pm.internalRotationCount, icon: "🔃" },
-    { label: "Ekstensi Bahu (Shoulder Extension)", count: pm.extensionCount, icon: "🔙" },
+    {
+      label: "Fleksi Bahu (Shoulder Flexion)",
+      count: pm.flexionCount,
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><polyline points="5 12 12 5 19 12"/></svg>`
+    },
+    {
+      label: "Abduksi Bahu (Shoulder Abduction)",
+      count: pm.abductionCount,
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>`
+    },
+    {
+      label: "Rotasi Eksternal (External Rotation)",
+      count: pm.externalRotationCount,
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`
+    },
+    {
+      label: "Rotasi Internal (Internal Rotation)",
+      count: pm.internalRotationCount,
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`
+    },
+    {
+      label: "Ekstensi Bahu (Shoulder Extension)",
+      count: pm.extensionCount,
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><polyline points="19 12 12 19 5 12"/></svg>`
+    },
   ];
 
   painMatrixContainer.innerHTML = "";
@@ -443,26 +495,32 @@ function renderPainMatrix(pm, totalSessions) {
     const row = document.createElement("div");
     row.className = "dash-pain-row";
 
-    let barColor = "var(--good)";
-    let badgeClass = "badge-good";
+    let barColor = "var(--status-reach)";
+    let badgeClass = "badge-reach";
+    let statusLabel = `<span class="chip-shape">●</span> Bebas Nyeri`;
+
     if (pct > 50) {
-      barColor = "var(--bad)";
-      badgeClass = "badge-bad";
+      barColor = "var(--status-comp)";
+      badgeClass = "badge-comp";
+      statusLabel = `<span class="chip-shape">▲</span> Perhatian Tinggi`;
     } else if (pct > 0) {
-      barColor = "var(--warn)";
-      badgeClass = "badge-warn";
+      barColor = "var(--status-near)";
+      badgeClass = "badge-near";
+      statusLabel = `<span class="chip-shape">◆</span> Terpantau`;
     }
 
     row.innerHTML = `
       <div class="dash-pain-label-wrap">
-        <span class="dash-pain-icon">${m.icon}</span>
+        <span class="dash-pain-icon">${m.iconSvg}</span>
         <span class="dash-pain-label">${m.label}</span>
       </div>
       <div class="dash-pain-bar-wrap">
         <div class="dash-pain-bar-fill" style="width: ${Math.max(pct, 4)}%; background: ${barColor}"></div>
       </div>
       <div class="dash-pain-stat">
-        <span class="dash-pain-pill ${badgeClass}">${m.count}/${totalSessions} Sesi (${pct}%)</span>
+        <span class="dash-pain-pill ${badgeClass}">
+          ${statusLabel} · ${m.count}/${totalSessions} Sesi (${pct}%)
+        </span>
       </div>
     `;
 
@@ -498,7 +556,7 @@ function renderScoreProgress(sessions) {
       </div>
       <div class="dash-score-track">
         <div class="dash-score-fill" style="width: ${Math.max(pct, 6)}%">
-          <span class="dash-score-fill-label">Level ${s.level} · ${s.hits}/10 Hits</span>
+          <span class="dash-score-fill-label">Level ${s.level} · ${s.hits}/10 Target Hits</span>
         </div>
       </div>
     `;
@@ -507,14 +565,14 @@ function renderScoreProgress(sessions) {
   });
 }
 
-// ── Session Table Render ──────────────────────────────────────────────────────
+// ── Session Table Render (FR-D.4 & FR-D.5) ───────────────────────────────────
 
 function renderSessionTable(sessions) {
   sessionTableBody.innerHTML = "";
   pTableCountBadge.textContent = `${sessions.length} Sesi Terdata`;
 
   if (sessions.length === 0) {
-    sessionTableBody.innerHTML = `<tr><td colspan="8" class="dash-table-empty">Belum ada data sesi untuk pasien ini.</td></tr>`;
+    sessionTableBody.innerHTML = `<tr><td colspan="9" class="dash-table-empty">Belum ada data sesi untuk pasien ini.</td></tr>`;
     return;
   }
 
@@ -524,23 +582,37 @@ function renderSessionTable(sessions) {
   reversed.forEach((s) => {
     const tr = document.createElement("tr");
 
-    // Pain checklist badges
+    // Pain checklist badges (Dual Indicator: Triangle shape + Color + Text)
     const painBadges = [];
-    if (s.painAbduction) painBadges.push(`<span class="pain-chip">Abduksi</span>`);
-    if (s.painFlexion) painBadges.push(`<span class="pain-chip">Fleksi</span>`);
-    if (s.painExternalRotation) painBadges.push(`<span class="pain-chip">Rot. Eks</span>`);
-    if (s.painInternalRotation) painBadges.push(`<span class="pain-chip">Rot. Int</span>`);
-    if (s.painExtension) painBadges.push(`<span class="pain-chip">Ekstensi</span>`);
+    if (s.painAbduction) painBadges.push(`<span class="pain-chip"><span class="chip-shape">▲</span> Abduksi</span>`);
+    if (s.painFlexion) painBadges.push(`<span class="pain-chip"><span class="chip-shape">▲</span> Fleksi</span>`);
+    if (s.painExternalRotation) painBadges.push(`<span class="pain-chip"><span class="chip-shape">▲</span> Rot. Eks</span>`);
+    if (s.painInternalRotation) painBadges.push(`<span class="pain-chip"><span class="chip-shape">▲</span> Rot. Int</span>`);
+    if (s.painExtension) painBadges.push(`<span class="pain-chip"><span class="chip-shape">▲</span> Ekstensi</span>`);
 
     const painHtml =
       painBadges.length > 0
         ? `<div class="pain-chips-wrap">${painBadges.join("")}</div>`
-        : `<span class="pain-free-pill">✅ Bebas Nyeri</span>`;
+        : `<span class="pain-free-pill"><span class="chip-shape">●</span> Bebas Nyeri</span>`;
 
     const missionBadge =
       s.missionId === 1
-        ? `<span class="table-mission-badge m1">🎯 M1 Archer</span>`
-        : `<span class="table-mission-badge m2">🌿 M2 Garden</span>`;
+        ? `<span class="table-mission-badge m1">M1 Archer</span>`
+        : `<span class="table-mission-badge m2">M2 Garden</span>`;
+
+    // FR-D.5: Distinct visual separation of Automated Data vs Therapist Clinical Notes
+    const notesCellHtml = s.notes
+      ? `<div class="dash-therapist-note">
+           <div class="dash-note-meta">
+             <span class="dash-note-author">Catatan Terapis</span>
+             <span class="dash-note-badge">Klinis</span>
+           </div>
+           <div class="dash-note-text">"${s.notes}"</div>
+         </div>`
+      : `<div class="dash-auto-note">
+           <span class="dash-auto-tag">Otomatis</span>
+           <span class="dash-auto-text">Telemetri sesi tersimpan normal</span>
+         </div>`;
 
     tr.innerHTML = `
       <td><strong>#${s.sessionNumber}</strong></td>
@@ -551,7 +623,7 @@ function renderSessionTable(sessions) {
       <td><strong>${s.hits}</strong>/10</td>
       <td><strong class="cell-score">${s.score}</strong></td>
       <td>${painHtml}</td>
-      <td class="cell-notes">${s.notes ? `"${s.notes}"` : `<span class="text-muted">—</span>`}</td>
+      <td class="cell-notes">${notesCellHtml}</td>
     `;
 
     sessionTableBody.appendChild(tr);

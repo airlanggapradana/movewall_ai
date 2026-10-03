@@ -169,6 +169,9 @@ const CLOUD_SEEDS = [
   { x: 0.85, y: 0.07, rx: 56, ry: 18 },
 ];
 
+const LEVEL_ONE_POTS = 6;
+const TOTAL_POTS = 12;
+
 /* ═══════════════════════════════════════════════════════════════
    GAME STATE
    ═══════════════════════════════════════════════════════════════ */
@@ -210,7 +213,7 @@ const game = {
   timeRemaining:   120,
   level:           1,
   reps:            0,
-  repsGoal:        12,
+  repsGoal:        TOTAL_POTS,
   targetRom:       65,    // ROM pot pertama (disesuaikan dengan posisi fisik)
   maxTargetRom:    180,
   minTargetRom:    45,
@@ -230,6 +233,15 @@ const game = {
   pots:            makePots(),
   activePotIdx:    0,
   completedPots:   0,
+  /* Level 2 (Mode Acak) & Clinical Detection */
+  randomActiveTarget: null,
+  isHighRecoveryDetected: false,
+  levelTransitionBanner: {
+    active: false,
+    text: "",
+    subText: "",
+    timer: 0,
+  },
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -320,6 +332,44 @@ const audio = {
       osc.start(startTime);
       osc.stop(startTime + 0.5);
     });
+  },
+  playLevelUpFanfare() {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+
+    // Level-up triumphant chord: C5 -> E5 -> G5 -> C6
+    const chord = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+    chord.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      const startTime = this.ctx.currentTime + idx * 0.09;
+      gain.gain.setValueAtTime(0.2, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.65);
+    });
+  },
+  playWarnBuzzer() {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.value = 160;
+      gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.2);
+    } catch (e) {}
   }
 };
 
@@ -779,43 +829,59 @@ function getActivePot() {
 }
 
 /**
- * Returns the target pot: prioritizes whichever unwatered pot the user is closest to,
- * or falls back to the sequential active pot.
+ * Level 2 Dynamic Random Picker:
+ * Picks a random pot from unwatered pots in the garden.
+ */
+function pickRandomUnwateredPot() {
+  const unwatered = game.pots.filter((p) => !p.watered);
+  if (unwatered.length === 0) {
+    game.randomActiveTarget = null;
+    return null;
+  }
+
+  // In Level 2, prefer unwatered pots with index >= LEVEL_ONE_POTS (pots 6..11) if available, else all unwatered
+  const pool = unwatered.filter((p) => game.pots.indexOf(p) >= LEVEL_ONE_POTS);
+  const candidates = pool.length > 0 ? pool : unwatered;
+
+  let nextTarget;
+  if (candidates.length > 1 && game.randomActiveTarget) {
+    const others = candidates.filter((p) => p !== game.randomActiveTarget);
+    nextTarget = others.length > 0 ? others[Math.floor(Math.random() * others.length)] : candidates[0];
+  } else {
+    nextTarget = candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  game.randomActiveTarget = nextTarget;
+  if (nextTarget) {
+    game.targetRom = nextTarget.requiredRom;
+    const idx = game.pots.indexOf(nextTarget);
+    if (idx !== -1) game.activePotIdx = idx;
+  }
+  return nextTarget;
+}
+
+/**
+ * Returns the currently active target pot:
+ * • Level 1: sequential pot (0 to 5)
+ * • Level 2: single randomized active target
  */
 function getTargetPot() {
-  const W = canvas.clientWidth || 1280;
-  const H = canvas.clientHeight || 720;
-  let closestPot = null;
-  let closestDist = Infinity;
-
-  for (let i = 0; i < game.pots.length; i++) {
-    const p = game.pots[i];
-    if (!p.watered) {
-      const potY = p.y - 0.02;
-      const dxCanPx = (game.handFollow.x - p.x) * W;
-      const dyCanPx = (game.handFollow.y - potY) * H;
-      const distCan = Math.hypot(dxCanPx, dyCanPx);
-
-      const dxTipPx = game.canTipPos.x - p.x * W;
-      const dyTipPx = game.canTipPos.y - potY * H;
-      const distTip = Math.hypot(dxTipPx, dyTipPx);
-
-      const d = Math.min(distCan, distTip);
-      if (d < closestDist) {
-        closestDist = d;
-        closestPot = p;
-      }
+  if (game.level === 1) {
+    return game.pots[game.activePotIdx] || null;
+  } else {
+    if (!game.randomActiveTarget || game.randomActiveTarget.watered) {
+      pickRandomUnwateredPot();
     }
+    return game.randomActiveTarget;
   }
+}
 
-  // Jika gembor berada dekat pot yang belum disiram (~95px radius lingkaran), arahkan ke pot tersebut
-  if (closestPot && closestDist < 95) {
-    const idx = game.pots.indexOf(closestPot);
-    if (idx !== -1) game.activePotIdx = idx;
-    return closestPot;
+function isPotTarget(pot) {
+  if (!pot || pot.watered) return false;
+  if (game.level === 1) {
+    return pot === game.pots[game.activePotIdx];
   }
-
-  return getActivePot();
+  return pot === game.randomActiveTarget;
 }
 
 function updateWateringLogic(dt) {
@@ -865,12 +931,30 @@ function updateWateringLogic(dt) {
   const inRange = distPx < POT_RANGE_PX;
   game.potInRange = inRange;
 
+  // Single Active Target Locking in Level 2:
+  // If user is attempting to water a dormant/locked pot
+  if (!inRange && game.level === 2 && game.isHandOpen) {
+    for (let i = 0; i < game.pots.length; i++) {
+      const dp = game.pots[i];
+      if (dp !== pot && !dp.watered) {
+        const dpx = (game.handFollow.x - dp.x) * W;
+        const dpy = (game.handFollow.y - (dp.y - 0.02)) * H;
+        if (Math.hypot(dpx, dpy) < 85) {
+          game.isWatering = false;
+          audio.stopWaterSound();
+          audio.playWarnBuzzer();
+          setFeedback("warn", "⛔ Pot Terkunci!", `Fokus ke target acak saat ini di sudut ${Math.round(game.targetRom)}°`);
+          return;
+        }
+      }
+    }
+  }
+
   // Evaluasi kesesuaian ROM tangan dengan ROM Target pot
   const currentRom = Math.round(game.clinicalAngle);
   const targetRom  = pot.requiredRom;
 
-  // Toleransi terapeutik klinis — lebih longgar untuk akurasi tiap pengguna
-  // Rentang valid: [targetRom - 12°, targetRom + 12°] (total window 24°)
+  // Toleransi terapeutik klinis — rentang valid: [targetRom - 12°, targetRom + 12°]
   const ROM_UNDER_TOLERANCE = 12;
   const ROM_OVER_TOLERANCE  = 12;
   const isRomMatched = (currentRom >= targetRom - ROM_UNDER_TOLERANCE) && (currentRom <= targetRom + ROM_OVER_TOLERANCE);
@@ -896,19 +980,16 @@ function updateWateringLogic(dt) {
           waterPot(pot);
         }
       } else if (currentRom < targetRom - ROM_UNDER_TOLERANCE) {
-        // ROM tangan masih kurang dari ROM target
         game.isWatering = false;
         audio.stopWaterSound();
         setFeedback("warn", "Angkat Lengan Lebih Tinggi ⬆️", `Target Pot: ${targetRom}° | ROM Tangan Anda: ${currentRom}°`);
       } else {
-        // ROM tangan melebihi ROM target
         game.isWatering = false;
         audio.stopWaterSound();
         setFeedback("warn", "Turunkan Sedikit Lengan ⬇️", `Target Pot: ${targetRom}° | ROM Tangan Anda: ${currentRom}°`);
       }
     } else {
       // 2. TANGAN TERTUTUP (FIST / MENGEPAL)
-      // Hanya berfungsi untuk mengarahkan pointer saja (tidak menyiram air)
       game.isWatering = false;
       audio.stopWaterSound();
 
@@ -970,17 +1051,46 @@ function waterPot(pot) {
     });
   }
 
-  // Level up every 3 pots
-  if (game.completedPots % 3 === 0) {
-    game.level = Math.min(9, game.level + 1);
+  // Check if Level 1 is just completed (hits reached LEVEL_ONE_POTS = 6)
+  if (game.level === 1 && game.completedPots === LEVEL_ONE_POTS) {
+    // DIRECT AND SEAMLESS PROGRESSION TO LEVEL 2 (Matching Mission 1!)
+    game.level = 2;
+    ui.level.textContent = "2";
+    audio.playLevelUpFanfare();
+
+    game.levelTransitionBanner = {
+      active: true,
+      text: "🏅 LEVEL 2 DIMULAI!",
+      subText: "Mode Acak Aktif • Target Bergerak Spontan!",
+      timer: 3.5,
+    };
+
+    // Pick first random unwatered target for Level 2
+    pickRandomUnwateredPot();
+
+    setFeedback("good", "Level 2 Dimulai! 🎯", `Mode Acak Aktif! Target pertama di sudut ${Math.round(game.targetRom)}°`);
+    return;
   }
 
-  // Advance to next pot
-  game.activePotIdx += 1;
-  setFeedback("good", "Pot Berhasil Disiram! 🌸", "Bagus sekali! Lanjut ke pot berikutnya");
+  // If in Level 1 and completedPots < 6: advance to next sequential pot
+  if (game.level === 1) {
+    game.activePotIdx += 1;
+    if (game.pots[game.activePotIdx]) {
+      game.targetRom = game.pots[game.activePotIdx].requiredRom;
+    }
+    setFeedback("good", "Pot Berhasil Disiram! 🌸", `Bagus sekali! Lanjut ke pot berikutnya (${game.targetRom}°)`);
+    return;
+  }
 
-  if (game.reps >= game.repsGoal) {
-    triggerMissionComplete();
+  // If in Level 2:
+  if (game.level === 2) {
+    if (game.completedPots >= game.repsGoal) {
+      game.isHighRecoveryDetected = true;
+      triggerMissionComplete();
+    } else {
+      pickRandomUnwateredPot();
+      setFeedback("good", "Target Acak Disiram! 🌸", `Target berikutnya: sudut ${Math.round(game.targetRom)}°`);
+    }
   }
 }
 
@@ -1030,15 +1140,33 @@ function triggerMissionComplete() {
 
   if (ui.modalScore) ui.modalScore.textContent = game.score.toLocaleString();
   if (ui.modalHits) ui.modalHits.textContent = `${game.completedPots}/${game.pots.length}`;
-  if (ui.modalLevel) ui.modalLevel.textContent = `Lv ${game.level}`;
   if (ui.modalTime)
     ui.modalTime.textContent = formatTime(Math.max(0, game.timeRemaining));
+
+  const recoveryBadge = document.getElementById("recoveryBadge");
+  const modalCompleteTitle = document.getElementById("modalCompleteTitle");
+  const modalCompleteEyebrow = document.getElementById("modalCompleteEyebrow");
+  const modalCompleteSubtitle = document.getElementById("modalCompleteSubtitle");
+
+  if (game.isHighRecoveryDetected) {
+    if (ui.modalLevel) ui.modalLevel.textContent = "Lv 2 (Acak)";
+    if (recoveryBadge) recoveryBadge.classList.remove("hidden");
+    if (modalCompleteEyebrow) modalCompleteEyebrow.textContent = "Misi 2 Level 2 Selesai!";
+    if (modalCompleteTitle) modalCompleteTitle.textContent = "Pasien Sangat Sembuh! 🌻";
+    if (modalCompleteSubtitle) modalCompleteSubtitle.textContent = "Luar biasa! Seluruh pot teratur & target acak berhasil dipulihkan dengan kontrol motorik optimal tanpa rasa nyeri.";
+    setFeedback("good", "Luar Biasa! Pasien Sangat Sembuh 🏆", "Semua target acak berhasil diselesaikan dengan akurasi optimal!");
+  } else {
+    if (ui.modalLevel) ui.modalLevel.textContent = `Lv ${game.level}`;
+    if (recoveryBadge) recoveryBadge.classList.add("hidden");
+    if (modalCompleteEyebrow) modalCompleteEyebrow.textContent = "Misi 2 Selesai!";
+    if (modalCompleteTitle) modalCompleteTitle.textContent = "Kebun Berhasil Dipulihkan!";
+    if (modalCompleteSubtitle) modalCompleteSubtitle.textContent = "Luar biasa! Kamu telah berhasil menyiram seluruh pot tanaman dengan rentang gerak (ROM) bahu yang optimal.";
+    setFeedback("good", "Kebun Pulih Sepenuhnya! 🌻", `Semua ${game.completedPots} pot berhasil disiram!`);
+  }
 
   if (ui.missionCompleteOverlay) {
     ui.missionCompleteOverlay.classList.remove("hidden");
   }
-
-  setFeedback("good", "Kebun Pulih Sepenuhnya! 🌻", `Semua ${game.completedPots} pot berhasil disiram!`);
 
   // Partikel perayaan meriah di layar
   const W = canvas.clientWidth || 1280;
@@ -1053,7 +1181,7 @@ function triggerMissionComplete() {
       vy: Math.sin(angle) * speed * H - 2,
       life: 1.5,
       size: 4 + Math.random() * 6,
-      color: Math.random() > 0.5 ? "#10b981" : Math.random() > 0.3 ? "#f59e0b" : "#38bdf8",
+      color: Math.random() > 0.4 ? "#f59e0b" : (Math.random() > 0.5 ? "#38bdf8" : "#ec4899"),
     });
   }
 }
@@ -1073,27 +1201,42 @@ function restartLevel() {
   // Reset waktu kembali 120 detik
   game.timeRemaining = 120;
 
-  // Level menentukan indeks awal pot:
-  // Level 1 -> index 0 (pots 0, 1, 2)
-  // Level 2 -> index 3 (pots 3, 4, 5)
-  // Level 3 -> index 6 (pots 6, 7, 8)
-  // Level 4 -> index 9 (pots 9, 10, 11)
-  const levelStartIndex = Math.max(0, Math.min(game.pots.length - 1, (game.level - 1) * 3));
-  const levelEndIndex   = Math.min(game.pots.length, levelStartIndex + 3);
-
-  // Reset status pot pada level saat ini (level sebelumnya tetap selesai/berbunga)
-  for (let i = levelStartIndex; i < levelEndIndex; i++) {
-    const p = game.pots[i];
-    p.watered = false;
-    p.waterProgress = 0;
-    p.growPct = 0;
-    p.waterParticles = [];
+  if (game.level === 1) {
+    // Reset status pot Level 1 (pot 0..5)
+    for (let i = 0; i < LEVEL_ONE_POTS; i++) {
+      const p = game.pots[i];
+      p.watered = false;
+      p.waterProgress = 0;
+      p.growPct = 0;
+      p.waterParticles = [];
+    }
+    game.activePotIdx = 0;
+    game.completedPots = 0;
+    game.reps = 0;
+    game.targetRom = game.pots[0]?.requiredRom || 65;
+    setFeedback(
+      "neutral",
+      "Level 1 Dimulai Ulang! 🎯",
+      `Arahkan gembor ke pot sasaran (Target: ${game.targetRom}°)`,
+    );
+  } else {
+    // Level 2: pot 0..5 tetap disiram, reset pot 6..11
+    for (let i = LEVEL_ONE_POTS; i < game.pots.length; i++) {
+      const p = game.pots[i];
+      p.watered = false;
+      p.waterProgress = 0;
+      p.growPct = 0;
+      p.waterParticles = [];
+    }
+    game.completedPots = LEVEL_ONE_POTS;
+    game.reps = LEVEL_ONE_POTS;
+    pickRandomUnwateredPot();
+    setFeedback(
+      "neutral",
+      "Level 2 (Mode Acak) Dimulai Ulang! 🎯",
+      `Arahkan gembor ke target acak (Target: ${Math.round(game.targetRom)}°)`,
+    );
   }
-
-  game.activePotIdx = levelStartIndex;
-  game.completedPots = levelStartIndex;
-  game.reps = levelStartIndex;
-  game.targetRom = game.pots[levelStartIndex]?.requiredRom || 30;
 
   game.isWatering = false;
   game.potInRange = false;
@@ -1101,12 +1244,7 @@ function restartLevel() {
   game.targetCooldown = 0;
   game.painStop = false;
   game.running = true;
-
-  setFeedback(
-    "neutral",
-    `Level ${game.level} Dimulai Ulang! 🎯`,
-    `Arahkan gembor ke pot sasaran (Target: ${game.targetRom}°)`,
-  );
+  audio.stopWaterSound();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1121,10 +1259,15 @@ function draw() {
   drawRomArc(W, H);          // ← ROM semicircle track (behind pots & fence)
   drawFence(W, H);
   drawPots(W, H);
+  if (game.level === 2) {
+    drawLevel2Beacon(W, H);
+    drawLevel2ModeBadge(W, H);
+  }
   drawWaterStreams(W, H);
   drawSplashParticles(W, H);
   drawWateringCan(W, H);
   drawFloatingPopups(W, H);
+  drawLevelTransitionBanner(W, H);
 }
 
 /* ── ROM Semicircle Arc Guide ─────────────────────────────── */
@@ -1554,30 +1697,43 @@ function drawPots(W, H) {
     // Visual center of dome for glow: midpoint between flatY and apex
     const domeCY = flatY - POT_R * 0.5;
     if (isActive && !isWatered) {
+      const isLevel2 = game.level === 2;
       const pulse = 1 + Math.sin(now / 220) * 0.07;
-      const glowR  = (POT_R + 38) * pulse;
+      const glowR  = (POT_R + (isLevel2 ? 46 : 38)) * pulse;
       const glow = ctx.createRadialGradient(px, domeCY, 5, px, domeCY, glowR);
-      glow.addColorStop(0,   "rgba(56,189,248,0.48)");
-      glow.addColorStop(0.5, "rgba(56,189,248,0.18)");
-      glow.addColorStop(1,   "rgba(56,189,248,0)");
+      if (isLevel2) {
+        glow.addColorStop(0,   "rgba(245,158,11,0.58)");
+        glow.addColorStop(0.5, "rgba(245,158,11,0.22)");
+        glow.addColorStop(1,   "rgba(245,158,11,0)");
+      } else {
+        glow.addColorStop(0,   "rgba(56,189,248,0.48)");
+        glow.addColorStop(0.5, "rgba(56,189,248,0.18)");
+        glow.addColorStop(1,   "rgba(56,189,248,0)");
+      }
       ctx.fillStyle = glow;
       ctx.beginPath(); ctx.arc(px, domeCY, glowR, 0, Math.PI * 2); ctx.fill();
 
       // Dashed proximity circle
-      ctx.strokeStyle = game.potInRange
-        ? `rgba(52, 211, 153, ${0.85 + Math.sin(now / 150) * 0.15})`
-        : `rgba(56, 189, 248, ${0.45 + Math.sin(now / 220) * 0.2})`;
-      ctx.lineWidth = game.potInRange ? 3.5 : 2;
+      if (isLevel2) {
+        ctx.strokeStyle = game.potInRange
+          ? `rgba(52, 211, 153, ${0.85 + Math.sin(now / 150) * 0.15})`
+          : `rgba(245, 158, 11, ${0.55 + Math.sin(now / 220) * 0.25})`;
+      } else {
+        ctx.strokeStyle = game.potInRange
+          ? `rgba(52, 211, 153, ${0.85 + Math.sin(now / 150) * 0.15})`
+          : `rgba(56, 189, 248, ${0.45 + Math.sin(now / 220) * 0.2})`;
+      }
+      ctx.lineWidth = game.potInRange ? 3.5 : 2.2;
       ctx.setLineDash([6, 6]);
-      ctx.beginPath(); ctx.arc(px, domeCY, (POT_R + 22) * pulse, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(px, domeCY, (POT_R + (isLevel2 ? 26 : 22)) * pulse, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);
 
       // ROM badge — positioned below the shelf
       const curRom = Math.round(game.clinicalAngle);
       const isRomOk = Math.abs(curRom - pot.requiredRom) <= 7;
-      let badgeText   = `${pot.requiredRom}° Flexion`;
-      let badgeBg     = "rgba(16,32,43,0.88)";
-      let badgeBorder = "rgba(255,255,255,0.28)";
+      let badgeText   = isLevel2 ? `🎯 ${pot.requiredRom}° TARGET ACAK` : `${pot.requiredRom}° Flexion`;
+      let badgeBg     = isLevel2 ? "rgba(180,83,9,0.95)" : "rgba(16,32,43,0.88)";
+      let badgeBorder = isLevel2 ? "#fbbf24" : "rgba(255,255,255,0.28)";
 
       if (game.potInRange) {
         if (isRomOk) {
@@ -1620,6 +1776,23 @@ function drawPots(W, H) {
       }
     }
 
+    // Subtle locked badge for dormant pots in Level 2
+    if (game.level === 2 && !isWatered && !isActive) {
+      ctx.save();
+      ctx.font = "700 10px Inter, sans-serif";
+      const lockText = `🔒 ${pot.requiredRom}°`;
+      const lockW = ctx.measureText(lockText).width + 14;
+      const lockTop = shelfY + shelfH + 4;
+      ctx.fillStyle = "rgba(15, 23, 42, 0.65)";
+      ctx.beginPath();
+      ctx.roundRect(px - lockW / 2, lockTop, lockW, 18, 6);
+      ctx.fill();
+      ctx.fillStyle = "rgba(203, 213, 225, 0.65)";
+      ctx.textAlign = "center";
+      ctx.fillText(lockText, px, lockTop + 12);
+      ctx.restore();
+    }
+
     // Success checkmark on completed pots (top-right of dome)
     if (isWatered && pot.growPct >= 0.95) {
       const ckX = px + POT_R * 0.75;
@@ -1647,6 +1820,168 @@ function drawPots(W, H) {
     });
     pot.waterParticles = pot.waterParticles.filter((p) => p.life > 0);
   });
+}
+
+/**
+ * Level 2 Beacon: Radiating rings, sparkles, and target direction compass
+ */
+function drawLevel2Beacon(W, H) {
+  const pot = game.randomActiveTarget;
+  if (!pot || pot.watered) return;
+
+  const now = performance.now();
+  const px = pot.x * W;
+  const py = pot.y * H;
+  const POT_R = 22;
+  const domeCY = py - POT_R * 0.5;
+
+  ctx.save();
+
+  // 1. Expanding radiating ripple rings
+  for (let r = 0; r < 3; r++) {
+    const ringPhase = ((now / 1000) + r * 0.4) % 1.2;
+    const ringRadius = (POT_R + 10) + ringPhase * 45;
+    const ringAlpha = Math.max(0, (1 - ringPhase / 1.2) * 0.65);
+    ctx.strokeStyle = `rgba(245, 158, 11, ${ringAlpha})`;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.arc(px, domeCY, ringRadius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // 2. Radiant orbiting sparkles
+  for (let s = 0; s < 5; s++) {
+    const sparkleAngle = (now / 700) + (s * (Math.PI * 2 / 5));
+    const sparkleDist = POT_R + 26 + Math.sin(now / 300 + s) * 6;
+    const sx = px + Math.cos(sparkleAngle) * sparkleDist;
+    const sy = domeCY + Math.sin(sparkleAngle) * sparkleDist;
+    ctx.fillStyle = s % 2 === 0 ? "#fde047" : "#38bdf8";
+    ctx.shadowColor = "#f59e0b";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+
+  // 3. Direction Compass Guide line from pointer tip to target pot
+  if (game.handFollow.visible && !game.potInRange) {
+    const tipX = game.canTipPos.x || (game.handFollow.x * W);
+    const tipY = game.canTipPos.y || (game.handFollow.y * H);
+
+    const dx = px - tipX;
+    const dy = domeCY - tipY;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > 90) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(245, 158, 11, ${0.45 + Math.sin(now / 200) * 0.25})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.lineDashOffset = -(now / 40) % 14;
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(px, domeCY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const angle = Math.atan2(dy, dx);
+      const arrowDist = Math.max(35, dist * 0.45);
+      const arrowX = tipX + Math.cos(angle) * arrowDist;
+      const arrowY = tipY + Math.sin(angle) * arrowDist;
+
+      ctx.fillStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.moveTo(arrowX, arrowY);
+      ctx.lineTo(arrowX - 10 * Math.cos(angle - Math.PI / 6), arrowY - 10 * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(arrowX - 10 * Math.cos(angle + Math.PI / 6), arrowY - 10 * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Top HUD Banner for Level 2 (Mode Acak)
+ */
+function drawLevel2ModeBadge(W, H) {
+  const pot = game.randomActiveTarget;
+  const targetRom = pot ? Math.round(pot.requiredRom) : Math.round(game.targetRom);
+
+  ctx.save();
+  const badgeW = 290;
+  const badgeH = 34;
+  const badgeX = (W - badgeW) / 2;
+  const badgeY = 18;
+
+  // Background glass card
+  ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+  ctx.beginPath();
+  ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 17);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(245, 158, 11, 0.7)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Text
+  ctx.font = "800 12px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#fbbf24";
+  ctx.fillText(`🎯 LEVEL 2: MODE ACAK • TARGET: ${targetRom}°`, W / 2, badgeY + badgeH / 2);
+  ctx.restore();
+}
+
+/**
+ * Temporary level-up celebration banner floating on canvas
+ */
+function drawLevelTransitionBanner(W, H) {
+  if (!game.levelTransitionBanner || !game.levelTransitionBanner.active) return;
+  const banner = game.levelTransitionBanner;
+  if (banner.timer <= 0) {
+    banner.active = false;
+    return;
+  }
+
+  const alpha = Math.min(1, banner.timer / 0.8);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const bW = Math.min(480, W * 0.7);
+  const bH = 80;
+  const bX = (W - bW) / 2;
+  const bY = H * 0.22;
+
+  ctx.shadowColor = "rgba(245, 158, 11, 0.5)";
+  ctx.shadowBlur = 25;
+
+  const grad = ctx.createLinearGradient(bX, bY, bX + bW, bY + bH);
+  grad.addColorStop(0, "rgba(15, 23, 42, 0.95)");
+  grad.addColorStop(1, "rgba(30, 41, 59, 0.95)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(bX, bY, bW, bH, 16);
+  ctx.fill();
+
+  ctx.strokeStyle = "#fbbf24";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  ctx.font = "900 20px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#fde047";
+  ctx.fillText(banner.text, W / 2, bY + 32);
+
+  ctx.font = "600 13px Inter, sans-serif";
+  ctx.fillStyle = "#e2e8f0";
+  ctx.fillText(banner.subText, W / 2, bY + 58);
+
+  ctx.restore();
 }
 
 function drawWateringGauge(W, H, pot) {
@@ -2195,7 +2530,7 @@ function resetGame() {
   game.displayAngle    = 20;
   game.rawAngle        = 20;
   game.cameraAngle     = 20;
-  game.targetRom       = 30;
+  game.targetRom       = 65;
   game.repState        = "RESTING";
   game.peakAngle       = 0;
   game.targetHitFlash  = 0;
@@ -2220,6 +2555,9 @@ function resetGame() {
   game.pots            = makePots();
   game.activePotIdx    = 0;
   game.completedPots   = 0;
+  game.randomActiveTarget = null;
+  game.isHighRecoveryDetected = false;
+  game.levelTransitionBanner = { active: false, text: "", subText: "", timer: 0 };
   audio.stopWaterSound();
   setFeedback("neutral", "Siap Memulai", "Tekan Start Camera untuk mulai menyiram kebun");
 }
@@ -2242,6 +2580,13 @@ function tick(now) {
 
   game.targetHitFlash = Math.max(0, game.targetHitFlash - dt * 2.5);
   game.targetCooldown = Math.max(0, game.targetCooldown - dt);
+
+  if (game.levelTransitionBanner && game.levelTransitionBanner.active) {
+    game.levelTransitionBanner.timer -= dt;
+    if (game.levelTransitionBanner.timer <= 0) {
+      game.levelTransitionBanner.active = false;
+    }
+  }
 
   // Splash particles physics
   game.splashParticles.forEach((p) => {
@@ -2605,6 +2950,12 @@ function m2OpenAssessmentDialog() {
   }
   if (ui.assessmentSuccess) ui.assessmentSuccess.classList.add("hidden");
   if (ui.assessmentForm) ui.assessmentForm.classList.remove("hidden");
+
+  // Pre-fill suggested clinical notes if Level 2 / High Recovery is detected
+  const notesField = ui.assessmentForm ? ui.assessmentForm.querySelector('textarea[name="notes"]') : null;
+  if (notesField && (game.isHighRecoveryDetected || game.level === 2)) {
+    notesField.value = "Pasien berhasil menyelesaikan Misi 2 Level 2 (Mode Acak) dengan akurasi optimal. Biomekanika bahu dan kontrol motorik terdeteksi SANGAT SEMBUH (High Functional Recovery).";
+  }
 
   // Reset combobox & fetch fresh list
   m2ClosePatientDropdown();

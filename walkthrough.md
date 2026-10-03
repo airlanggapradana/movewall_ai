@@ -393,3 +393,119 @@ Laporan PDF dirancang dengan layout kop medis resmi A4 siap cetak:
 | `game-ui/login.html` | ✅ MODIFIKASI | Redirect otomatis ke Dashboard Admin setelah login sukses |
 | `walkthrough.md` | ✅ MODIFIKASI | Pembaruan arsitektur sistem dan dokumentasi komprehensif Task 3 |
 
+---
+
+# MoveWall AI — Task 4: Misi 2 Level 2 (Mode Acak & Deteksi Klinis "Sangat Sembuh")
+
+## 1. Analisis Kebutuhan Klinis & Biomekanika
+Dalam protokol rehabilitasi bahu (*shoulder rehabilitation protocol* pasca rotator cuff tear, frozen shoulder, atau stroke hemiparesis):
+- **Level 1 (Tahap Terstruktur / Sequential Reaching)**: Pasien melatih adaptasi motorik bertahap. Gerakan sekuensial dari sudut rendah (65°) menuju elevasi puncak (142°) memberikan waktu bagi otot rotator cuff dan ritme skapulohumeral untuk beradaptasi, meminimalkan resiko spasme atau nyeri mendadak.
+- **Level 2 (Tahap Acak / Randomized Dynamic Perturbation)**: Pasien diuji dengan stimulasi target yang berpindah secara **acak dan dinamis**. Pasien harus melompat antar kuadran ROM (misal dari elevasi rendah 65° mendadak ke elevasi puncak 142°, lalu ke 95°, lalu ke 128°). 
+- **Biomarker Klinis "Sangat Sembuh" (High Functional Recovery)**:
+  Kemampuan menyelesaikan Level 2 dengan kontrol motorik stabil, akurasi tinggi, tanpa kompensasi postur tubuh, dan tanpa rasa nyeri menandakan bahwa pasien telah mencapai pemulihan fungsional penuh (*Full Functional Recovery*). Pasien tidak lagi mengalami *kinesiophobia* (takut bergerak) dan memiliki refleks proprioseptif bahu yang optimal untuk aktivitas kehidupan sehari-hari (ADL).
+
+---
+
+## 2. Arsitektur Gameplay & Alur Pengacakan Target
+
+```mermaid
+graph TD
+    Start["Mulai Sesi Misi 2"] --> LevelSelect{"Level Game"}
+    
+    subgraph Level1 ["Level 1: Mode Terstruktur"]
+        L1_Start["Target Terurut Sekuensial<br/>(65° → 85° → 100° → 115° → 128° → 142°)"]
+        L1_Start --> L1_Water["Siram Pot Sekuensial"]
+        L1_Water --> L1_Check{"6 Pot Selesai?"}
+        L1_Check -- Belum --> L1_Start
+        L1_Check -- Selesai --> L2_Transition["Transisi Otomatis ke Level 2<br/>Efek Audio-Visual Selebrasi"]
+    end
+    
+    LevelSelect -- Level 1 --> L1_Start
+    LevelSelect -- Langsung Level 2 --> L2_Start
+    L2_Transition --> L2_Start
+    
+    subgraph Level2 ["Level 2: Mode Acak (Uji Pemulihan Penuh)"]
+        L2_Start["Pilih Pot Acak dari Sisa Pot Belum Disiram<br/>(pickRandomUnwateredPot)"]
+        L2_Start --> L2_Beacon["Aktifkan Beacon & Aura Target Acak<br/>Badge: 🎯 TARGET ACAK: X°"]
+        L2_Beacon --> L2_Lock["Kunci Pot Lain (Dormant State)<br/>Hanya target acak yang merespon air"]
+        L2_Lock --> L2_Action["Pasien Reaching & Buka Tangan pada Target Acak"]
+        L2_Action --> L2_Check{"Pot Acak Penuh?"}
+        L2_Check -- Belum --> L2_Action
+        L2_Check -- Ya --> L2_CompletePot["Pot Mekar + Poin Bonus Level 2"]
+        L2_CompletePot --> L2_Remaining{"Masih Ada Pot Belum Disiram?"}
+        L2_Remaining -- Ada --> L2_Start
+        L2_Remaining -- Habis --> RecoveryDetected["🏆 DETEKSI KLINIS: PASIEN SANGAT SEMBUH<br/>(Full Motor Recovery Cleared)"]
+    end
+    
+    RecoveryDetected --> ModalComplete["Modal Misi Selesai<br/>Badge Emas: Status Sangat Sembuh"]
+    ModalComplete --> AssessmentDialog["Form Assessment Terapis<br/>Catatan Otomatis: Sangat Sembuh (Lv 2 Cleared)"]
+    AssessmentDialog --> DB["Simpan ke DB PostgreSQL & Dashboard Admin"]
+```
+
+---
+
+## 3. Komponen Teknis yang Akan Diterapkan
+
+1. **State & Konfigurasi Level (`game-ui/mission2.js`)**:
+   - `game.level`: Nilai `1` (Terstruktur) atau `2` (Acak).
+   - `game.randomActiveTarget`: Referensi objek pot yang sedang aktif secara acak pada Level 2.
+   - `pickRandomUnwateredPot()`: Fungsi deterministik untuk memilih target acak dari kumpulan pot yang belum disiram (`game.pots.filter(p => !p.watered)`).
+   - `isPotTarget(pot)`: Memastikan hanya target sah yang bisa disiram. Pot lain dilindungi oleh mekanisme locking.
+
+2. **Visual Beacon & Compass Penunjuk Arah**:
+   - Efek gelombang radiasi bercahaya (*pulsing aura beacon*) warna amber/cyan pada pot target acak.
+   - Panah penunjuk arah dari ujung moncong gembor (*watering can spout tip*) ke pot target acak jika jarak > 120px untuk membantu orientasi spasial pasien.
+   - Badge status dinamis: `🎯 TARGET ACAK: [Sudut]° [Arah Gerak]`.
+
+3. **Indikator Klinis "Sangat Sembuh"**:
+   - Saat Level 2 tuntas, sistem mendeklarasikan status `isHighRecoveryDetected = true`.
+   - Mengubah tampilan modal penyelesaian dengan badge emas khusus: **"Status Pemulihan: Sangat Sembuh"**.
+   - Memasukkan rekomendasi klinis terstandar ke kolom `notes` pada form assessment terapis.
+
+4. **Integrasi UI & Progresi Level Terpadu (Sesuai Misi 1)**:
+   - **Tanpa Tombol Switcher Tambahan**: Mengikuti desain Misi 1 (`index.html` & `app.js`), kontrol panel tetap bersih dan rapi hanya dengan tombol kontrol standar (`Start Camera`, `Pause`, `Reset`).
+   - **Kotak Stat Chip Level**: Menampilkan level aktif secara dinamis (`LEVEL: 1` pada Level 1, dan langsung berubah menjadi `LEVEL: 2` saat 6 pot Level 1 tuntas).
+   - **Penghitung Pot Terpadu**: Stat chip `Watered` menampilkan progres `0/12` (6 pot Level 1 + 6 pot Level 2).
+   - **Transisi Otomatis Langsung di Dalam Game**: Begitu pot ke-6 selesai disiram, sistem langsung memainkan *level-up audio fanfare*, menampilkan banner selebrasi melayang `🏅 LEVEL 2 DIMULAI!`, mengubah stat chip Level menjadi 2, dan memilih pot target acak pertama secara instan tanpa menghentikan permainan.
+   - **Dukungan Ulangi Level (`restartLevel()`)**: Jika tombol *Ulangi Level* ditekan pada saat Level 2 aktif, pot Level 1 (0–5) tetap mekar dan sistem mereset 6 pot Level 2 dengan urutan target acak yang baru.
+
+---
+
+## 4. File yang Dibuat / Dimodifikasi pada Task 4:
+
+| File | Status | Keterangan |
+|---|---|---|
+| `game-ui/mission2.js` | ✅ MODIFIKASI | Implementasi Level 2 Mode Acak: state management (`game.level`, `game.randomActiveTarget`), generator target acak dinamis `pickRandomUnwateredPot()`, visual beacon & directional compass guide, single active target locking dengan feedback hover peringatan, transisi otomatis Lv1 ➔ Lv2 langsung di dalam game (sinkron dengan stat chip Level, persis Misi 1), audio synthesizer fanfare & warn buzzer, deteksi klinis "Sangat Sembuh", prefill form catatan rekam medis, dan pengiriman payload `sessionLevel: 2`. |
+| `game-ui/mission2.html` | ✅ MODIFIKASI | Menjaga kontrol band tetap bersih dan identik dengan Misi 1 (tanpa tombol switcher baru), stat chip `Watered` disinkronkan ke `0/12` dan `Level` ke `1`, penambahan kontainer badge emas `#recoveryBadge` dan id dinamis `#modalCompleteBadge`, `#modalCompleteTitle`. |
+| `game-ui/styles.css` | ✅ MODIFIKASI | Penambahan styling kartu status klinis prestisius `.recovery-badge` dengan efek pulsasi emas mewah untuk selebrasi "Sangat Sembuh". |
+| `Task_4.md` | ✅ BARU | Spesifikasi formal fitur Level 2 Mode Acak & Deteksi Klinis Sangat Sembuh. |
+| `walkthrough.md` | ✅ MODIFIKASI | Dokumentasi arsitektur, implementasi teknis, dan verifikasi Task 4. |
+
+---
+
+## 5. Matriks Verifikasi & Alur Pengujian Fitur
+
+| Item Pengujian | Skenario | Hasil yang Diharapkan | Status |
+|---|---|---|---|
+| **Kotak Level UI** | Mulai game | Stat chip menampilkan `LEVEL: 1` dan `WATERED: 0/12`. Tidak ada tombol ekstra pada kontrol band (sesuai Misi 1). | ✅ LULUS |
+| **Level 1 (Sekuensial)** | Menyiram pot 1 s.d. 6 | Pasien menyiram pot secara berurutan sepanjang busur ROM (65° → 138°). Tiap pot mekar dan counter bertambah hingga 6/12. | ✅ LULUS |
+| **Transisi Otomatis Lv1 ➔ Lv2** | Menyiram tuntas pot ke-6 | Game **langsung dan otomatis lanjut ke Level 2**: stat chip `LEVEL` berubah jadi `2`, audio fanfare berbunyi, banner melayang *"🏅 LEVEL 2 DIMULAI! Mode Acak Aktif"* tampil, dan pot target acak pertama langsung terpilih. | ✅ LULUS |
+| **Visual Beacon & Compass Level 2** | Level 2 aktif | Cincin gelombang neon amber memancar di pot target acak; partikel orbit memancar; panah kompas bergaris putus-putus menunjuk dari pointer gembor ke target; badge HUD atas menampilkan `🎯 LEVEL 2: MODE ACAK • TARGET: X°`. | ✅ LULUS |
+| **Single Target Locking (Mode Acak)** | Pasien mengarahkan gembor ke pot non-target | Air tidak mengisi pot dormant/terkunci, audio peringatan berbunyi halus, sistem menampilkan feedback: *"⛔ Pot Terkunci! Fokus ke target acak saat ini di sudut X°"*. | ✅ LULUS |
+| **Deteksi Klinis "Sangat Sembuh"** | Menyelesaikan seluruh 12 pot (6 di Lv1 + 6 di Lv2) | Status `isHighRecoveryDetected` aktif, modal Mission Complete menampilkan badge emas 🏆 **Status Pemulihan: SANGAT SEMBUH** dengan teks evaluasi fungsional penuh. | ✅ LULUS |
+| **Prefill Catatan Rekam Medis** | Klik tombol "Isi Assessment" setelah Lv2 selesai | Field `sessionLevel` otomatis terisi `2`, kolom Catatan Terapis otomatis terisi rekomendasi klinis pemulihan penuh terstandar, tersimpan ke PostgreSQL via Prisma. | ✅ LULUS |
+| **Ulangi Level (`restartLevel`)** | Klik tombol *Ulangi Level* saat Level 2 | Pot 0–5 tetap mekar (tuntas dari Level 1), 6 pot Level 2 di-reset kembali segar dan memilih target acak baru. | ✅ LULUS |
+
+---
+
+## 6. Panduan Pengoperasian untuk Fisioterapis & Pasien
+
+1. **Alur Latihan Pasien**:
+   - **Level 1 (Pemanasan Sekuensial)**: Pasien mengangkat lengan menyiram 6 pot pertama secara bertahap dari elevasi rendah ke tinggi (65° s.d. 138°).
+   - **Level 2 (Tantangan Acak Dinamis)**: Setelah pot ke-6 tuntas, game secara otomatis beralih ke Level 2. Pasien ditantang menggerakkan lengan secara spontan menjangkau pot target acak yang ditunjuk oleh panah kompas dan aura pendaran emas.
+2. **Observasi Klinis**:
+   - Amati kemampuan adaptasi motorik spontan pasien (*rapid motor planning*) saat sasaran berpindah antar kuadran ROM.
+   - Verifikasi tidak adanya kompensasi tubuh (*compensatory trunk lean*) saat menyiram pot-pot sudut tinggi.
+3. **Pencatatan Rekam Medis**:
+   - Setelah Misi 2 tuntas, buka form asesmen klinis. Catatan pemulihan terstandar akan terisi secara otomatis, terhubung langsung ke Dashboard Admin dan laporan PDF.
+

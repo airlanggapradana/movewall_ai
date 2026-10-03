@@ -44,11 +44,20 @@
           <div class="mission-complete-card">
             <div class="complete-badge-wrapper">
               <div class="complete-badge-glow"></div>
-              <div class="complete-badge">🌻</div>
+              <div class="complete-badge" id="modalCompleteBadge">🌻</div>
             </div>
-            <span class="complete-eyebrow">Misi 2 Selesai!</span>
-            <h2 class="complete-title">Kebun Berhasil Dipulihkan!</h2>
-            <p class="complete-subtitle">Luar biasa! Kamu telah berhasil menyiram seluruh pot tanaman dengan rentang gerak (ROM) bahu yang optimal.</p>
+            <span class="complete-eyebrow" id="modalCompleteEyebrow">Misi 2 Selesai!</span>
+            <h2 class="complete-title" id="modalCompleteTitle">Kebun Berhasil Dipulihkan!</h2>
+            <p class="complete-subtitle" id="modalCompleteSubtitle">Luar biasa! Kamu telah berhasil menyiram seluruh pot tanaman dengan rentang gerak (ROM) bahu yang optimal.</p>
+
+            <!-- Recovery Badge (hidden by default, shown for Level 2 completion) -->
+            <div id="recoveryBadge" class="recovery-badge hidden">
+              <div class="recovery-badge-icon">🏆</div>
+              <div class="recovery-badge-content">
+                <strong class="recovery-badge-title">Status Pemulihan: SANGAT SEMBUH</strong>
+                <p class="recovery-badge-desc">Pasien menunjukkan kontrol neuromuskular dan rentang gerak (ROM) bahu optimal pada stimulasi acak multi-sudut tanpa kompensasi.</p>
+              </div>
+            </div>
 
             <div class="complete-metrics-grid">
               <div class="complete-metric-card">

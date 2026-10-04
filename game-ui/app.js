@@ -521,7 +521,7 @@ function stabilizeClinicalAngle(rawAngle, previousAngle) {
   const diff = rawAngle - previousAngle;
   const absDiff = Math.abs(diff);
 
-  if (absDiff < 0.8) return previousAngle;
+  if (absDiff < 0.2) return previousAngle; // deadzone diturunkan 0.8→0.2 agar lebih responsif
 
   if (
     Math.abs(rawAngle - game.targetRom) <= 1.8 &&
@@ -530,7 +530,11 @@ function stabilizeClinicalAngle(rawAngle, previousAngle) {
     return game.targetRom;
   }
 
-  const alpha = absDiff > 18 ? 0.62 : absDiff > 7 ? 0.48 : 0.32;
+  // Alpha dinaikkan agar sudut merespons gerakan lebih cepat (kurang lag)
+  // - Gerakan besar (>18°): 0.62 → 0.88
+  // - Gerakan sedang (>7°): 0.48 → 0.72
+  // - Gerakan kecil:         0.32 → 0.55
+  const alpha = absDiff > 18 ? 0.88 : absDiff > 7 ? 0.72 : 0.55;
   return previousAngle + diff * alpha;
 }
 
@@ -594,8 +598,10 @@ function updateHandFollow(wrist) {
   const targetX = clamp(mirroredX, 0.08, 0.92);
   const targetY = clamp(wrist.y, 0.12, 0.88);
 
-  game.handFollow.x = game.handFollow.x * 0.12 + targetX * 0.88;
-  game.handFollow.y = game.handFollow.y * 0.12 + targetY * 0.88;
+  // Lerp lebih responsif: weight dinaikkan 0.88→0.93 agar
+  // posisi tangan mengikuti gerakan nyata lebih cepat (lag berkurang)
+  game.handFollow.x = game.handFollow.x * 0.07 + targetX * 0.93;
+  game.handFollow.y = game.handFollow.y * 0.07 + targetY * 0.93;
   game.handFollow.visible = true;
 }
 

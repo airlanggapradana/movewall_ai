@@ -33,6 +33,18 @@ const HAND_FALLBACK_URL = "https://storage.googleapis.com/mediapipe-models/hand_
 const POSE_TARGET_FPS   = 30;
 const POSE_FRAME_INTERVAL = 1000 / POSE_TARGET_FPS;
 
+const USE_GARDEN_REFERENCE = true;
+const GARDEN_BACKGROUND_URL = "./assets/garden-background.jpeg";
+
+const gardenBackground = new Image();
+if (USE_GARDEN_REFERENCE) {
+  gardenBackground.onload = () =>
+    console.info("[MoveWall] Garden background image loaded successfully");
+  gardenBackground.onerror = (e) =>
+    console.warn("[MoveWall] Failed to load garden background:", e);
+  gardenBackground.src = GARDEN_BACKGROUND_URL;
+}
+
 /* ── UI refs ─────────────────────────────────────────────────── */
 const ui = {
   score:        document.getElementById("score"),
@@ -665,9 +677,9 @@ function updateVisionTracking(now) {
     const normX = clamp(1 - palmX, 0.05, 0.95);
     const normY = clamp(palmY, 0.06, 0.94);
 
-    // Smooth movement (EMA)
-    game.handFollow.x = game.handFollow.x * 0.22 + normX * 0.78;
-    game.handFollow.y = game.handFollow.y * 0.22 + normY * 0.78;
+    // Smooth movement (EMA) — weight dinaikkan 0.78→0.92 agar respons lebih cepat
+    game.handFollow.x = game.handFollow.x * 0.08 + normX * 0.92;
+    game.handFollow.y = game.handFollow.y * 0.08 + normY * 0.92;
     game.handFollow.visible = true;
 
     // Evaluate gesture strictly from 21 MediaPipe hand points
@@ -731,9 +743,10 @@ function angleBetweenVectors(a, b) {
 
 function stabilizeClinicalAngle(raw, prev) {
   const diff = raw - prev, abs = Math.abs(diff);
-  if (abs < 0.6) return prev;
+  if (abs < 0.2) return prev; // deadzone diturunkan 0.6→0.2 agar lebih responsif
   if (Math.abs(raw - game.targetRom) <= 1.8 && Math.abs(prev - game.targetRom) <= 4) return game.targetRom;
-  const alpha = abs > 18 ? 0.65 : abs > 7 ? 0.50 : 0.35;
+  // Alpha dinaikkan agar sudut mengikuti gerakan lebih responsif (kurang lag)
+  const alpha = abs > 18 ? 0.88 : abs > 7 ? 0.72 : 0.55;
   return prev + diff * alpha;
 }
 
@@ -806,8 +819,9 @@ function angleBetween(a, b) {
 function updateHandFollow(wrist) {
   const mx = clamp(1 - wrist.x, 0.08, 0.92);
   const my = clamp(wrist.y, 0.12, 0.88);
-  game.handFollow.x = game.handFollow.x * 0.18 + mx * 0.82;
-  game.handFollow.y = game.handFollow.y * 0.18 + my * 0.82;
+  // Lerp weight dinaikkan 0.82→0.93 agar posisi fallback wrist lebih responsif
+  game.handFollow.x = game.handFollow.x * 0.07 + mx * 0.93;
+  game.handFollow.y = game.handFollow.y * 0.07 + my * 0.93;
   game.handFollow.visible = true;
 }
 
@@ -1254,10 +1268,12 @@ function restartLevel() {
 function draw() {
   const W = canvas.clientWidth, H = canvas.clientHeight;
   ctx.clearRect(0, 0, W, H);
-  drawGardenScene(W, H);
+  const hasReferenceScene = drawGardenScene(W, H);
   drawGardenProgress(W, H);
   drawRomArc(W, H);          // ← ROM semicircle track (behind pots & fence)
-  drawFence(W, H);
+  if (!hasReferenceScene) {
+    drawFence(W, H);
+  }
   drawPots(W, H);
   if (game.level === 2) {
     drawLevel2Beacon(W, H);
@@ -1381,7 +1397,44 @@ function drawRomArc(W, H) {
 }
 
 /* ── Sky + ground ────────────────────────────────────────────── */
+function drawCoverImage(image, x, y, width, height) {
+  const imageRatio = image.naturalWidth / image.naturalHeight;
+  const targetRatio = width / height;
+  let sx = 0;
+  let sy = 0;
+  let sw = image.naturalWidth;
+  let sh = image.naturalHeight;
+
+  if (imageRatio > targetRatio) {
+    sw = image.naturalHeight * targetRatio;
+    sx = (image.naturalWidth - sw) / 2;
+  } else {
+    sh = image.naturalWidth / targetRatio;
+    sy = (image.naturalHeight - sh) / 2;
+  }
+
+  ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
+}
+
 function drawGardenScene(W, H) {
+  if (
+    USE_GARDEN_REFERENCE &&
+    gardenBackground.complete &&
+    gardenBackground.naturalWidth > 0
+  ) {
+    drawCoverImage(gardenBackground, 0, 0, W, H);
+
+    // Subtle atmospheric light wash
+    const lightWash = ctx.createLinearGradient(0, 0, 0, H);
+    lightWash.addColorStop(0, "rgba(255, 255, 255, 0.04)");
+    lightWash.addColorStop(0.5, "rgba(255, 255, 255, 0)");
+    lightWash.addColorStop(1, "rgba(10, 40, 15, 0.12)");
+    ctx.fillStyle = lightWash;
+    ctx.fillRect(0, 0, W, H);
+
+    return true;
+  }
+
   // Sky gradient
   const sky = ctx.createLinearGradient(0, 0, 0, H * 0.6);
   sky.addColorStop(0,   "#a8d8f0");
@@ -1457,6 +1510,8 @@ function drawGardenScene(W, H) {
   ctx.bezierCurveTo(W * 0.72, H * 0.82, W * 0.28, H * 0.82, W * 0.08, H * 0.84);
   ctx.closePath();
   ctx.fill();
+
+  return false;
 }
 
 /* ── Progress & fence ────────────────────────────────────────── */

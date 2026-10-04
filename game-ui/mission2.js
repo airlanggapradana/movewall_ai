@@ -2699,6 +2699,8 @@ function m2GetTherapistInfo() {
 let m2PatientsCache = [];
 let m2IsPatientsLoaded = false;
 let m2HighlightedPatientIndex = -1;
+let m2CurrentPatientMode = "existing"; // "existing" | "new"
+let m2SelectedPatientData = null; // { name, age, isNew }
 
 async function m2FetchPatientsList() {
   const token = m2GetAuthToken();
@@ -2725,9 +2727,107 @@ async function m2FetchPatientsList() {
 }
 
 function m2EscapeHtml(str) {
-  return str.replace(/[&<>'"]/g, 
+  return (str || "").replace(/[&<>'"]/g, 
     tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
   );
+}
+
+function m2UpdatePatientClearBtn() {
+  const nameInput = document.getElementById("patientName");
+  const clearBtn = document.getElementById("patientClearBtn");
+  if (!nameInput || !clearBtn) return;
+  if (nameInput.value.trim().length > 0) {
+    clearBtn.classList.remove("hidden");
+  } else {
+    clearBtn.classList.add("hidden");
+  }
+}
+
+function m2UpdatePatientStatusBadge(statusType, infoText) {
+  const container = document.getElementById("patientStatusContainer");
+  const badge = document.getElementById("patientStatusBadge");
+  if (!container || !badge) return;
+
+  if (!statusType) {
+    container.classList.add("hidden");
+    badge.className = "patient-status-badge";
+    badge.textContent = "";
+    return;
+  }
+
+  container.classList.remove("hidden");
+  if (statusType === "new") {
+    badge.className = "patient-status-badge is-new";
+    badge.innerHTML = `<span>✨</span> <span>Pasien Baru (Sesi Pertama)</span>${infoText ? ` <span style="opacity:0.8">· ${m2EscapeHtml(infoText)}</span>` : ""}`;
+  } else if (statusType === "existing") {
+    badge.className = "patient-status-badge is-existing";
+    badge.innerHTML = `<span>✓</span> <span>Pasien Terdaftar</span>${infoText ? ` <span style="opacity:0.8">· ${m2EscapeHtml(infoText)}</span>` : ""}`;
+  }
+}
+
+function m2SetPatientMode(mode, preserveName = false) {
+  m2CurrentPatientMode = mode;
+  const btnExisting = document.getElementById("btnModeExistingPatient");
+  const btnNew = document.getElementById("btnModeNewPatient");
+  const nameInput = document.getElementById("patientName");
+  const ageInput = document.getElementById("patientAge");
+  const labelText = document.getElementById("patientNameLabelText");
+  const helperNote = document.getElementById("patientNewHelper");
+  const ageHint = document.getElementById("patientAgeHint");
+
+  if (btnExisting) {
+    btnExisting.classList.toggle("active", mode === "existing");
+    btnExisting.setAttribute("aria-selected", mode === "existing" ? "true" : "false");
+  }
+  if (btnNew) {
+    btnNew.classList.toggle("active", mode === "new");
+    btnNew.setAttribute("aria-selected", mode === "new" ? "true" : "false");
+  }
+
+  if (mode === "new") {
+    if (labelText) labelText.textContent = "Nama Lengkap Pasien Baru";
+    if (nameInput) {
+      nameInput.placeholder = "Ketik nama pasien baru...";
+      if (!preserveName) {
+        nameInput.value = "";
+      }
+    }
+    if (!preserveName && ageInput) {
+      ageInput.value = "";
+    }
+    if (helperNote) helperNote.classList.remove("hidden");
+    if (ageHint) ageHint.classList.add("hidden");
+
+    m2SelectedPatientData = {
+      name: nameInput ? nameInput.value.trim() : "",
+      age: ageInput ? ageInput.value : "",
+      isNew: true
+    };
+    m2UpdatePatientStatusBadge("new", nameInput && nameInput.value ? nameInput.value.trim() : "");
+    m2ClosePatientDropdown();
+    m2UpdatePatientClearBtn();
+  } else {
+    // mode === "existing"
+    if (labelText) labelText.textContent = "Nama Lengkap Pasien";
+    if (nameInput) {
+      nameInput.placeholder = "Cari pasien terdaftar atau ketik nama...";
+    }
+    if (helperNote) helperNote.classList.add("hidden");
+
+    // Check if current name matches existing patient in cache
+    const currentName = nameInput ? nameInput.value.trim().toLowerCase() : "";
+    const matched = m2PatientsCache.find(p => p.name.toLowerCase() === currentName);
+    if (matched) {
+      m2SelectedPatientData = { ...matched, isNew: false };
+      m2UpdatePatientStatusBadge("existing", `${matched.age ? matched.age + ' th · ' : ''}${matched.sessionCount || 1}x sesi`);
+      if (ageHint) ageHint.classList.remove("hidden");
+    } else {
+      m2SelectedPatientData = null;
+      m2UpdatePatientStatusBadge(null);
+      if (ageHint) ageHint.classList.add("hidden");
+    }
+    m2UpdatePatientClearBtn();
+  }
 }
 
 function m2RenderPatientOptions(filterText = "") {
@@ -2735,17 +2835,35 @@ function m2RenderPatientOptions(filterText = "") {
   const emptyInitial = document.getElementById("patientEmptyInitial");
   const emptyFilter = document.getElementById("patientEmptyFilter");
   const newNamePreview = document.getElementById("patientNewNamePreview");
+  const createRow = document.getElementById("patientDropdownCreateRow");
+  const createTitle = document.getElementById("patientDropdownCreateTitle");
+  const createDesc = document.getElementById("patientDropdownCreateDesc");
+  const headerLabel = document.getElementById("patientDropdownHeader");
+
   if (!optionsList) return;
 
   optionsList.innerHTML = "";
   m2HighlightedPatientIndex = -1;
 
-  const query = (filterText || "").trim().toLowerCase();
+  const query = (filterText || "").trim();
+  const queryLower = query.toLowerCase();
+
+  // Update the direct create new patient row
+  if (createRow && createTitle && createDesc) {
+    if (query) {
+      createTitle.innerHTML = `Tambah "<strong>${m2EscapeHtml(query)}</strong>" Sebagai Pasien Baru`;
+      createDesc.textContent = "Daftarkan nama ini sebagai pasien baru (sesi pertama)";
+    } else {
+      createTitle.textContent = "+ Daftarkan Pasien Baru";
+      createDesc.textContent = "Klik di sini untuk mendaftarkan pasien baru yang belum pernah terapi";
+    }
+  }
 
   // Case 1: Initial empty state (belum ada riwayat pasien sama sekali)
   if (!m2PatientsCache || m2PatientsCache.length === 0) {
     if (emptyInitial) emptyInitial.classList.remove("hidden");
     if (emptyFilter) emptyFilter.classList.add("hidden");
+    if (headerLabel) headerLabel.classList.add("hidden");
     optionsList.classList.add("hidden");
     return;
   }
@@ -2753,22 +2871,24 @@ function m2RenderPatientOptions(filterText = "") {
   if (emptyInitial) emptyInitial.classList.add("hidden");
 
   // Filter patients by query
-  const filtered = query
-    ? m2PatientsCache.filter((p) => p.name.toLowerCase().includes(query))
+  const filtered = queryLower
+    ? m2PatientsCache.filter((p) => p.name.toLowerCase().includes(queryLower))
     : m2PatientsCache;
 
   // Case 2: Filter yielded no matches (pasien baru)
   if (filtered.length === 0) {
     if (emptyFilter) {
       emptyFilter.classList.remove("hidden");
-      if (newNamePreview) newNamePreview.textContent = filterText.trim();
+      if (newNamePreview) newNamePreview.textContent = query;
     }
+    if (headerLabel) headerLabel.classList.add("hidden");
     optionsList.classList.add("hidden");
     return;
   }
 
   // Case 3: Display matching patients
   if (emptyFilter) emptyFilter.classList.add("hidden");
+  if (headerLabel) headerLabel.classList.remove("hidden");
   optionsList.classList.remove("hidden");
 
   filtered.forEach((p, idx) => {
@@ -2777,11 +2897,12 @@ function m2RenderPatientOptions(filterText = "") {
     li.dataset.index = idx;
     li.dataset.name = p.name;
     li.dataset.age = p.age || "";
+    li.setAttribute("role", "option");
 
     // Highlight query matches in name
     let displayName = m2EscapeHtml(p.name);
-    if (query) {
-      const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+    if (queryLower) {
+      const regex = new RegExp(`(${queryLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
       displayName = displayName.replace(regex, "<mark>$1</mark>");
     }
 
@@ -2804,17 +2925,56 @@ function m2RenderPatientOptions(filterText = "") {
 function m2SelectPatientItem(name, age) {
   const nameInput = document.getElementById("patientName");
   const ageInput = document.getElementById("patientAge");
+  const ageHint = document.getElementById("patientAgeHint");
+
   if (nameInput) nameInput.value = name;
-  if (ageInput && age) {
+  if (ageInput && age !== undefined && age !== null && age !== "") {
     ageInput.value = age;
     ageInput.classList.remove("input-autofilled");
     void ageInput.offsetWidth;
     ageInput.classList.add("input-autofilled");
   }
+
+  // Mark mode as existing
+  m2CurrentPatientMode = "existing";
+  const btnExisting = document.getElementById("btnModeExistingPatient");
+  const btnNew = document.getElementById("btnModeNewPatient");
+  if (btnExisting) btnExisting.classList.add("active");
+  if (btnNew) btnNew.classList.remove("active");
+
+  const matched = m2PatientsCache.find(p => p.name.toLowerCase() === name.toLowerCase());
+  m2SelectedPatientData = matched ? { ...matched, isNew: false } : { name, age, isNew: false };
+
+  const sessionLabel = (matched && matched.sessionCount) ? `${matched.sessionCount}x sesi` : "Pasien Terdaftar";
+  m2UpdatePatientStatusBadge("existing", `${age ? age + ' th · ' : ''}${sessionLabel}`);
+  if (ageHint) ageHint.classList.remove("hidden");
+
+  m2UpdatePatientClearBtn();
   m2ClosePatientDropdown();
 }
 
+function m2ChooseNewPatient(name = "") {
+  const nameInput = document.getElementById("patientName");
+  const ageInput = document.getElementById("patientAge");
+
+  if (name && nameInput) {
+    nameInput.value = name;
+  }
+  m2SetPatientMode("new", true);
+
+  // If name is filled, guide focus to age input
+  if (nameInput && nameInput.value.trim().length > 0) {
+    if (ageInput) {
+      ageInput.focus();
+      ageInput.select();
+    }
+  } else if (nameInput) {
+    nameInput.focus();
+  }
+}
+
 function m2OpenPatientDropdown() {
+  if (m2CurrentPatientMode === "new") return;
   const dropdown = document.getElementById("patientDropdown");
   const wrapper = document.getElementById("patientComboboxWrapper");
   const nameInput = document.getElementById("patientName");
@@ -2840,11 +3000,11 @@ function m2ClosePatientDropdown() {
   m2HighlightedPatientIndex = -1;
 }
 
-function m2UpdateHighlightedOption(options, newIndex) {
-  options.forEach((opt, idx) => {
-    opt.classList.toggle("is-highlighted", idx === newIndex);
+function m2UpdateHighlightedOption(items, newIndex) {
+  items.forEach((item, idx) => {
+    item.classList.toggle("is-highlighted", idx === newIndex);
     if (idx === newIndex) {
-      opt.scrollIntoView({ block: "nearest" });
+      item.scrollIntoView({ block: "nearest" });
     }
   });
 }
@@ -2852,20 +3012,79 @@ function m2UpdateHighlightedOption(options, newIndex) {
 function m2InitPatientCombobox() {
   const wrapper = document.getElementById("patientComboboxWrapper");
   const nameInput = document.getElementById("patientName");
+  const ageInput = document.getElementById("patientAge");
   const toggleBtn = document.getElementById("patientComboboxToggle");
+  const clearBtn = document.getElementById("patientClearBtn");
   const dropdown = document.getElementById("patientDropdown");
   const optionsList = document.getElementById("patientOptionsList");
+  const createRow = document.getElementById("patientDropdownCreateRow");
+  const emptyFilter = document.getElementById("patientEmptyFilter");
+  const btnModeExisting = document.getElementById("btnModeExistingPatient");
+  const btnModeNew = document.getElementById("btnModeNewPatient");
+  const resetBtn = document.getElementById("patientResetSelectionBtn");
 
   if (!wrapper || !nameInput) return;
 
+  // Mode Switchers
+  if (btnModeExisting) {
+    btnModeExisting.addEventListener("click", () => {
+      m2SetPatientMode("existing");
+      nameInput.focus();
+      m2OpenPatientDropdown();
+    });
+  }
+
+  if (btnModeNew) {
+    btnModeNew.addEventListener("click", () => {
+      m2ChooseNewPatient(nameInput.value.trim());
+    });
+  }
+
+  // Reset Selection
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      nameInput.value = "";
+      if (ageInput) ageInput.value = "";
+      m2SetPatientMode("existing");
+      m2UpdatePatientClearBtn();
+      nameInput.focus();
+      m2OpenPatientDropdown();
+    });
+  }
+
+  // Clear button
+  if (clearBtn) {
+    clearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      nameInput.value = "";
+      m2UpdatePatientClearBtn();
+      if (m2CurrentPatientMode === "new") {
+        if (ageInput) ageInput.value = "";
+        m2UpdatePatientStatusBadge("new", "");
+      } else {
+        m2UpdatePatientStatusBadge(null);
+        m2OpenPatientDropdown();
+        m2RenderPatientOptions("");
+      }
+      nameInput.focus();
+    });
+  }
+
   // Input focus & typing
   nameInput.addEventListener("focus", () => {
-    m2OpenPatientDropdown();
+    if (m2CurrentPatientMode !== "new") {
+      m2OpenPatientDropdown();
+    }
   });
 
   nameInput.addEventListener("input", () => {
-    m2OpenPatientDropdown();
-    m2RenderPatientOptions(nameInput.value);
+    m2UpdatePatientClearBtn();
+    if (m2CurrentPatientMode === "new") {
+      m2UpdatePatientStatusBadge("new", nameInput.value.trim());
+    } else {
+      m2OpenPatientDropdown();
+      m2RenderPatientOptions(nameInput.value);
+    }
   });
 
   // Toggle button click
@@ -2873,6 +3092,9 @@ function m2InitPatientCombobox() {
     toggleBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (m2CurrentPatientMode === "new") {
+        m2SetPatientMode("existing", true);
+      }
       if (dropdown && dropdown.classList.contains("hidden")) {
         nameInput.focus();
         m2OpenPatientDropdown();
@@ -2882,8 +3104,32 @@ function m2InitPatientCombobox() {
     });
   }
 
+  // Direct create row click inside dropdown
+  if (createRow) {
+    createRow.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      m2ChooseNewPatient(nameInput.value.trim());
+    });
+  }
+
+  // Empty filter card click inside dropdown
+  if (emptyFilter) {
+    emptyFilter.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      m2ChooseNewPatient(nameInput.value.trim());
+    });
+  }
+
   // Keyboard navigation
   nameInput.addEventListener("keydown", (e) => {
+    if (m2CurrentPatientMode === "new") {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (ageInput) ageInput.focus();
+      }
+      return;
+    }
+
     if (!dropdown || dropdown.classList.contains("hidden")) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
@@ -2892,8 +3138,18 @@ function m2InitPatientCombobox() {
       return;
     }
 
+    // Build list of navigable items: createRow + options + emptyFilter (if visible)
+    const navigableItems = [];
+    if (createRow && !createRow.classList.contains("hidden")) {
+      navigableItems.push(createRow);
+    }
     const visibleOptions = Array.from(optionsList.querySelectorAll(".combobox-option"));
-    if (visibleOptions.length === 0) {
+    navigableItems.push(...visibleOptions);
+    if (emptyFilter && !emptyFilter.classList.contains("hidden")) {
+      navigableItems.push(emptyFilter);
+    }
+
+    if (navigableItems.length === 0) {
       if (e.key === "Escape") {
         m2ClosePatientDropdown();
       }
@@ -2902,17 +3158,32 @@ function m2InitPatientCombobox() {
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      m2HighlightedPatientIndex = (m2HighlightedPatientIndex + 1) % visibleOptions.length;
-      m2UpdateHighlightedOption(visibleOptions, m2HighlightedPatientIndex);
+      m2HighlightedPatientIndex = (m2HighlightedPatientIndex + 1) % navigableItems.length;
+      m2UpdateHighlightedOption(navigableItems, m2HighlightedPatientIndex);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      m2HighlightedPatientIndex = (m2HighlightedPatientIndex - 1 + visibleOptions.length) % visibleOptions.length;
-      m2UpdateHighlightedOption(visibleOptions, m2HighlightedPatientIndex);
+      m2HighlightedPatientIndex = (m2HighlightedPatientIndex - 1 + navigableItems.length) % navigableItems.length;
+      m2UpdateHighlightedOption(navigableItems, m2HighlightedPatientIndex);
     } else if (e.key === "Enter") {
-      if (m2HighlightedPatientIndex >= 0 && m2HighlightedPatientIndex < visibleOptions.length) {
-        e.preventDefault();
-        const selected = visibleOptions[m2HighlightedPatientIndex];
-        m2SelectPatientItem(selected.dataset.name, selected.dataset.age);
+      e.preventDefault();
+      if (m2HighlightedPatientIndex >= 0 && m2HighlightedPatientIndex < navigableItems.length) {
+        const item = navigableItems[m2HighlightedPatientIndex];
+        if (item === createRow || item === emptyFilter) {
+          m2ChooseNewPatient(nameInput.value.trim());
+        } else if (item.classList.contains("combobox-option")) {
+          m2SelectPatientItem(item.dataset.name, item.dataset.age);
+        }
+      } else {
+        // Nothing highlighted: check if input matches existing or create new
+        const query = nameInput.value.trim();
+        const matched = m2PatientsCache.find(p => p.name.toLowerCase() === query.toLowerCase());
+        if (matched) {
+          m2SelectPatientItem(matched.name, matched.age);
+        } else if (query.length > 0) {
+          m2ChooseNewPatient(query);
+        } else {
+          m2ClosePatientDropdown();
+        }
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -2951,15 +3222,18 @@ function m2OpenAssessmentDialog() {
   if (ui.assessmentSuccess) ui.assessmentSuccess.classList.add("hidden");
   if (ui.assessmentForm) ui.assessmentForm.classList.remove("hidden");
 
+  // Reset patient mode & combobox
+  m2SetPatientMode("existing");
+  m2UpdatePatientStatusBadge(null);
+  m2UpdatePatientClearBtn();
+  m2ClosePatientDropdown();
+  m2FetchPatientsList().then(() => m2RenderPatientOptions(""));
+
   // Pre-fill suggested clinical notes if Level 2 / High Recovery is detected
   const notesField = ui.assessmentForm ? ui.assessmentForm.querySelector('textarea[name="notes"]') : null;
   if (notesField && (game.isHighRecoveryDetected || game.level === 2)) {
     notesField.value = "Pasien berhasil menyelesaikan Misi 2 Level 2 (Mode Acak) dengan akurasi optimal. Biomekanika bahu dan kontrol motorik terdeteksi SANGAT SEMBUH (High Functional Recovery).";
   }
-
-  // Reset combobox & fetch fresh list
-  m2ClosePatientDropdown();
-  m2FetchPatientsList().then(() => m2RenderPatientOptions(""));
 
   const therapist = m2GetTherapistInfo();
   if (ui.assessmentTherapistName && therapist) {

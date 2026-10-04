@@ -250,10 +250,55 @@
 
           <!-- Section 1: Patient Info -->
           <div class="assessment-section">
-            <h3 class="assessment-section-title">Informasi Pasien</h3>
+            <div class="assessment-section-header">
+              <h3 class="assessment-section-title">Informasi Pasien</h3>
+              <!-- Mode Switcher: Pilih Pasien Terdaftar vs Tambah Pasien Baru -->
+              <div class="patient-mode-toggle" role="tablist" aria-label="Mode Pasien">
+                <button
+                  type="button"
+                  id="btnModeExistingPatient"
+                  class="patient-mode-btn active"
+                  role="tab"
+                  aria-selected="true"
+                  title="Pilih pasien yang sudah pernah menjalani terapi"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  <span>Pilih Terdaftar</span>
+                </button>
+                <button
+                  type="button"
+                  id="btnModeNewPatient"
+                  class="patient-mode-btn"
+                  role="tab"
+                  aria-selected="false"
+                  title="Daftarkan pasien baru untuk sesi ini"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  <span>+ Pasien Baru</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Dynamic Patient Status Tag -->
+            <div id="patientStatusContainer" class="patient-status-container hidden">
+              <span id="patientStatusBadge" class="patient-status-badge"></span>
+              <button type="button" id="patientResetSelectionBtn" class="patient-reset-link" title="Ganti pilihan atau masukkan nama baru">Ganti</button>
+            </div>
+
             <div class="assessment-fields-row">
               <div class="assessment-field combobox-field">
-                <label for="patientName" class="assessment-label">Nama Lengkap Pasien <span class="required">*</span></label>
+                <label for="patientName" class="assessment-label">
+                  <span id="patientNameLabelText">Nama Lengkap Pasien</span>
+                  <span class="required">*</span>
+                </label>
                 <div class="combobox-wrapper" id="patientComboboxWrapper">
                   <div class="combobox-input-wrap">
                     <input
@@ -261,16 +306,32 @@
                       name="patientName"
                       type="text"
                       class="assessment-input combobox-input"
-                      placeholder="Ketik nama atau pilih pasien..."
+                      placeholder="Cari pasien terdaftar atau ketik nama baru..."
                       autocomplete="off"
                       required
                     />
+                    <!-- Clear input button (hidden by default) -->
+                    <button
+                      type="button"
+                      id="patientClearBtn"
+                      class="combobox-clear-btn hidden"
+                      aria-label="Hapus nama"
+                      tabindex="-1"
+                      title="Hapus nama"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                    <!-- Toggle dropdown button -->
                     <button
                       type="button"
                       id="patientComboboxToggle"
                       class="combobox-toggle-btn"
-                      aria-label="Buka riwayat pasien"
+                      aria-label="Buka daftar pasien"
                       tabindex="-1"
+                      title="Buka daftar pasien terdaftar"
                     >
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="6 9 12 15 18 9"></polyline>
@@ -280,16 +341,28 @@
 
                   <!-- Dropdown list -->
                   <div id="patientDropdown" class="combobox-dropdown hidden" role="listbox">
+                    <!-- Action: Direct create new patient row inside dropdown -->
+                    <div id="patientDropdownCreateRow" class="combobox-create-row" role="button" tabindex="0">
+                      <div class="combobox-create-icon">➕</div>
+                      <div class="combobox-create-content">
+                        <span class="combobox-create-title" id="patientDropdownCreateTitle">Tambah Pasien Baru</span>
+                        <span class="combobox-create-desc" id="patientDropdownCreateDesc">Ketik nama pasien baru yang belum ada di daftar</span>
+                      </div>
+                    </div>
+
                     <!-- Loading state -->
                     <div id="patientComboboxLoading" class="combobox-loading hidden">
                       <span class="combobox-spinner"></span>
                       <span>Memuat data pasien...</span>
                     </div>
 
+                    <!-- Header label for existing list -->
+                    <div id="patientDropdownHeader" class="combobox-header-label">Pasien Terdaftar:</div>
+
                     <!-- Options list -->
                     <ul id="patientOptionsList" class="combobox-options"></ul>
 
-                    <!-- Empty state: belum ada riwayat pasien -->
+                    <!-- Empty state: belum ada riwayat pasien sama sekali -->
                     <div id="patientEmptyInitial" class="combobox-empty hidden">
                       <div class="combobox-empty-icon">👤</div>
                       <div class="combobox-empty-content">
@@ -298,29 +371,41 @@
                       </div>
                     </div>
 
-                    <!-- Empty state: pencarian nama tidak ditemukan -->
-                    <div id="patientEmptyFilter" class="combobox-empty hidden">
-                      <div class="combobox-empty-icon">➕</div>
+                    <!-- Empty state: pencarian nama tidak ditemukan (Interactive Clickable Action) -->
+                    <div id="patientEmptyFilter" class="combobox-empty combobox-empty-clickable hidden" role="button" tabindex="0">
+                      <div class="combobox-empty-icon">✨</div>
                       <div class="combobox-empty-content">
-                        <strong class="combobox-empty-title">Pasien Baru</strong>
-                        <p class="combobox-empty-desc">Gunakan "<span id="patientNewNamePreview"></span>" sebagai pasien baru.</p>
+                        <strong class="combobox-empty-title">Pasien Tidak Ditemukan</strong>
+                        <p class="combobox-empty-desc">Klik di sini untuk mendaftarkan "<span id="patientNewNamePreview"></span>" sebagai <b>Pasien Baru</b>.</p>
                       </div>
                     </div>
                   </div>
                 </div>
+                <!-- Helper prompt when in new patient mode -->
+                <div id="patientNewHelper" class="patient-helper-note hidden">
+                  <span>💡 Pasien baru akan otomatis tercatat di database dan Dashboard Terapis setelah disimpan.</span>
+                </div>
               </div>
+
               <div class="assessment-field field-short">
-                <label for="patientAge" class="assessment-label">Usia Pasien <span class="required">*</span></label>
-                <input
-                  id="patientAge"
-                  name="patientAge"
-                  type="number"
-                  class="assessment-input"
-                  placeholder="Tahun"
-                  min="1"
-                  max="120"
-                  required
-                />
+                <label for="patientAge" class="assessment-label">
+                  <span>Usia Pasien</span>
+                  <span class="required">*</span>
+                </label>
+                <div class="age-input-wrap">
+                  <input
+                    id="patientAge"
+                    name="patientAge"
+                    type="number"
+                    class="assessment-input"
+                    placeholder="Tahun"
+                    min="1"
+                    max="120"
+                    required
+                  />
+                  <span class="age-unit-label">th</span>
+                </div>
+                <span id="patientAgeHint" class="patient-age-hint hidden">Otomatis terisi dari riwayat</span>
               </div>
             </div>
           </div>

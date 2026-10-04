@@ -1527,6 +1527,109 @@ a {
    COMBOBOX — Patient Name Autocomplete & Dropdown
    ═══════════════════════════════════════════════════════════ */
 
+.assessment-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.assessment-section-header .assessment-section-title {
+  margin: 0;
+}
+
+/* Mode Switcher: Pilih Terdaftar vs + Pasien Baru */
+.patient-mode-toggle {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.patient-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 140ms ease;
+  user-select: none;
+}
+
+.patient-mode-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.patient-mode-btn.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+}
+
+/* Patient Status Tag */
+.patient-status-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 12px;
+  animation: comboboxFadeIn 0.2s ease;
+}
+
+.patient-status-container.hidden {
+  display: none !important;
+}
+
+.patient-status-badge {
+  font-size: 0.76rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.patient-status-badge.is-new {
+  color: #34d399;
+}
+
+.patient-status-badge.is-existing {
+  color: #38bdf8;
+}
+
+.patient-reset-link {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 140ms ease;
+}
+
+.patient-reset-link:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  text-decoration: none;
+}
+
 .combobox-field {
   position: relative;
 }
@@ -1544,7 +1647,36 @@ a {
 }
 
 .combobox-input {
-  padding-right: 36px;
+  padding-right: 64px;
+}
+
+.combobox-clear-btn {
+  position: absolute;
+  right: 36px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  transition: all 150ms ease;
+  padding: 0;
+  z-index: 2;
+}
+
+.combobox-clear-btn:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.15);
+}
+
+.combobox-clear-btn.hidden {
+  display: none !important;
 }
 
 .combobox-toggle-btn {
@@ -1584,7 +1716,7 @@ a {
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  max-height: 220px;
+  max-height: 240px;
   overflow-y: auto;
   background: #0f172a;
   border: 1.5px solid rgba(255, 255, 255, 0.15);
@@ -1622,6 +1754,75 @@ a {
 .combobox-dropdown::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
+}
+
+/* Action: Direct Create New Patient Row inside dropdown */
+.combobox-create-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px dashed rgba(16, 185, 129, 0.35);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 140ms ease;
+  user-select: none;
+}
+
+.combobox-create-row:hover,
+.combobox-create-row.is-highlighted {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+}
+
+.combobox-create-icon {
+  font-size: 13px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.combobox-create-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.combobox-create-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #a7f3d0;
+}
+
+.combobox-create-desc {
+  font-size: 0.71rem;
+  color: #6ee7b7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.combobox-header-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  padding: 4px 6px 4px;
+}
+
+.combobox-header-label.hidden {
+  display: none !important;
 }
 
 .combobox-options {
@@ -1718,6 +1919,18 @@ a {
   display: none !important;
 }
 
+.combobox-empty-clickable {
+  cursor: pointer;
+  transition: all 140ms ease;
+  user-select: none;
+}
+
+.combobox-empty-clickable:hover,
+.combobox-empty-clickable.is-highlighted {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: #10b981;
+}
+
 .combobox-empty-icon {
   font-size: 18px;
   width: 32px;
@@ -1729,6 +1942,11 @@ a {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.combobox-empty-clickable .combobox-empty-icon {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
 }
 
 .combobox-empty-content {
@@ -1754,6 +1972,56 @@ a {
 .combobox-empty-desc span {
   color: #38bdf8;
   font-weight: 600;
+}
+
+.combobox-empty-clickable .combobox-empty-desc b {
+  color: #34d399;
+}
+
+.patient-helper-note {
+  font-size: 0.74rem;
+  color: #34d399;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  animation: comboboxFadeIn 0.2s ease;
+}
+
+.patient-helper-note.hidden {
+  display: none !important;
+}
+
+.age-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.age-input-wrap .assessment-input {
+  padding-right: 32px;
+}
+
+.age-unit-label {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.patient-age-hint {
+  font-size: 0.7rem;
+  color: #38bdf8;
+  margin-top: 4px;
+}
+
+.patient-age-hint.hidden {
+  display: none !important;
 }
 
 /* Loading State */

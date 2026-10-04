@@ -3050,12 +3050,14 @@ body.login-page {
 
 /* ── Main Layout ────────────────────────────────────────────── */
 .dash-main-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 28px 32px 64px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 24px 32px 64px;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  box-sizing: border-box;
 }
 
 /* ── KPI Grid (Studio v1.0) ─────────────────────────────────── */
@@ -3714,6 +3716,12 @@ body.login-page {
   border: 1px solid var(--bone-200);
   border-radius: var(--rad-md);
   padding: 8px;
+}
+
+.dash-chart-box canvas {
+  width: 100%;
+  height: 150px;
+  display: block;
 }
 
 .dash-chart-legend {

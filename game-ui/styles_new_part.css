@@ -668,12 +668,14 @@ body.login-page {
 
 /* ── Main Layout ────────────────────────────────────────────── */
 .dash-main-container {
-  max-width: 1480px;
-  margin: 0 auto;
-  padding: 28px 32px 64px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 24px 32px 64px;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  box-sizing: border-box;
 }
 
 /* ── KPI Grid ───────────────────────────────────────────────── */

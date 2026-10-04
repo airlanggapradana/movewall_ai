@@ -11,6 +11,7 @@ let currentToken = null;
 let allPatients = [];
 let activePatientName = null;
 let activeFilter = "all";
+let currentPatientHistory = [];
 
 // ── DOM References ────────────────────────────────────────────────────────────
 const therapistNameEl = document.getElementById("dashTherapistName");
@@ -289,6 +290,7 @@ async function selectPatient(name) {
 
     // Render Score Progression Bars
     renderScoreProgress(sessions);
+    currentPatientHistory = sessions;
     drawTrendChart(document.getElementById("uiTrendCanvas"), sessions, false);
 
     // Render Session Table
@@ -302,6 +304,9 @@ async function selectPatient(name) {
 
 function drawTrendChart(canvas, sessions, isDark = false) {
   if (!canvas) return;
+  if (canvas.parentElement && canvas.parentElement.clientWidth > 50) {
+    canvas.width = canvas.parentElement.clientWidth - 16;
+  }
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
   const h = canvas.height;
@@ -889,3 +894,12 @@ document.addEventListener("DOMContentLoaded", () => {
     loadPatientsDirectory();
   }
 });
+
+// ── Window Resize: Redraw Chart Responsively ───────────────────────────────────
+window.addEventListener("resize", () => {
+  const trendCanvas = document.getElementById("uiTrendCanvas");
+  if (trendCanvas && currentPatientHistory && currentPatientHistory.length > 0 && patientWorkspace && !patientWorkspace.classList.contains("hidden")) {
+    drawTrendChart(trendCanvas, currentPatientHistory, false);
+  }
+});
+

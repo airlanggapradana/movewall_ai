@@ -29,8 +29,9 @@ const JWT_EXPIRES_IN = "8h";
 
 // Daftar origin yang diizinkan:
 // - Semua domain *.vercel.app (frontend Vercel)
+// - Semua domain *.up.railway.app (frontend Railway)
 // - localhost untuk development lokal
-const ALLOWED_ORIGINS_PATTERN = /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/;
+const ALLOWED_ORIGINS_PATTERN = /^https:\/\/([a-zA-Z0-9-]+\.vercel\.app|[a-zA-Z0-9-]+\.up\.railway\.app)$/;
 const ALLOWED_ORIGINS_EXACT = [
   "http://localhost:3000",
   "http://localhost:5173",
@@ -54,6 +55,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+
 
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
 

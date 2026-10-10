@@ -3132,7 +3132,17 @@ document.addEventListener("keydown", (e) => {
    THERAPIST ASSESSMENT DIALOG — Mission 1
    ═══════════════════════════════════════════════════════════════ */
 
-const BACKEND_API = "http://localhost:3001/api";
+// ─── API Base URL ─────────────────────────────────────────────────────────────
+// Di localhost: mengarah ke http://localhost:3001/api
+// Di Vercel produksi: ganti MOVEWALL_BACKEND_URL dengan domain backend Vercel Anda
+const _BACKEND_ORIGIN =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://localhost:3001"
+    : (window.MOVEWALL_BACKEND_URL || "https://movewall-backend.vercel.app");
+
+const BACKEND_API = `${_BACKEND_ORIGIN}/api`;
+
 
 function getAuthToken() {
   return sessionStorage.getItem("mw_token") || null;

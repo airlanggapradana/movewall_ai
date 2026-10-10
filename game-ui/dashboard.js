@@ -3,7 +3,18 @@
  * Handles therapist auth guard, telemetry analytics, patient history, and PDF clinical reports.
  */
 
-const API_BASE = "http://localhost:3001/api";
+// ─── API Base URL ─────────────────────────────────────────────────────────────
+// Di localhost: mengarah ke http://localhost:3001/api
+// Di Vercel produksi: ganti MOVEWALL_BACKEND_URL dengan domain backend Vercel Anda
+// Contoh: "https://movewall-backend.vercel.app"
+const BACKEND_ORIGIN =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://localhost:3001"
+    : (window.MOVEWALL_BACKEND_URL || "https://movewall-backend.vercel.app");
+
+const API_BASE = `${BACKEND_ORIGIN}/api`;
+
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentTherapist = null;

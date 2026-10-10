@@ -27,8 +27,30 @@ const JWT_EXPIRES_IN = "8h";
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
+// Daftar origin yang diizinkan:
+// - Semua domain *.vercel.app (frontend Vercel)
+// - localhost untuk development lokal
+const ALLOWED_ORIGINS_PATTERN = /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/;
+const ALLOWED_ORIGINS_EXACT = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:3000",
+  // Tambahkan domain kustom Anda di sini jika ada:
+  // "https://movewall.example.com",
+];
+
 app.use(cors({
-  origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+  origin: function (origin, callback) {
+    // Izinkan request tanpa origin (misal curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+    if (
+      ALLOWED_ORIGINS_EXACT.includes(origin) ||
+      ALLOWED_ORIGINS_PATTERN.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS blocked: origin '${origin}' not allowed`));
+  },
   credentials: true,
 }));
 app.use(express.json());
@@ -657,7 +679,7 @@ app.post("/api/dev/seed", async (req, res) => {
   }
 });
 
-// ─── Start Server ─────────────────────────────────────────────────────────────
+// ─── Start Server (lokal) atau export untuk Vercel serverless ────────────────
 
 async function main() {
   try {
@@ -682,11 +704,19 @@ async function main() {
   }
 }
 
-main();
+// Jalankan server saat dieksekusi langsung (npm start / node server.js)
+// Ketika di-import oleh Vercel sebagai serverless, blok ini dilewati
+if (require.main === module) {
+  main();
+}
 
-// Graceful shutdown
+// Graceful shutdown (hanya relevan di mode non-serverless)
 process.on("SIGINT", async () => {
   await prisma.$disconnect();
   console.log("[MoveWall] 👋 Server shutdown gracefully");
   process.exit(0);
 });
+
+// Export app untuk Vercel serverless handler
+module.exports = app;
+

@@ -1,5 +1,6 @@
 {
   "name": "movewall-backend",
+    "engines": { "node": ">=22.12.0" },
   "version": "1.0.0",
   "description": "MoveWall AI — Backend API (Therapist Auth + Assessment Storage)",
   "main": "server.js",

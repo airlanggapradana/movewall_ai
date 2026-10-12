@@ -1,12 +1,7 @@
 {
-  "version": 2,
-  "public": true,
   "cleanUrls": true,
   "trailingSlash": false,
   "outputDirectory": "game-ui",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/$1" }
-  ],
   "headers": [
     {
       "source": "/(.*)",

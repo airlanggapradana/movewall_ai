@@ -691,8 +691,13 @@ graph TB
 - [x] **Analisis Arsitektur Frontend**: Pemetaan menyeluruh terhadap seluruh komponen, modul, alur data, dan aset `game-ui/`.
 - [x] **Optimalisasi `vercel.json`**: Menghapus pembatasan COEP dan menambahkan root `vercel.json` dengan `outputDirectory: "game-ui"`.
 - [x] **Penyusunan `Task_6.md` & `walkthrough.md`**: Dokumentasi arsitektur frontend dan langkah deployment.
-- [ ] **Konfirmasi Pengguna**: Meminta persetujuan pengguna untuk melanjutkan eksekusi deployment Vercel.
-- [ ] **Eksekusi Deployment Vercel**: Deployment live hingga domain `*.vercel.app` aktif.
-- [ ] **Verifikasi Live Testing**: Pengujian end-to-end login, dashboard, dan misi di domain Vercel.
+- [x] **Konfirmasi Pengguna**: Pengguna menyetujui eksekusi langsung.
+- [x] **Eksekusi Deployment Vercel**: Deployment live sukses ke production:
+  - **Domain Utama**: [https://movewall-ai.vercel.app](https://movewall-ai.vercel.app)
+  - **Deployment ID**: `dpl_GqgZfZLw3UnnAW9nJaoBcHgDPP5n` (Ready, Target Production)
+- [x] **Verifikasi Live Testing**: 
+  - Login Terapis (`/login`) mengembalikan HTTP 200 OK dan terhubung ke Railway backend.
+  - Dashboard Klinis (`/dashboard`) berhasil memuat rekam medis 4 pasien & 12 sesi.
+  - Misi 1 (`/index.html`) & Misi 2 (`/mission2`) aktif dengan inferensi MediaPipe.
 
 

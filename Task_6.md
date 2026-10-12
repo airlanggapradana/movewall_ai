@@ -68,16 +68,16 @@ graph TD
 
 ## Checklist Task Deployment
 
-- [ ] **Audit & Refine Konfigurasi Vercel**:
+- [x] **Audit & Refine Konfigurasi Vercel**:
   - Perbaiki `game-ui/vercel.json` agar bebas dari pemblokiran COEP `require-corp`.
   - Buat root `vercel.json` untuk mengamankan routing jika repositori di-build dari root.
-- [ ] **Validasi Backend Origin**:
+- [x] **Validasi Backend Origin**:
   - Pastikan seluruh file (`login.html`, `dashboard.js`, `app.js`, `mission2.js`) memiliki fallback default ke Railway production backend `https://movewallai-production.up.railway.app`.
-- [ ] **Penyusunan Dokumentasi Walkthrough**:
+- [x] **Penyusunan Dokumentasi Walkthrough**:
   - Rangkum arsitektur frontend dan langkah deployment Vercel pada `walkthrough.md`.
-- [ ] **Konfirmasi Pengguna**:
-  - Tampilkan rencana dan arsitektur kepada pengguna sebelum eksekusi deployment live.
-- [ ] **Eksekusi Deployment Vercel**:
-  - Hubungkan dan deploy ke Vercel hingga mendapatkan domain publik aktif `https://*.vercel.app`.
-- [ ] **Verifikasi Live di Browser**:
-  - Uji halaman login, redirect dashboard, dan kedua misi rehabilitasi pada domain Vercel.
+- [x] **Konfirmasi Pengguna**:
+  - Pengguna menyetujui eksekusi deployment langsung ke akun Vercel (`finzz-s-projects`).
+- [x] **Eksekusi Deployment Vercel**:
+  - Berhasil dideploy ke Vercel production: **`https://movewall-ai.vercel.app`** (Alias utama) & `https://movewall-514xsc05z-finzz-s-projects.vercel.app`.
+- [x] **Verifikasi Live di Browser**:
+  - Seluruh endpoint statis (`/login`, `/dashboard`, `/mission2`, `/index.html`) mengembalikan HTTP 200 OK, terhubung penuh ke backend Railway cloud dan database Neon PostgreSQL.

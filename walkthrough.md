@@ -509,3 +509,85 @@ graph TD
 3. **Pencatatan Rekam Medis**:
    - Setelah Misi 2 tuntas, buka form asesmen klinis. Catatan pemulihan terstandar akan terisi secara otomatis, terhubung langsung ke Dashboard Admin dan laporan PDF.
 
+---
+
+# MoveWall AI — Task 5: Railway Backend & Neon PostgreSQL Cloud Deployment
+
+## 1. Analisis Kebutuhan Cloud Architecture
+Untuk mendukung skenario tele-rehabilitasi klinis jarak jauh, penyimpanan rekam medis persisten, dan sinkronisasi lintas perangkat (proyektor dinding klinik, laptop terapis, dan portal dashboard dokter), backend MoveWall AI dideploy ke infrastruktur cloud production dengan arsitektur:
+
+```mermaid
+graph TB
+    subgraph ClientDevices ["Client Layer (Edge & Web Apps)"]
+        WallM1["🎯 Misi 1: Apple Archer<br/>(index.html / app.js)"]
+        WallM2["🌿 Misi 2: Garden Keeper<br/>(mission2.html / mission2.js)"]
+        Portal["📊 Therapist Clinical Portal<br/>(login.html / dashboard.html)"]
+    end
+
+    subgraph RailwayCloud ["Railway Cloud Platform (Singapore Edge / Global CDN)"]
+        HTTPS["🔒 TLS/HTTPS Ingress & Networking<br/>movewallai-production.up.railway.app"]
+        Express["⚡ Express.js API Server (Node.js 22 LTS)<br/>JWT Auth, CORS Guard, Assessment Engine"]
+        Prisma7["💎 Prisma ORM 7.10<br/>Client-side Type Safety & Schema Mapping"]
+        HTTPS --> Express
+        Express --> Prisma7
+    end
+
+    subgraph NeonCloud ["Neon Serverless Cloud Database"]
+        Pooler["🏊 Connection Pooler (-pooler)<br/>PgBouncer / Fast Transacting"]
+        PostgresDB[("🐘 PostgreSQL v16 Serverless<br/>Tables: therapists, assessments")]
+        Pooler --> PostgresDB
+    end
+
+    WallM1 -- "POST /api/assessment (JWT)" --> HTTPS
+    WallM2 -- "POST /api/assessment (JWT)" --> HTTPS
+    Portal -- "REST APIs & Reporting" --> HTTPS
+    Prisma7 -- "SSL Encrypted (DATABASE_URL)" --> Pooler
+```
+
+---
+
+## 2. Diagnosa & Resolusi Kendala Deployment Railway ("Kenapa Gagal Terus")
+
+Saat proses deployment awal di Railway, terjadi beberapa kegagalan build/deploy berturut-turut. Berikut investigasi mendalam dan langkah perbaikannya:
+
+| Gejala Masalah | Penyebab Teknis | Solusi yang Diterapkan |
+|---|---|---|
+| **Build Gagal: Prisma 7 Compatibility** | Default image Nixpacks di Railway menggunakan Node.js v18/v20. Prisma 7 mensyaratkan Node.js `>= 22.12.0` untuk native runtime & binary engine. | Menambahkan `engines: { "node": ">=22.12.0" }` di `package.json` sehingga Railway otomatis mengunduh Node 22. |
+| **Prisma Datasource Error** | Prisma 7 memisahkan datasource URL dari `schema.prisma` ke `prisma.config.ts`. Tanpa konfigurasi ini, `prisma generate` atau CLI mengabaikan URL database. | Membuat `prisma.config.ts` dengan impor `defineConfig` dan `env("DATABASE_URL")` + `env("DIRECT_URL")`. |
+| **Command Execution Mismatch** | Railway mencoba mendeteksi start command secara heuristik yang kadang tidak menjalankan file yang tepat. | Menambahkan `railway.json` dengan spesifikasi deklaratif `buildCommand: "npm install"` dan `startCommand: "npm start"`. |
+| **Domain Public Belum Terbuat** | Service Railway berstatus aktif namun tidak memiliki routing domain publik sehingga tidak dapat diakses dari browser/frontend. | Men-generate public domain Railway: `https://movewallai-production.up.railway.app`. |
+| **CORS Rejected pada Port Dev Lain** | Server semula hanya mengizinkan port 3000 dan 5173 secara statis; port lain (seperti Live Server 5500) terkena respons 500 error. | Memperbarui regex CORS di `server.js` (`/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/`) dan graceful rejection `callback(null, false)`. |
+
+---
+
+## 3. Hasil Verifikasi Live Endpoints
+
+1. **Health Check Endpoint**:
+   - URL: `GET https://movewallai-production.up.railway.app/api/health`
+   - Respons: `{"status":"ok","service":"MoveWall AI Backend","timestamp":"2026-10-12T15:12:53.124Z"}`
+   - Status: **200 OK (Healthy & Active)**
+
+2. **Database Seeding (`/api/dev/seed`)**:
+   - URL: `POST https://movewallai-production.up.railway.app/api/dev/seed`
+   - Eksekusi: Berhasil seeding 2 akun terapis dan 12 data riwayat rekam medis pasien ke database Neon PostgreSQL.
+   - Status: **201 Created**
+
+3. **Autentikasi Terapis (`/api/auth/login`)**:
+   - Kredensial: `therapist01` / `movewall2026`
+   - Respons: Berhasil menerima valid signed JWT Token untuk `Dr. Rina Setiawati, Sp.KFR`.
+   - Status: **200 OK**
+
+4. **Sinkronisasi Frontend**:
+   - File `login.html`, `dashboard.js`, `app.js`, dan `mission2.js` telah diarahkan secara default ke URL Railway cloud `https://movewallai-production.up.railway.app`.
+
+---
+
+## 4. Panduan Akses Cepat
+
+- **URL Backend Production**: [https://movewallai-production.up.railway.app](https://movewallai-production.up.railway.app)
+- **Akun Login Terapis Demo**:
+  - Username: `therapist01`
+  - Password: `movewall2026`
+- **Dashboard Admin**: Buka `game-ui/login.html` atau `game-ui/dashboard.html` di peramban.
+
+

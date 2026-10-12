@@ -4,14 +4,13 @@
  */
 
 // ─── API Base URL ─────────────────────────────────────────────────────────────
-// Di localhost: mengarah ke http://localhost:3001/api
-// Di Vercel produksi: ganti MOVEWALL_BACKEND_URL dengan domain backend Vercel Anda
-// Contoh: "https://movewall-backend.vercel.app"
+const DEFAULT_CLOUD_BACKEND = "https://movewallai-production.up.railway.app";
 const BACKEND_ORIGIN =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
-    ? "http://localhost:3001"
-    : (window.MOVEWALL_BACKEND_URL || "https://movewall-backend.vercel.app");
+  sessionStorage.getItem("mw_backend_url") ||
+  window.MOVEWALL_BACKEND_URL ||
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? (sessionStorage.getItem("mw_use_local_backend") === "true" ? "http://localhost:3001" : DEFAULT_CLOUD_BACKEND)
+    : DEFAULT_CLOUD_BACKEND);
 
 const API_BASE = `${BACKEND_ORIGIN}/api`;
 

@@ -30,27 +30,21 @@ const JWT_EXPIRES_IN = "8h";
 // Daftar origin yang diizinkan:
 // - Semua domain *.vercel.app (frontend Vercel)
 // - Semua domain *.up.railway.app (frontend Railway)
-// - localhost untuk development lokal
+// - Semua port localhost / 127.0.0.1 untuk development lokal
 const ALLOWED_ORIGINS_PATTERN = /^https:\/\/([a-zA-Z0-9-]+\.vercel\.app|[a-zA-Z0-9-]+\.up\.railway\.app)$/;
-const ALLOWED_ORIGINS_EXACT = [
-  "http://localhost:3000",
-  "http://localhost:5173",
-  "http://127.0.0.1:3000",
-  // Tambahkan domain kustom Anda di sini jika ada:
-  // "https://movewall.example.com",
-];
+const ALLOWED_LOCAL_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 app.use(cors({
   origin: function (origin, callback) {
     // Izinkan request tanpa origin (misal curl, Postman, server-to-server)
     if (!origin) return callback(null, true);
     if (
-      ALLOWED_ORIGINS_EXACT.includes(origin) ||
+      ALLOWED_LOCAL_PATTERN.test(origin) ||
       ALLOWED_ORIGINS_PATTERN.test(origin)
     ) {
       return callback(null, true);
     }
-    callback(new Error(`CORS blocked: origin '${origin}' not allowed`));
+    callback(null, false);
   },
   credentials: true,
 }));

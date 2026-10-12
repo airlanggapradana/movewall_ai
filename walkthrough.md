@@ -590,4 +590,109 @@ Saat proses deployment awal di Railway, terjadi beberapa kegagalan build/deploy 
   - Password: `movewall2026`
 - **Dashboard Admin**: Buka `game-ui/login.html` atau `game-ui/dashboard.html` di peramban.
 
+---
+
+# MoveWall AI — Task 6: Frontend Architecture & Vercel Deployment Strategy
+
+## 1. Analisis Arsitektur Frontend MoveWall AI (`game-ui/`)
+
+Arsitektur antarmuka MoveWall AI dirancang dengan paradigma **High-Performance Edge Web App**:
+- Menggunakan **HTML5 Canvas 2D + WebGL** beresolusi 1280x720 untuk menjamin rendering grafis proyeksi dinding tetap halus pada 60 FPS tanpa overhead Virtual DOM framework.
+- Pemrosesan visi komputer (MediaPipe BlazePose & Hand Landmarker) dijalankan secara lokal di browser melalui WebAssembly (WASM).
+- Terhubung secara asinkronus ke Railway Cloud Backend (`https://movewallai-production.up.railway.app`) dan Neon PostgreSQL untuk autentikasi dan pencatatan rekam medis.
+
+```mermaid
+graph TB
+    subgraph FrontendApp ["Frontend Application Layer (game-ui/)"]
+        subgraph AuthPort ["1. Clinical Auth Portal"]
+            LoginHTML["login.html<br/>• Glassmorphic UI<br/>• JWT Authentication"]
+        end
+
+        subgraph CoreMissions ["2. Interactive Projection Missions"]
+            M1["Misi 1: Apple Archer<br/>(index.html / app.js)<br/>• Shoulder Flexion 30°-165°<br/>• Canvas 2D Archer Engine<br/>• Rep State Machine"]
+            M2["Misi 2: Garden Keeper<br/>(mission2.html / mission2.js)<br/>• Shoulder Reaching<br/>• MediaPipe Hand Tracking<br/>• Level 1 & Level 2 Randomized<br/>• Deteksi 'Sangat Sembuh'"]
+        end
+
+        subgraph ClinicalDash ["3. Therapist Management & Reporting"]
+            DashHTML["dashboard.html / dashboard.js<br/>• Global KPI Overview<br/>• Patient Directory & Search<br/>• ROM Pain Tolerance Bars<br/>• Longitudinal Session Records<br/>• 1-Click Medical PDF Export"]
+        end
+    end
+
+    subgraph ExternalCDNs ["External CDN & Services"]
+        GF["🔤 Google Fonts (Inter, Atkinson, Newsreader)"]
+        MP["🤖 MediaPipe Tasks Vision (jsdelivr + GCS)"]
+        PDF["📄 html2pdf.js (cdnjs)"]
+    end
+
+    subgraph CloudBackend ["Railway Production Backend"]
+        API["🚂 https://movewallai-production.up.railway.app<br/>JWT Auth, Assessments, Clinical Analytics"]
+    end
+
+    LoginHTML --> API
+    M1 --> MP
+    M2 --> MP
+    M1 -- "Assessment Submit" --> API
+    M2 -- "Assessment Submit" --> API
+    DashHTML --> API
+    DashHTML --> PDF
+```
+
+---
+
+## 2. Struktur Modul & Fungsi Utama
+
+1. **`login.html`**:
+   - Desain Dark Glassmorphism dengan animasi orbs dinamis.
+   - Mengambil JWT token dari Railway API (`POST /api/auth/login`) dan menyimpannya di `sessionStorage` (`mw_token` & `mw_therapist`).
+   - Tombol Demo Autofill dengan kredensial terverifikasi: `therapist01` / `movewall2026`.
+
+2. **`index.html` & `app.js` (Misi 1: Apple Archer)**:
+   - Mengontrol latihan elevasi bahu sagital (Shoulder Flexion).
+   - Render karakter pemanah realistis (busur recurve, jubah ranger, tabung panah, animasi napas, dan tali panah elastis).
+   - Penyelarasan sudut ROM pasien (`game.controlAngle`) ke lengan busur dan trajektori tembakan apel.
+   - Pop-up form asesmen klinis otomatis saat sesi selesai.
+
+3. **`mission2.html` & `mission2.js` (Misi 2: Garden Keeper)**:
+   - Mengontrol latihan jangkauan bahu (Shoulder Reaching & Hand Open/Close Tracking).
+   - Mengintegrasikan MediaPipe Hand Landmarker untuk mendeteksi posisi telapak tangan dan gestur buka/tutup tangan secara real-time.
+   - **Level 1 (Sekuensial)**: Menyiram 6 pot secara berurutan sepanjang busur ROM (65° s.d. 138°).
+   - **Level 2 (Mode Acak)**: Menyiram 6 pot target acak dengan panduan kompas dan efek beacon gelombang.
+   - Deteksi klinis otomatis status **"Sangat Sembuh" (High Functional Recovery)** saat menyelesaikan Level 2.
+
+4. **`dashboard.html` & `dashboard.js`**:
+   - Menampilkan metrik agregat seluruh pasien (Total Pasien, Total Sesi, Rata-rata Skor, Prevalensi Nyeri).
+   - Filter direktori pasien real-time (Semua, Keluhan Nyeri, Bebas Nyeri).
+   - Visualisasi batang toleransi nyeri untuk 5 gerakan anatomis bahu.
+   - Generator dokumen PDF rekam medis siap cetak format A4 standar rumah sakit via `html2pdf.js`.
+
+---
+
+## 3. Strategi Konfigurasi Deployment ke Vercel
+
+### A. Kebijakan Header & CDN Compatibility
+- File `game-ui/vercel.json` dan root `vercel.json` dikonfigurasi dengan:
+  - `cleanUrls: true` dan `trailingSlash: false` untuk URL bersih tanpa ekstensi `.html`.
+  - Penghapusan header `Cross-Origin-Embedder-Policy: require-corp` agar CDN eksternal (Google Fonts, MediaPipe WASM, dan html2pdf) dapat dimuat tanpa terblokir oleh kebijakan browser.
+  - Pengaturan `outputDirectory: "game-ui"` pada root `vercel.json` agar Vercel dapat langsung mengenali folder aplikasi frontend.
+
+### B. Opsi Deployment
+1. **Melalui Vercel Dashboard (GitHub Import)**:
+   - Import repositori `smart_climbing` / `movewall_ai`.
+   - Tetapkan **Root Directory**: `game-ui`.
+   - Framework Preset: **Other**.
+   - Klik **Deploy**.
+2. **Melalui Vercel CLI**:
+   - Eksekusi `npx vercel --prod` langsung dari proyek.
+
+---
+
+## 4. Checklist Eksekusi Task 6
+
+- [x] **Analisis Arsitektur Frontend**: Pemetaan menyeluruh terhadap seluruh komponen, modul, alur data, dan aset `game-ui/`.
+- [x] **Optimalisasi `vercel.json`**: Menghapus pembatasan COEP dan menambahkan root `vercel.json` dengan `outputDirectory: "game-ui"`.
+- [x] **Penyusunan `Task_6.md` & `walkthrough.md`**: Dokumentasi arsitektur frontend dan langkah deployment.
+- [ ] **Konfirmasi Pengguna**: Meminta persetujuan pengguna untuk melanjutkan eksekusi deployment Vercel.
+- [ ] **Eksekusi Deployment Vercel**: Deployment live hingga domain `*.vercel.app` aktif.
+- [ ] **Verifikasi Live Testing**: Pengujian end-to-end login, dashboard, dan misi di domain Vercel.
+
 

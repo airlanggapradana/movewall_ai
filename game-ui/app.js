@@ -22,7 +22,10 @@ let isSubscriptionActive = false;
 let isSubscriptionCheckDone = false;
 
 function showGamePaywallModal(subData = null) {
-  // Hentikan gameplay dan kamera
+  // Hentikan gameplay, kamera, dan musik
+  if (typeof bgm !== "undefined" && bgm) {
+    bgm.stop();
+  }
   if (typeof game !== "undefined") {
     game.running = false;
     if (game.cameraStream) {
@@ -126,6 +129,105 @@ async function verifyGameSubscription() {
 // Jalankan verifikasi subscription seawal mungkin
 verifyGameSubscription();
 
+/* ── Background Music Controller (Ascent at Dawn) ────────── */
+const bgm = {
+  audio: null,
+  src: "./assets/Ascent_at_Dawn.mp3",
+  isPlaying: false,
+  isMuted: false,
+  volume: 0.35,
+
+  init() {
+    if (this.audio) return;
+    this.audio = new Audio(this.src);
+    this.audio.loop = true;
+    this.audio.volume = this.volume;
+    this.audio.preload = "auto";
+
+    this.audio.addEventListener("play", () => {
+      this.isPlaying = true;
+      this.updateUI();
+    });
+
+    this.audio.addEventListener("pause", () => {
+      this.isPlaying = false;
+      this.updateUI();
+    });
+
+    this.audio.addEventListener("error", (err) => {
+      console.warn("[MoveWall] Audio BGM error:", err);
+    });
+  },
+
+  play() {
+    this.init();
+    if (!this.audio || this.isMuted) return;
+    const playPromise = this.audio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          this.isPlaying = true;
+          this.updateUI();
+        })
+        .catch((err) => {
+          console.warn("[MoveWall] Autoplay dicegah browser (perlu interaksi pengguna):", err);
+        });
+    }
+  },
+
+  pause() {
+    if (this.audio && !this.audio.paused) {
+      this.audio.pause();
+    }
+    this.isPlaying = false;
+    this.updateUI();
+  },
+
+  stop() {
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.currentTime = 0;
+    }
+    this.isPlaying = false;
+    this.updateUI();
+  },
+
+  toggleMute() {
+    this.init();
+    this.isMuted = !this.isMuted;
+    if (this.isMuted) {
+      this.pause();
+    } else {
+      if (typeof game !== "undefined" && game && game.running && !game.missionCompleted && !game.timeoutTriggered && !game.painStop) {
+        this.play();
+      }
+    }
+    this.updateUI();
+  },
+
+  updateUI() {
+    const btn = document.getElementById("musicToggleButton");
+    const icon = document.getElementById("musicToggleIcon");
+    if (!btn) return;
+
+    if (this.isMuted) {
+      btn.classList.add("muted");
+      btn.classList.remove("playing");
+      if (icon) icon.textContent = "🔇";
+      btn.title = "Musik dibisukan - Klik untuk mengaktifkan";
+    } else if (this.isPlaying) {
+      btn.classList.add("playing");
+      btn.classList.remove("muted");
+      if (icon) icon.textContent = "🔊";
+      btn.title = "Musik aktif - Klik untuk membisukan";
+    } else {
+      btn.classList.remove("playing", "muted");
+      if (icon) icon.textContent = "🎵";
+      btn.title = "Musik siap - Klik untuk memutar";
+    }
+  },
+};
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const motionCanvas = document.createElement("canvas");
@@ -206,6 +308,7 @@ const ui = {
   assessmentSuccess: document.getElementById("assessmentSuccess"),
   assessmentSuccessCloseBtn: document.getElementById("assessmentSuccessCloseBtn"),
   assessmentTherapistName: document.getElementById("assessmentTherapistName"),
+  musicToggleButton: document.getElementById("musicToggleButton"),
 };
 
 /* ── apple tree data ───────────────────────────────── */
@@ -1044,6 +1147,7 @@ function triggerPainStop() {
   game.painStop = true;
   game.running = false;
   game.targetRom = game.minTargetRom;
+  bgm.pause();
   setFeedback("bad", "Stopped", "Rest and contact your therapist");
 }
 
@@ -1051,6 +1155,7 @@ function triggerMissionComplete() {
   if (game.missionCompleted) return;
   game.missionCompleted = true;
   game.running = false;
+  bgm.pause();
 
   if (ui.modalScore) ui.modalScore.textContent = game.score.toLocaleString();
   if (ui.modalHits) ui.modalHits.textContent = `${game.reps}/${game.repsGoal}`;
@@ -1095,6 +1200,7 @@ function triggerTimeout() {
   if (game.timeoutTriggered || game.missionCompleted) return;
   game.timeoutTriggered = true;
   game.running = false;
+  bgm.pause();
 
   if (ui.timeoutScore)
     ui.timeoutScore.textContent = game.score.toLocaleString();
@@ -1143,6 +1249,7 @@ function restartLevel() {
   game.targetCooldown = 0;
   game.painStop = false;
   game.running = true;
+  bgm.play();
 
   setFeedback(
     "neutral",
@@ -1157,6 +1264,7 @@ function resetGame() {
   game.timeoutTriggered = false;
   hideMissionCompletionModal();
   hideTimeoutModal();
+  bgm.stop();
   game.score = 0;
   game.timeRemaining = 90;
   game.level = 1;
@@ -3139,16 +3247,24 @@ ui.startButton.addEventListener("click", async () => {
   if (!ready) return;
   game.running = true;
   game.painStop = false;
+  bgm.play();
   setFeedback("neutral", "Mission active", "Raise your hand to draw and shoot");
 });
 
 ui.pauseButton.addEventListener("click", () => {
   game.running = false;
+  bgm.pause();
   setFeedback("neutral", "Paused", "Session on hold");
 });
 
 ui.resetButton.addEventListener("click", resetGame);
 ui.painButton.addEventListener("click", triggerPainStop);
+
+if (ui.musicToggleButton) {
+  ui.musicToggleButton.addEventListener("click", () => {
+    bgm.toggleMute();
+  });
+}
 
 if (ui.modalReplayButton) {
   ui.modalReplayButton.addEventListener("click", async () => {
@@ -3162,6 +3278,7 @@ if (ui.modalReplayButton) {
     resetGame();
     game.running = true;
     game.painStop = false;
+    bgm.play();
     setFeedback(
       "neutral",
       "Mission active",

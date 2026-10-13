@@ -598,6 +598,21 @@ a {
   border-radius: 3px;
 }
 
+.btn-music-toggle {
+  gap: 6px;
+  padding: 0 12px;
+}
+
+.btn-music-toggle.playing {
+  border-color: #0f766e;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
+.btn-music-toggle.muted {
+  opacity: 0.65;
+}
+
 .stats-bar {
   display: grid;
   grid-template-columns: repeat(4, minmax(72px, 1fr));

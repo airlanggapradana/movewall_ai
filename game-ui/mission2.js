@@ -28,7 +28,10 @@ let isM2SubscriptionActive = false;
 let isM2SubscriptionChecked = false;
 
 function showM2GamePaywallModal(subData = null) {
-  // Hentikan audio, gameplay, dan kamera
+  // Hentikan musik, audio, gameplay, dan kamera
+  if (typeof bgm !== "undefined" && bgm) {
+    bgm.stop();
+  }
   if (typeof audio !== "undefined" && audio && audio.stopWaterSound) {
     audio.stopWaterSound();
   }
@@ -135,6 +138,106 @@ async function verifyM2GameSubscription() {
 // Jalankan verifikasi seawal mungkin
 verifyM2GameSubscription();
 
+/* ── Background Music Controller (Breeze Through the Tall Grass) ────────── */
+const bgm = {
+  audio: null,
+  src: "./assets/Breeze_Through_the_Tall_Grass.mp3",
+  isPlaying: false,
+  isMuted: false,
+  volume: 0.35,
+
+  init() {
+    if (this.audio) return;
+    this.audio = new Audio(this.src);
+    this.audio.loop = true;
+    this.audio.volume = this.volume;
+    this.audio.preload = "auto";
+
+    this.audio.addEventListener("play", () => {
+      this.isPlaying = true;
+      this.updateUI();
+    });
+
+    this.audio.addEventListener("pause", () => {
+      this.isPlaying = false;
+      this.updateUI();
+    });
+
+    this.audio.addEventListener("error", (err) => {
+      console.warn("[MoveWall] Audio BGM error:", err);
+    });
+  },
+
+  play() {
+    this.init();
+    if (!this.audio || this.isMuted) return;
+    const playPromise = this.audio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          this.isPlaying = true;
+          this.updateUI();
+        })
+        .catch((err) => {
+          console.warn("[MoveWall] Autoplay dicegah browser (perlu interaksi pengguna):", err);
+        });
+    }
+  },
+
+  pause() {
+    if (this.audio && !this.audio.paused) {
+      this.audio.pause();
+    }
+    this.isPlaying = false;
+    this.updateUI();
+  },
+
+  stop() {
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.currentTime = 0;
+    }
+    this.isPlaying = false;
+    this.updateUI();
+  },
+
+  toggleMute() {
+    this.init();
+    this.isMuted = !this.isMuted;
+    if (this.isMuted) {
+      this.pause();
+    } else {
+      if (typeof game !== "undefined" && game && game.running && !game.missionCompleted && !game.timeoutTriggered && !game.painStop) {
+        this.play();
+      }
+    }
+    this.updateUI();
+  },
+
+  updateUI() {
+    const btn = document.getElementById("musicToggleButton");
+    const icon = document.getElementById("musicToggleIcon");
+    if (!btn) return;
+
+    if (this.isMuted) {
+      btn.classList.add("muted");
+      btn.classList.remove("playing");
+      if (icon) icon.textContent = "🔇";
+      btn.title = "Musik dibisukan - Klik untuk mengaktifkan";
+    } else if (this.isPlaying) {
+      btn.classList.add("playing");
+      btn.classList.remove("muted");
+      if (icon) icon.textContent = "🔊";
+      btn.title = "Musik aktif - Klik untuk membisukan";
+    } else {
+      btn.classList.remove("playing", "muted");
+      if (icon) icon.textContent = "🎵";
+      btn.title = "Musik siap - Klik untuk memutar";
+    }
+  },
+};
+window.bgm = bgm;
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -216,6 +319,7 @@ const ui = {
   assessmentSuccess:         document.getElementById("assessmentSuccess"),
   assessmentSuccessCloseBtn: document.getElementById("assessmentSuccessCloseBtn"),
   assessmentTherapistName:   document.getElementById("assessmentTherapistName"),
+  musicToggleButton:         document.getElementById("musicToggleButton"),
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1240,6 +1344,7 @@ function triggerTimeout() {
   game.running = false;
   game.isWatering = false;
   audio.stopWaterSound();
+  bgm.pause();
 
   if (ui.timeoutScore)
     ui.timeoutScore.textContent = game.score.toLocaleString();
@@ -1273,6 +1378,7 @@ function triggerMissionComplete() {
   game.isWatering = false;
   audio.stopWaterSound();
   audio.playChime();
+  bgm.pause();
 
   if (ui.modalScore) ui.modalScore.textContent = game.score.toLocaleString();
   if (ui.modalHits) ui.modalHits.textContent = `${game.completedPots}/${game.pots.length}`;
@@ -1381,6 +1487,7 @@ function restartLevel() {
   game.painStop = false;
   game.running = true;
   audio.stopWaterSound();
+  bgm.play();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2698,6 +2805,9 @@ function resetGame() {
   game.timeoutTriggered = false;
   hideMissionCompletionModal();
   hideTimeoutModal();
+  if (typeof bgm !== "undefined" && bgm) {
+    bgm.stop();
+  }
   game.score           = 0;
   game.timeRemaining   = 120;
   game.level           = 1;
@@ -2804,12 +2914,14 @@ ui.startButton.addEventListener("click", async () => {
   if (!ok) return;
   game.running  = true;
   game.painStop = false;
+  bgm.play();
   setFeedback("neutral", "Misi Aktif 🌿", "Arahkan tangan tertutup untuk membidik, buka untuk menyiram!");
 });
 
 ui.pauseButton.addEventListener("click", () => {
   game.running = false;
   audio.stopWaterSound();
+  bgm.pause();
   setFeedback("neutral", "Dijeda", "Sesi latihan sedang dijeda");
 });
 
@@ -2819,8 +2931,15 @@ ui.painButton.addEventListener("click", () => {
   game.running  = false;
   game.targetRom = game.minTargetRom;
   audio.stopWaterSound();
+  bgm.pause();
   setFeedback("bad", "Dihentikan (Pain/Stop)", "Silakan istirahat dan hubungi fisioterapis Anda");
 });
+
+if (ui.musicToggleButton) {
+  ui.musicToggleButton.addEventListener("click", () => {
+    bgm.toggleMute();
+  });
+}
 
 /* Pointer is strictly controlled by camera hand-tracking (no mouse pointer override) */
 
@@ -2858,6 +2977,7 @@ if (ui.modalReplayButton) {
     }
     resetGame();
     game.running = true;
+    bgm.play();
     setFeedback("neutral", "Misi Aktif 🌿", "Arahkan tangan tertutup untuk membidik, buka untuk menyiram!");
   });
 }

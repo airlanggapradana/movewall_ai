@@ -35,8 +35,52 @@ model Therapist {
 
   // Relations
   assessments     Assessment[]
+  subscription    Subscription?
+  payments        Payment[]
 
   @@map("therapists")
+}
+
+// ─── Subscription Table ──────────────────────────────────────────────────────
+
+model Subscription {
+  id              Int          @id @default(autoincrement())
+  therapistId     Int          @unique
+  therapist       Therapist    @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  status          String       @default("INACTIVE") // ACTIVE, EXPIRED, INACTIVE
+  planName        String       @default("MoveWall AI Pro 30 Hari")
+  startDate       DateTime?
+  endDate         DateTime?    // When subscription ends (30 days from activation)
+  cooldownUntil   DateTime?    // Next payment available after this date (30 days cooldown)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  payments        Payment[]
+
+  @@map("subscriptions")
+}
+
+// ─── Payment Transaction Table (Midtrans) ───────────────────────────────────
+
+model Payment {
+  id              Int           @id @default(autoincrement())
+  orderId         String        @unique
+  therapistId     Int
+  therapist       Therapist     @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  subscriptionId  Int?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  amount          Int
+  status          String        @default("PENDING") // PENDING, SETTLEMENT, SUCCESS, EXPIRE, CANCEL, DENY
+  paymentType     String?       // qris, gopay, bank_transfer, credit_card, etc.
+  transactionId   String?       // Midtrans transaction ID
+  snapToken       String?
+  snapRedirectUrl String?
+  paidAt          DateTime?
+  rawResponse     String?       // Midtrans JSON payload string
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
 }
 
 // ─── Assessment Table ─────────────────────────────────────────────────────────

@@ -4710,4 +4710,1010 @@ body.login-page {
   .login-header h1 {
     font-size: 1.5rem;
   }
+
+  .dash-sub-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-sub-header-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .dash-view-tabs {
+    flex-wrap: wrap;
+  }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THERAPIST SUBSCRIPTION & MIDTRANS PAYMENT GATEWAY STYLES
+   MoveWall AI Design System v1.1 SaaS Modern Tokens
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* View Tabs Switcher */
+.dash-view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 12px;
+}
+
+.dash-view-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  font-family: var(--font-dashboard);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-700);
+  cursor: pointer;
+  transition: all var(--dur-quick) var(--ease);
+}
+
+.dash-view-tab-btn:hover {
+  background: var(--surface-muted);
+  color: var(--text-900);
+  border-color: var(--border-control);
+}
+
+.dash-view-tab-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.dash-view-tab-btn.active {
+  background: var(--accent-50);
+  color: var(--accent-700);
+  border-color: var(--accent-700);
+  box-shadow: var(--shadow-xs);
+}
+
+.dash-tab-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  background: var(--surface-muted);
+  color: var(--text-600);
+}
+
+.dash-tab-pill-badge.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.dash-tab-pill-badge.cooldown {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.dash-tab-pill-badge.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Nav Bar Sub Button */
+.dash-sub-badge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  background: var(--accent-50);
+  border: 1px solid var(--accent-700);
+  color: var(--accent-700);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--dur-quick) var(--ease);
+}
+
+.dash-sub-badge-btn:hover {
+  background: #ccfbf1;
+}
+
+.dash-sub-badge-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Subscription Workspace */
+.dash-sub-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dash-sub-header-banner {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 24px 28px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.dash-sub-title-wrap h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-900);
+  margin: 0 0 6px 0;
+}
+
+.dash-sub-title-wrap p {
+  font-size: 0.88rem;
+  color: var(--text-600);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.dash-sub-badge-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: var(--r-full);
+  white-space: nowrap;
+}
+
+.dash-sub-badge-indicator.active {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.dash-sub-badge-indicator.expired {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.dash-sub-badge-indicator.inactive {
+  background: var(--surface-muted);
+  color: var(--text-600);
+  border: 1px solid var(--border-default);
+}
+
+/* Grid: Status & Benefits */
+.dash-sub-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 0.95fr;
+  gap: 24px;
+}
+
+.dash-sub-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-sub-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 14px;
+}
+
+.dash-sub-plan-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-900);
+  margin: 0 0 4px 0;
+}
+
+.dash-sub-plan-desc {
+  font-size: 0.82rem;
+  color: var(--text-600);
+  margin: 0;
+}
+
+.dash-sub-price-tag {
+  text-align: right;
+}
+
+.dash-sub-price-num {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--accent-700);
+}
+
+.dash-sub-price-cycle {
+  font-size: 0.75rem;
+  color: var(--text-500);
+  display: block;
+}
+
+/* Info Row in Card */
+.dash-sub-meta-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.dash-sub-meta-box {
+  background: var(--surface-muted);
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.dash-sub-meta-label {
+  font-size: 0.75rem;
+  color: var(--text-500);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.dash-sub-meta-val {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-900);
+}
+
+/* Cooldown Container */
+.dash-cooldown-box {
+  border-radius: var(--r-md);
+  padding: 18px;
+  margin-bottom: 22px;
+  border: 1px solid;
+  transition: all var(--dur-quick) var(--ease);
+}
+
+.dash-cooldown-box.active {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.dash-cooldown-box.ready {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.dash-cooldown-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.dash-cooldown-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.dash-cooldown-days-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+}
+
+.dash-cooldown-box.active .dash-cooldown-days-pill {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.dash-cooldown-box.ready .dash-cooldown-days-pill {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.dash-cooldown-desc {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0 0 12px 0;
+  opacity: 0.95;
+}
+
+.dash-cooldown-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: var(--r-full);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.dash-cooldown-progress-fill {
+  height: 100%;
+  background: #f59e0b;
+  border-radius: var(--r-full);
+  transition: width 0.4s ease;
+}
+
+.dash-cooldown-box.ready .dash-cooldown-progress-fill {
+  background: #10b981;
+}
+
+.dash-cooldown-dates {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+/* Pay CTA Button */
+.dash-btn-pay-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 22px;
+  border-radius: var(--r-md);
+  font-family: var(--font-dashboard);
+  font-size: 0.94rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--dur-quick) var(--ease);
+  border: 1px solid transparent;
+}
+
+.dash-btn-pay-cta.ready {
+  background: var(--accent-700);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.28);
+}
+
+.dash-btn-pay-cta.ready:hover {
+  background: var(--accent-800);
+  transform: translateY(-1px);
+}
+
+.dash-btn-pay-cta.ready:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.dash-btn-pay-cta.disabled {
+  background: var(--surface-muted);
+  border-color: var(--border-default);
+  color: var(--text-500);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.dash-btn-pay-helper {
+  font-size: 0.76rem;
+  color: var(--text-500);
+  text-align: center;
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+/* Dev Simulator Button */
+.dash-dev-actions {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-default);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dash-btn-dev-sim {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-md);
+  background: #f8fafc;
+  border: 1px solid var(--border-default);
+  color: var(--text-600);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--dur-quick) var(--ease);
+}
+
+.dash-btn-dev-sim:hover {
+  background: #e2e8f0;
+  color: var(--text-900);
+}
+
+/* Benefits Card Content */
+.dash-benefits-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dash-benefit-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text-700);
+  line-height: 1.45;
+}
+
+.dash-benefit-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-50);
+  color: var(--accent-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.dash-midtrans-meta-card {
+  margin-top: auto;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+}
+
+.dash-midtrans-meta-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-600);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dash-midtrans-info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-600);
+  margin-bottom: 4px;
+}
+
+.dash-midtrans-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.dash-midtrans-key-pill {
+  font-family: monospace;
+  font-size: 0.72rem;
+  background: #ffffff;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-default);
+  color: var(--text-700);
+}
+
+/* Payment History Table Card */
+.dash-sub-history-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.dash-sub-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dash-sub-history-title-wrap h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-900);
+  margin: 0 0 4px 0;
+}
+
+.dash-sub-history-title-wrap p {
+  font-size: 0.82rem;
+  color: var(--text-600);
+  margin: 0;
+}
+
+.dash-btn-refresh-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  font-family: var(--font-dashboard);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-700);
+  cursor: pointer;
+  transition: all var(--dur-quick) var(--ease);
+}
+
+.dash-btn-refresh-history:hover {
+  background: var(--surface-muted);
+  color: var(--text-900);
+  border-color: var(--border-control);
+}
+
+.dash-btn-refresh-history:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* History Status Badges */
+.dash-tx-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dash-tx-status-badge.settlement,
+.dash-tx-status-badge.success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.dash-tx-status-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.dash-tx-status-badge.expire,
+.dash-tx-status-badge.cancel,
+.dash-tx-status-badge.deny {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* Action button inside table */
+.dash-btn-sync-tx {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-700);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--dur-quick) var(--ease);
+}
+
+.dash-btn-sync-tx:hover {
+  background: var(--accent-50);
+  color: var(--accent-700);
+  border-color: var(--accent-700);
+}
+
+.dash-btn-resume-pay {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  background: var(--accent-700);
+  border: 1px solid var(--accent-700);
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--dur-quick) var(--ease);
+}
+
+.dash-btn-resume-pay:hover {
+  background: var(--accent-800);
+}
+
+.dash-tx-order-code {
+  font-family: monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-900);
+}
+
+.dash-tx-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-500);
+}
+
+.dash-tx-empty-icon {
+  margin-bottom: 12px;
+  color: var(--text-500);
+}
+
+.dash-tx-empty-state h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-700);
+  margin: 0 0 6px 0;
+}
+
+.dash-tx-empty-state p {
+  font-size: 0.84rem;
+  color: var(--text-500);
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAYWALL & ACCESS GATEKEEPER STYLES (MoveWall AI v1.1)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Global Dashboard Paywall Warning Banner */
+.dash-paywall-global-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  border: 1px solid #fed7aa;
+  border-left: 5px solid #ea580c;
+  border-radius: var(--r-md);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.08);
+  animation: modalPop 0.3s ease;
+}
+
+.dash-paywall-global-banner.hidden {
+  display: none !important;
+}
+
+.dash-paywall-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dash-paywall-banner-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.dash-paywall-banner-content strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #9a3412;
+  margin-bottom: 4px;
+}
+
+.dash-paywall-banner-content p {
+  font-size: 0.85rem;
+  color: #7c2d12;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.dash-paywall-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ea580c;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 9px 16px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--dur-quick) var(--ease);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+}
+
+.dash-paywall-banner-btn:hover {
+  background: #c2410c;
+  transform: translateY(-1px);
+}
+
+/* Locked Navigation Link */
+.dash-nav-link.locked {
+  position: relative;
+  opacity: 0.75;
+}
+
+.dash-nav-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  font-size: 0.75rem;
+}
+
+/* Paywall Locked State for Dashboard Tab Patients */
+.dash-tab-paywall-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-lg);
+  padding: 48px 32px;
+  box-shadow: var(--shadow-sm);
+  margin-top: 10px;
+  animation: modalPop 0.35s ease;
+}
+
+.dash-tab-paywall-card.hidden {
+  display: none !important;
+}
+
+.dash-tab-paywall-icon-wrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #fff7ed;
+  border: 2px solid #fed7aa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 20px -4px rgba(234, 88, 12, 0.2);
+}
+
+.dash-tab-paywall-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #c2410c;
+  background: #ffedd5;
+  border: 1px solid #fed7aa;
+  padding: 4px 12px;
+  border-radius: var(--r-full);
+  margin-bottom: 10px;
+}
+
+.dash-tab-paywall-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-900);
+  margin: 0 0 10px 0;
+  max-width: 560px;
+  line-height: 1.35;
+}
+
+.dash-tab-paywall-desc {
+  font-size: 0.92rem;
+  color: var(--text-600);
+  max-width: 540px;
+  line-height: 1.6;
+  margin: 0 0 20px 0;
+}
+
+.dash-tab-paywall-price-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px dashed var(--border-control);
+  border-radius: var(--r-md);
+  padding: 12px 24px;
+  margin-bottom: 24px;
+}
+
+.dash-tab-paywall-price-badge span {
+  font-size: 0.78rem;
+  color: var(--text-500);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.dash-tab-paywall-price-badge strong {
+  font-size: 1.35rem;
+  color: var(--accent-700);
+  font-weight: 800;
+  margin-top: 2px;
+}
+
+.dash-btn-unlock-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent-700);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--r-md);
+  padding: 12px 24px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--dur-quick) var(--ease);
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.3);
+}
+
+.dash-btn-unlock-cta:hover {
+  background: var(--accent-800);
+  transform: translateY(-1px);
+}
+
+/* Fullscreen Paywall Modal for Games (Misi 1 & Misi 2) */
+.game-paywall-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 20px;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.game-paywall-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.game-paywall-card {
+  position: relative;
+  width: min(500px, 100%);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.5);
+  padding: 32px 28px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  animation: modalPop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.game-paywall-badge-wrap {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  border: 2px solid #fed7aa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  box-shadow: 0 10px 25px -5px rgba(234, 88, 12, 0.25);
+}
+
+.game-paywall-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #c2410c;
+  background: #ffedd5;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  border: 1px solid #fed7aa;
+}
+
+.game-paywall-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.game-paywall-desc {
+  font-size: 0.92rem;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.game-paywall-price-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f766e;
+}
+
+.game-paywall-actions {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn-game-paywall-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #0f766e;
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+}
+
+.btn-game-paywall-primary:hover {
+  background: #115e59;
+  transform: translateY(-1px);
+}
+
+.btn-game-paywall-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  color: #64748b;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  transition: all 0.2s ease;
+}
+
+.btn-game-paywall-secondary:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+

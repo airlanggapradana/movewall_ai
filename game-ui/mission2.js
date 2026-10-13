@@ -13,6 +13,128 @@
   }
 })();
 
+// ─── API Base URL & Subscription Paywall Guard ──────────────────────────────
+const _M2_DEFAULT_CLOUD_BACKEND = "https://movewallai-production.up.railway.app";
+const _M2_BACKEND_ORIGIN =
+  sessionStorage.getItem("mw_backend_url") ||
+  window.MOVEWALL_BACKEND_URL ||
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? (sessionStorage.getItem("mw_use_local_backend") === "false" ? _M2_DEFAULT_CLOUD_BACKEND : "http://localhost:3001")
+    : _M2_DEFAULT_CLOUD_BACKEND);
+
+const M2_BACKEND_API = `${_M2_BACKEND_ORIGIN}/api`;
+
+let isM2SubscriptionActive = false;
+let isM2SubscriptionChecked = false;
+
+function showM2GamePaywallModal(subData = null) {
+  // Hentikan audio, gameplay, dan kamera
+  if (typeof audio !== "undefined" && audio && audio.stopWaterSound) {
+    audio.stopWaterSound();
+  }
+  if (typeof game !== "undefined") {
+    game.running = false;
+    if (game.cameraStream) {
+      game.cameraStream.getTracks().forEach((t) => t.stop());
+      game.cameraStream = null;
+    }
+  }
+  if (typeof ui !== "undefined" && ui) {
+    if (ui.cameraPreview) {
+      ui.cameraPreview.srcObject = null;
+      ui.cameraPreview.classList.remove("visible");
+    }
+    if (ui.startButton) {
+      ui.startButton.disabled = true;
+      ui.startButton.title = "Akses game terkunci: Selesaikan pembayaran langganan";
+    }
+  }
+
+  let overlay = document.getElementById("gamePaywallOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "gamePaywallOverlay";
+    overlay.className = "game-paywall-overlay";
+    overlay.innerHTML = `
+      <div class="game-paywall-card" role="dialog" aria-modal="true">
+        <div class="game-paywall-badge-wrap">
+          <span class="game-paywall-badge-icon">🔒</span>
+        </div>
+        <span class="game-paywall-tag">Akses Game Terkunci</span>
+        <h2 class="game-paywall-title">Langganan Terapis Diperlukan</h2>
+        <p class="game-paywall-desc">
+          Modul latihan rehabilitasi MoveWall AI (Apple Archer & Garden Keeper) dinonaktifkan sementara karena akun Anda belum memiliki langganan aktif. Selesaikan pembayaran langganan melalui Dashboard Terapis untuk mengaktifkan seluruh fitur dan game.
+        </p>
+        <div class="game-paywall-price-pill">
+          <span>MoveWall AI Pro 30 Hari</span>
+          <span>&bull;</span>
+          <span>Rp 300.000</span>
+        </div>
+        <div class="game-paywall-actions">
+          <a href="./dashboard.html?view=subscription" class="btn-game-paywall-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+              <line x1="1" y1="10" x2="23" y2="10"></line>
+            </svg>
+            <span>Buka Dashboard &amp; Bayar Langganan</span>
+          </a>
+          <button type="button" id="btnGamePaywallLogout" class="btn-game-paywall-secondary">
+            <span>Keluar / Ganti Akun</span>
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const btnLogout = overlay.querySelector("#btnGamePaywallLogout");
+    if (btnLogout) {
+      btnLogout.addEventListener("click", () => {
+        sessionStorage.removeItem("mw_token");
+        sessionStorage.removeItem("mw_therapist");
+        window.location.replace("./login.html");
+      });
+    }
+  } else {
+    overlay.classList.remove("hidden");
+  }
+
+  if (typeof setFeedback === "function") {
+    setFeedback("bad", "Akses Terkunci", "Langganan aktif diperlukan untuk bermain");
+  }
+}
+
+async function verifyM2GameSubscription() {
+  const token = sessionStorage.getItem("mw_token");
+  if (!token) return false;
+
+  try {
+    const res = await fetch(`${M2_BACKEND_API}/subscription/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      isM2SubscriptionActive = false;
+      isM2SubscriptionChecked = true;
+      showM2GamePaywallModal();
+      return false;
+    }
+    const data = await res.json();
+    isM2SubscriptionChecked = true;
+    isM2SubscriptionActive = !!data.isActive;
+
+    if (!isM2SubscriptionActive) {
+      showM2GamePaywallModal(data);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("[MoveWall] Gagal memverifikasi subscription:", err);
+    return false;
+  }
+}
+
+// Jalankan verifikasi seawal mungkin
+verifyM2GameSubscription();
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -2670,6 +2792,13 @@ function tick(now) {
    CONTROLS & INTERACTION
    ═══════════════════════════════════════════════════════════════ */
 ui.startButton.addEventListener("click", async () => {
+  if (!isM2SubscriptionActive) {
+    const active = await verifyM2GameSubscription();
+    if (!active) {
+      showM2GamePaywallModal();
+      return;
+    }
+  }
   audio.init();
   const ok = await ensureCameraReady();
   if (!ok) return;
@@ -2719,7 +2848,14 @@ if (ui.timeoutResetButton) {
 }
 
 if (ui.modalReplayButton) {
-  ui.modalReplayButton.addEventListener("click", () => {
+  ui.modalReplayButton.addEventListener("click", async () => {
+    if (!isM2SubscriptionActive) {
+      const active = await verifyM2GameSubscription();
+      if (!active) {
+        showM2GamePaywallModal();
+        return;
+      }
+    }
     resetGame();
     game.running = true;
     setFeedback("neutral", "Misi Aktif 🌿", "Arahkan tangan tertutup untuk membidik, buka untuk menyiram!");
@@ -2735,16 +2871,7 @@ requestAnimationFrame(tick);
    THERAPIST ASSESSMENT DIALOG — Mission 2
    ═══════════════════════════════════════════════════════════════ */
 
-// ─── API Base URL ─────────────────────────────────────────────────────────────
-const _M2_DEFAULT_CLOUD_BACKEND = "https://movewallai-production.up.railway.app";
-const _M2_BACKEND_ORIGIN =
-  sessionStorage.getItem("mw_backend_url") ||
-  window.MOVEWALL_BACKEND_URL ||
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? (sessionStorage.getItem("mw_use_local_backend") === "true" ? "http://localhost:3001" : _M2_DEFAULT_CLOUD_BACKEND)
-    : _M2_DEFAULT_CLOUD_BACKEND);
 
-const M2_BACKEND_API = `${_M2_BACKEND_ORIGIN}/api`;
 
 
 function m2GetAuthToken() {
@@ -3364,7 +3491,10 @@ async function m2SubmitAssessment(formData) {
   });
 
   if (!res.ok) {
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (data.requiresSubscription) {
+      showM2GamePaywallModal(data);
+    }
     throw new Error(data.error || "Gagal menyimpan assessment.");
   }
 

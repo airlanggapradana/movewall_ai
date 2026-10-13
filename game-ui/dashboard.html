@@ -4,26 +4,47 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MoveWall AI — Dashboard Terapis & Statistik Pasien</title>
-    <meta name="description" content="Portal klinis terapis MoveWall AI: analisis statistik pasien, riwayat rehabilitasi ROM bahu, evaluasi keluhan nyeri, dan ekspor laporan rekam medis PDF." />
+    <meta
+      name="description"
+      content="Portal klinis terapis MoveWall AI: analisis statistik pasien, riwayat rehabilitasi ROM bahu, evaluasi keluhan nyeri, dan ekspor laporan rekam medis PDF."
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,400..700;1,400..700&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,400..700;1,400..700&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./styles.css" />
-    <link rel="icon" type="image/png" href="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      href="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png"
+    />
     <!-- Local html2pdf with fallback -->
     <script src="./assets/html2pdf.bundle.min.js"></script>
     <script>
       if (typeof html2pdf === "undefined") {
-        document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>');
+        document.write(
+          '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>',
+        );
       }
     </script>
+    <!-- Midtrans Snap Script dimuat secara dinamis melalui dashboard.js (/api/subscription/config) -->
   </head>
   <body class="dashboard-body" data-surface="studio">
     <!-- Top Navigation Bar (Studio Mode) -->
     <header class="dash-navbar" role="banner">
       <div class="dash-nav-brand">
-        <a href="./dashboard.html" class="dash-nav-brand-link" title="MoveWall AI — Dashboard Terapis">
-          <img src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" alt="MoveWall AI" class="dash-nav-logo-img" />
+        <a
+          href="./dashboard.html"
+          class="dash-nav-brand-link"
+          title="MoveWall AI: Dashboard Terapis"
+        >
+          <img
+            src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png"
+            alt="MoveWall AI"
+            class="dash-nav-logo-img"
+          />
         </a>
         <div class="dash-nav-divider" aria-hidden="true"></div>
         <div class="dash-brand-info">
@@ -33,37 +54,97 @@
 
       <!-- Navigation links with bespoke line SVGs -->
       <nav class="dash-nav-links" aria-label="Navigasi Utama">
-        <a href="./index.html" class="dash-nav-link" title="Mainkan Misi 1">
-          <svg class="dash-nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10"/>
-            <circle cx="12" cy="12" r="6"/>
-            <circle cx="12" cy="12" r="2"/>
+        <a href="./index.html" class="dash-nav-link" id="navLinkMission1" title="Mainkan Misi 1">
+          <svg
+            class="dash-nav-svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="12" r="6" />
+            <circle cx="12" cy="12" r="2" />
           </svg>
           <span>Misi 1 (Archer)</span>
+          <span id="navMission1Lock" class="dash-nav-lock-badge hidden" title="Akses permainan terkunci: Perlu langganan aktif">🔒</span>
         </a>
-        <a href="./mission2.html" class="dash-nav-link" title="Mainkan Misi 2">
-          <svg class="dash-nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 2a9 9 0 0 1 9 9c0 4.97-4.03 9-9 9a9 9 0 0 1-9-9c0-4.97 4.03-9 9-9z"/>
-            <path d="M12 7v10"/>
-            <path d="M8 12c2-2 4-2 4 0s2 2 4 0"/>
+        <a href="./mission2.html" class="dash-nav-link" id="navLinkMission2" title="Mainkan Misi 2">
+          <svg
+            class="dash-nav-svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 2a9 9 0 0 1 9 9c0 4.97-4.03 9-9 9a9 9 0 0 1-9-9c0-4.97 4.03-9 9-9z"
+            />
+            <path d="M12 7v10" />
+            <path d="M8 12c2-2 4-2 4 0s2 2 4 0" />
           </svg>
           <span>Misi 2 (Garden)</span>
+          <span id="navMission2Lock" class="dash-nav-lock-badge hidden" title="Akses permainan terkunci: Perlu langganan aktif">🔒</span>
         </a>
-        <a href="./dashboard.html" class="dash-nav-link active" aria-current="page">
-          <svg class="dash-nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        <a
+          href="./dashboard.html"
+          class="dash-nav-link active"
+          aria-current="page"
+        >
+          <svg
+            class="dash-nav-svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
           <span>Dashboard Terapis</span>
         </a>
       </nav>
 
-      <!-- Therapist Profile & RBAC Role Chip -->
+      <!-- Therapist Profile, Subscription Status & RBAC Role Chip -->
       <div class="dash-nav-user">
+        <button
+          id="dashNavSubBtn"
+          class="dash-sub-badge-btn"
+          type="button"
+          title="Lihat Status Langganan & Riwayat Pembayaran"
+        >
+          <span class="badge-shape">●</span>
+          <span id="dashNavSubText">Memuat Langganan...</span>
+        </button>
+
         <div class="dash-user-chip">
           <div class="dash-avatar" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
             </svg>
           </div>
           <div class="dash-user-info">
@@ -74,8 +155,23 @@
             </div>
           </div>
         </div>
-        <button id="dashLogoutBtn" class="dash-btn-logout" title="Keluar dari sistem" type="button">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <button
+          id="dashLogoutBtn"
+          class="dash-btn-logout"
+          title="Keluar dari sistem"
+          type="button"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
             <polyline points="16 17 21 12 16 7"></polyline>
             <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -87,274 +183,846 @@
 
     <!-- Main Dashboard Container -->
     <main class="dash-main-container">
-      <!-- Section: Global KPI Overview (Studio Paper Cards) -->
-      <section class="dash-kpi-grid" aria-label="Statistik Utama Terapis">
-        <div class="dash-kpi-card">
-          <div class="dash-kpi-header">
-            <span class="dash-kpi-title">Total Pasien Terdaftar</span>
-            <span class="dash-kpi-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-            </span>
-          </div>
-          <div class="dash-kpi-value" id="kpiTotalPatients">—</div>
-          <div class="dash-kpi-footer">
-            <span class="dash-kpi-badge positive"><span class="badge-shape">●</span> Terdaftar Aktif</span>
-            <span class="dash-kpi-subtext">Di bawah pengawasan klinis terapis</span>
+      <!-- Paywall Warning Banner (Ditampilkan saat akun belum aktif langganannya) -->
+      <div id="dashPaywallGlobalBanner" class="dash-paywall-global-banner hidden" role="alert">
+        <div class="dash-paywall-banner-left">
+          <span class="dash-paywall-banner-icon">🔒</span>
+          <div class="dash-paywall-banner-content">
+            <strong>Akses Modul Terkunci: Langganan Belum Aktif</strong>
+            <p>Akun terapis Anda belum memiliki langganan aktif. Modul permainan (Misi 1 & Misi 2) serta akses rekam medis pasien dinonaktifkan sementara sampai pembayaran langganan diselesaikan.</p>
           </div>
         </div>
+        <button type="button" id="btnPaywallBannerPay" class="dash-paywall-banner-btn">
+          Selesaikan Pembayaran Sekarang &rarr;
+        </button>
+      </div>
 
-        <div class="dash-kpi-card">
-          <div class="dash-kpi-header">
-            <span class="dash-kpi-title">Total Sesi Selesai</span>
-            <span class="dash-kpi-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
-              </svg>
-            </span>
+      <!-- Dashboard Top View Tabs Switcher -->
+      <div
+        class="dash-view-tabs"
+        role="tablist"
+        aria-label="Menu Utama Dashboard"
+      >
+        <button
+          id="viewTabPatients"
+          class="dash-view-tab-btn active"
+          role="tab"
+          aria-selected="true"
+          type="button"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span>Rekam Medis & Pasien</span>
+          <span id="patientsTabLockBadge" class="dash-tab-pill-badge inactive hidden">🔒 Terkunci</span>
+        </button>
+        <button
+          id="viewTabSubscription"
+          class="dash-view-tab-btn"
+          role="tab"
+          aria-selected="false"
+          type="button"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+            <line x1="1" y1="10" x2="23" y2="10"></line>
+          </svg>
+          <span>Langganan & Riwayat Pembayaran</span>
+          <span id="subTabStatusPill" class="dash-tab-pill-badge active"
+            >Memuat...</span
+          >
+        </button>
+      </div>
+
+      <!-- Container 1: Rekam Medis & Pasien View -->
+      <div id="patientsViewContainer">
+        <!-- Paywall Locked Card untuk Tab Rekam Medis (Ditampilkan jika langganan belum aktif) -->
+        <div id="patientsPaywallOverlay" class="dash-tab-paywall-card hidden">
+          <div class="dash-tab-paywall-icon-wrap">🔒</div>
+          <span class="dash-tab-paywall-tag">Fitur Klinis Terkunci</span>
+          <h3 class="dash-tab-paywall-title">Rekam Medis & Analisis Pasien Memerlukan Langganan Aktif</h3>
+          <p class="dash-tab-paywall-desc">
+            Akses direktori pasien, grafik tren ROM sudut bahu, evaluasi keluhan nyeri, dan ekspor laporan PDF hanya tersedia untuk terapis terdaftar dengan status langganan aktif. Selesaikan pembayaran langganan untuk membuka seluruh fitur klinis ini.
+          </p>
+          <div class="dash-tab-paywall-price-badge">
+            <span>Paket Terapis MoveWall AI Pro</span>
+            <strong>Rp 300.000 / 30 Hari</strong>
           </div>
-          <div class="dash-kpi-value" id="kpiTotalSessions">—</div>
-          <div class="dash-kpi-footer">
-            <span class="dash-kpi-breakdown" id="kpiMissionBreakdown">M1: 0 · M2: 0</span>
-            <span class="dash-kpi-subtext">Sesi telah tervalidasi sistem</span>
-          </div>
+          <button type="button" id="btnUnlockPatientsView" class="dash-btn-unlock-cta">
+            Aktifkan Langganan via Midtrans Sekarang
+          </button>
         </div>
 
-        <div class="dash-kpi-card">
-          <div class="dash-kpi-header">
-            <span class="dash-kpi-title">Rata-Rata Skor Sesi</span>
-            <span class="dash-kpi-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10"/>
-                <line x1="12" y1="20" x2="12" y2="4"/>
-                <line x1="6" y1="20" x2="6" y2="14"/>
-              </svg>
-            </span>
-          </div>
-          <div class="dash-kpi-value" id="kpiAvgScore">—</div>
-          <div class="dash-kpi-footer">
-            <span class="dash-kpi-badge neutral" id="kpiAvgHits"><span class="badge-shape">◆</span> Avg Hits: —</span>
-            <span class="dash-kpi-subtext">Performa biomekanika & capaian target</span>
-          </div>
-        </div>
-
-        <div class="dash-kpi-card">
-          <div class="dash-kpi-header">
-            <span class="dash-kpi-title">Prevalensi Nyeri ROM</span>
-            <span class="dash-kpi-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-              </svg>
-            </span>
-          </div>
-          <div class="dash-kpi-value" id="kpiPainRate">—%</div>
-          <div class="dash-kpi-footer">
-            <span class="dash-kpi-badge warning" id="kpiPainFree"><span class="badge-shape">▲</span> 0 sesi bebas nyeri</span>
-            <span class="dash-kpi-subtext">Berdasarkan evaluasi checklist terapis</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Section: 2-Column Patient Analytics Workspace (Triage FR-D.1) -->
-      <section class="dash-workspace-grid">
-        <!-- Left Column: Patient Directory & Triage -->
-        <aside class="dash-patient-sidebar">
-          <div class="dash-sidebar-header">
-            <h2 class="dash-sidebar-title">Daftar Pasien</h2>
-            <span id="dashPatientCountBadge" class="dash-count-pill">0 Pasien</span>
-          </div>
-
-          <!-- Search Input -->
-          <div class="dash-search-box">
-            <svg class="dash-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" id="patientSearchInput" placeholder="Cari nama pasien..." autocomplete="off" />
-          </div>
-
-          <!-- Triage Filter Chips (Dual-Indicator: Color + Shape + Text) -->
-          <div class="dash-filter-chips">
-            <button class="dash-filter-btn active" data-filter="all" type="button">Semua</button>
-            <button class="dash-filter-btn" data-filter="pain" type="button">
-              <span class="chip-shape">▲</span> Keluhan Nyeri
-            </button>
-            <button class="dash-filter-btn" data-filter="painfree" type="button">
-              <span class="chip-shape">●</span> Bebas Nyeri
-            </button>
-          </div>
-
-          <!-- Patient List Container -->
-          <div class="dash-patient-list" id="patientListContainer" role="listbox">
-            <div class="dash-loading-state">Memuat data pasien...</div>
-          </div>
-        </aside>
-
-        <!-- Right Column: Active Patient Detail Workspace -->
-        <div class="dash-patient-content" id="patientDetailContent">
-          <!-- Placeholder when no patient selected -->
-          <div class="dash-empty-prompt" id="emptyPatientPrompt">
-            <div class="dash-empty-icon" aria-hidden="true">
-              <svg width="48" height="48" viewBox="0 0 56 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M 6 32 A 22 22 0 0 1 50 32" stroke="#8C8472" stroke-width="2.5" stroke-linecap="round"/>
-                <line x1="4" y1="32" x2="52" y2="32" stroke="#8C8472" stroke-width="2" stroke-linecap="round"/>
-                <line x1="28" y1="10" x2="28" y2="16" stroke="#8C8472" stroke-width="2"/>
-                <circle cx="28" cy="32" r="2.5" fill="#8C8472"/>
-                <circle cx="28" cy="10" r="3.5" fill="#C2410C"/>
-              </svg>
+        <div id="patientsContentWrapper">
+          <!-- Section: Global KPI Overview (Studio Paper Cards) -->
+          <section class="dash-kpi-grid" aria-label="Statistik Utama Terapis">
+            <div class="dash-kpi-card">
+              <div class="dash-kpi-header">
+              <span class="dash-kpi-title">Total Pasien Terdaftar</span>
+              <span class="dash-kpi-icon" aria-hidden="true">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </span>
             </div>
-            <h3>Pilih Pasien dari Panel Kiri</h3>
+            <div class="dash-kpi-value" id="kpiTotalPatients">—</div>
+            <div class="dash-kpi-footer">
+              <span class="dash-kpi-badge positive"
+                ><span class="badge-shape">●</span> Terdaftar Aktif</span
+              >
+              <span class="dash-kpi-subtext"
+                >Di bawah pengawasan klinis terapis</span
+              >
+            </div>
+          </div>
+
+          <div class="dash-kpi-card">
+            <div class="dash-kpi-header">
+              <span class="dash-kpi-title">Total Sesi Selesai</span>
+              <span class="dash-kpi-icon" aria-hidden="true">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </span>
+            </div>
+            <div class="dash-kpi-value" id="kpiTotalSessions">—</div>
+            <div class="dash-kpi-footer">
+              <span class="dash-kpi-breakdown" id="kpiMissionBreakdown"
+                >M1: 0 · M2: 0</span
+              >
+              <span class="dash-kpi-subtext"
+                >Sesi telah tervalidasi sistem</span
+              >
+            </div>
+          </div>
+
+          <div class="dash-kpi-card">
+            <div class="dash-kpi-header">
+              <span class="dash-kpi-title">Rata-Rata Skor Sesi</span>
+              <span class="dash-kpi-icon" aria-hidden="true">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+              </span>
+            </div>
+            <div class="dash-kpi-value" id="kpiAvgScore">—</div>
+            <div class="dash-kpi-footer">
+              <span class="dash-kpi-badge neutral" id="kpiAvgHits"
+                ><span class="badge-shape">◆</span> Avg Hits: —</span
+              >
+              <span class="dash-kpi-subtext"
+                >Performa biomekanika & capaian target</span
+              >
+            </div>
+          </div>
+
+          <div class="dash-kpi-card">
+            <div class="dash-kpi-header">
+              <span class="dash-kpi-title">Prevalensi Nyeri ROM</span>
+              <span class="dash-kpi-icon" aria-hidden="true">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                </svg>
+              </span>
+            </div>
+            <div class="dash-kpi-value" id="kpiPainRate">—%</div>
+            <div class="dash-kpi-footer">
+              <span class="dash-kpi-badge warning" id="kpiPainFree"
+                ><span class="badge-shape">▲</span> 0 sesi bebas nyeri</span
+              >
+              <span class="dash-kpi-subtext"
+                >Berdasarkan evaluasi checklist terapis</span
+              >
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: 2-Column Patient Analytics Workspace (Triage FR-D.1) -->
+        <section class="dash-workspace-grid">
+          <!-- Left Column: Patient Directory & Triage -->
+          <aside class="dash-patient-sidebar">
+            <div class="dash-sidebar-header">
+              <h2 class="dash-sidebar-title">Daftar Pasien</h2>
+              <span id="dashPatientCountBadge" class="dash-count-pill"
+                >0 Pasien</span
+              >
+            </div>
+
+            <!-- Search Input -->
+            <div class="dash-search-box">
+              <svg
+                class="dash-search-icon"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                type="text"
+                id="patientSearchInput"
+                placeholder="Cari nama pasien..."
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Triage Filter Chips (Dual-Indicator: Color + Shape + Text) -->
+            <div class="dash-filter-chips">
+              <button
+                class="dash-filter-btn active"
+                data-filter="all"
+                type="button"
+              >
+                Semua
+              </button>
+              <button class="dash-filter-btn" data-filter="pain" type="button">
+                <span class="chip-shape">▲</span> Keluhan Nyeri
+              </button>
+              <button
+                class="dash-filter-btn"
+                data-filter="painfree"
+                type="button"
+              >
+                <span class="chip-shape">●</span> Bebas Nyeri
+              </button>
+            </div>
+
+            <!-- Patient List Container -->
+            <div
+              class="dash-patient-list"
+              id="patientListContainer"
+              role="listbox"
+            >
+              <div class="dash-loading-state">Memuat data pasien...</div>
+            </div>
+          </aside>
+
+          <!-- Right Column: Active Patient Detail Workspace -->
+          <div class="dash-patient-content" id="patientDetailContent">
+            <!-- Placeholder when no patient selected -->
+            <div class="dash-empty-prompt" id="emptyPatientPrompt">
+              <div class="dash-empty-icon" aria-hidden="true">
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 56 38"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M 6 32 A 22 22 0 0 1 50 32"
+                    stroke="#8C8472"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                  />
+                  <line
+                    x1="4"
+                    y1="32"
+                    x2="52"
+                    y2="32"
+                    stroke="#8C8472"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                  <line
+                    x1="28"
+                    y1="10"
+                    x2="28"
+                    y2="16"
+                    stroke="#8C8472"
+                    stroke-width="2"
+                  />
+                  <circle cx="28" cy="32" r="2.5" fill="#8C8472" />
+                  <circle cx="28" cy="10" r="3.5" fill="#C2410C" />
+                </svg>
+              </div>
+              <h3>Pilih Pasien dari Panel Kiri</h3>
+              <p>
+                Silakan pilih pasien untuk melihat riwayat kinematika ROM bahu,
+                evaluasi toleransi nyeri, progres level latihan, serta mengunduh
+                dokumen rekam medis PDF.
+              </p>
+            </div>
+
+            <!-- Patient Profile Workspace (Hidden initially until patient selected) -->
+            <div id="patientWorkspaceWrapper" class="hidden">
+              <!-- Patient Header Banner -->
+              <div class="dash-patient-banner">
+                <div class="dash-patient-banner-left">
+                  <div class="dash-patient-big-avatar" id="pAvatar">👤</div>
+                  <div>
+                    <div class="dash-patient-heading">
+                      <h2 id="pName" class="dash-patient-name">—</h2>
+                      <span id="pAgeBadge" class="dash-badge-age">— tahun</span>
+                    </div>
+                    <div class="dash-patient-subline">
+                      <span id="pSessionCount">0 Sesi Selesai</span>
+                      <span class="dash-dot-divider" aria-hidden="true"
+                        >&middot;</span
+                      >
+                      <span id="pPeriod">Periode: —</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action buttons for Medical PDF Report -->
+                <div class="dash-patient-banner-actions">
+                  <button
+                    id="btnDownloadPdf"
+                    class="dash-btn-pdf"
+                    type="button"
+                    title="Unduh langsung sebagai berkas file .pdf"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                      ></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="12" y1="18" x2="12" y2="12"></line>
+                      <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    <span>Unduh File PDF (.pdf)</span>
+                  </button>
+                  <button
+                    id="btnPrintPdf"
+                    class="dash-btn-print"
+                    type="button"
+                    title="Buka dialog cetak atau Simpan sebagai PDF"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                      <path
+                        d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"
+                      ></path>
+                      <rect x="6" y="14" width="12" height="8"></rect>
+                    </svg>
+                    <span>Cetak / Print PDF</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Patient Quick Stats Cards -->
+              <div class="dash-p-stats-row">
+                <div class="dash-p-stat-card">
+                  <span class="dash-p-stat-label">Rata-rata Skor Sesi</span>
+                  <strong class="dash-p-stat-val" id="pAvgScore">—</strong>
+                  <span class="dash-p-stat-sub" id="pMaxScore">Max: —</span>
+                </div>
+                <div class="dash-p-stat-card">
+                  <span class="dash-p-stat-label">Rata-rata Target Hits</span>
+                  <strong class="dash-p-stat-val" id="pAvgHits">—</strong>
+                  <span class="dash-p-stat-sub">dari 10 target per sesi</span>
+                </div>
+                <div class="dash-p-stat-card">
+                  <span class="dash-p-stat-label">Level Tertinggi Adaptif</span>
+                  <strong class="dash-p-stat-val" id="pLatestLevel"
+                    >Level —</strong
+                  >
+                  <span class="dash-p-stat-sub">Tingkat kesulitan klinis</span>
+                </div>
+                <div class="dash-p-stat-card">
+                  <span class="dash-p-stat-label">Frekuensi Keluhan Nyeri</span>
+                  <strong class="dash-p-stat-val" id="pPainRate">—%</strong>
+                  <span class="dash-p-stat-sub" id="pPainFreeSessions"
+                    >— sesi bebas nyeri</span
+                  >
+                </div>
+              </div>
+
+              <!-- Two-Panel: Pain Matrix & Score Progress -->
+              <div class="dash-analytics-row">
+                <!-- Pain Matrix per Movement -->
+                <div class="dash-analytics-card">
+                  <div class="dash-card-header">
+                    <h3 class="dash-card-title">
+                      Checklist Nyeri per Gerakan ROM
+                    </h3>
+                    <span class="dash-card-badge">Biomekanika Bahu</span>
+                  </div>
+                  <p class="dash-card-desc">
+                    Frekuensi rasa nyeri yang dilaporkan saat melakukan gerakan
+                    sendi bahu:
+                  </p>
+
+                  <div class="dash-pain-matrix" id="painMatrixContainer">
+                    <!-- Populated dynamically in JS -->
+                  </div>
+                </div>
+
+                <!-- Score Progression & Estimasi Kamera Chart (Temuan #8 & FR-D.2) -->
+                <div class="dash-analytics-card">
+                  <div class="dash-card-header">
+                    <h3 class="dash-card-title">
+                      Progres Skor & Level Latihan
+                    </h3>
+                    <!-- Tag Estimasi Kamera Wajib sesuai PRD Temuan #8 -->
+                    <span class="dash-card-badge badge-camera-tag"
+                      >Estimasi kamera</span
+                    >
+                  </div>
+                  <p class="dash-card-desc">
+                    Perkembangan skor yang diraih pasien pada setiap sesi
+                    latihan berturut-turut:
+                  </p>
+
+                  <div class="dash-chart-box">
+                    <canvas
+                      id="uiTrendCanvas"
+                      width="560"
+                      height="150"
+                    ></canvas>
+                    <div class="dash-chart-legend">
+                      <span class="legend-item"
+                        ><span class="legend-dot reach">●</span> Sesi Bebas
+                        Nyeri</span
+                      >
+                      <span class="legend-item"
+                        ><span class="legend-dot comp">▲</span> Sesi Keluhan
+                        Nyeri</span
+                      >
+                      <span class="legend-item"
+                        ><span class="legend-line line-main"></span> Garis
+                        Skor</span
+                      >
+                      <span class="legend-item"
+                        ><span class="legend-line line-ceiling"></span> Batas
+                        Aman / Ceiling</span
+                      >
+                    </div>
+                  </div>
+
+                  <div
+                    class="dash-score-progress-list"
+                    id="scoreProgressContainer"
+                  >
+                    <!-- Populated dynamically in JS -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Full Chronological Session & Assessment Table (FR-D.4 & FR-D.5) -->
+              <div class="dash-table-card">
+                <div class="dash-card-header">
+                  <div>
+                    <h3 class="dash-card-title">
+                      Riwayat Lengkap Latihan & Catatan Asesmen
+                    </h3>
+                    <p class="dash-card-desc">
+                      Rekam jejak setiap sesi, performa numerik, checklist rasa
+                      sakit, dan pemisahan data otomatis sistem vs catatan
+                      klinis terapis (FR-D.5).
+                    </p>
+                  </div>
+                  <span class="dash-table-badge" id="pTableCountBadge"
+                    >0 Sesi</span
+                  >
+                </div>
+
+                <div class="dash-table-wrapper">
+                  <table
+                    class="dash-table"
+                    aria-label="Tabel Riwayat Sesi Pasien"
+                  >
+                    <thead>
+                      <tr>
+                        <th style="width: 5%">Sesi</th>
+                        <th style="width: 14%">Tanggal & Waktu</th>
+                        <th style="width: 13%">Misi</th>
+                        <th style="width: 8%">Level</th>
+                        <th style="width: 8%">Durasi</th>
+                        <th style="width: 7%">Hits</th>
+                        <th style="width: 8%">Skor</th>
+                        <th style="width: 15%">Keluhan Nyeri ROM</th>
+                        <th style="width: 22%">
+                          Catatan Terapis vs Data Otomatis
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody id="sessionTableBody">
+                      <!-- Populated dynamically in JS -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        </div>
+        <!-- End #patientsContentWrapper -->
+      </div>
+      <!-- End #patientsViewContainer -->
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           CONTAINER 2: SUBSCRIPTION & MIDTRANS PAYMENT GATEWAY WORKSPACE
+           ═══════════════════════════════════════════════════════════════ -->
+      <div id="subscriptionViewContainer" class="dash-sub-workspace hidden">
+        <!-- Banner Status Langganan -->
+        <div class="dash-sub-header-banner">
+          <div class="dash-sub-title-wrap">
+            <h2>Langganan MoveWall AI & Payment Gateway Midtrans</h2>
             <p>
-              Silakan pilih pasien untuk melihat riwayat kinematika ROM bahu, evaluasi toleransi nyeri, progres level latihan, serta mengunduh dokumen rekam medis PDF.
+              Kelola paket lisensi klinis terapis, pantau cooldown pembayaran
+              berikutnya 30 hari, dan cek riwayat transaksi real-time.
             </p>
           </div>
+          <span
+            id="subBannerStatusBadge"
+            class="dash-sub-badge-indicator active"
+          >
+            ● Langganan Aktif
+          </span>
+        </div>
 
-          <!-- Patient Profile Workspace (Hidden initially until patient selected) -->
-          <div id="patientWorkspaceWrapper" class="hidden">
-            <!-- Patient Header Banner -->
-            <div class="dash-patient-banner">
-              <div class="dash-patient-banner-left">
-                <div class="dash-patient-big-avatar" id="pAvatar">👤</div>
-                <div>
-                  <div class="dash-patient-heading">
-                    <h2 id="pName" class="dash-patient-name">—</h2>
-                    <span id="pAgeBadge" class="dash-badge-age">— tahun</span>
-                  </div>
-                  <div class="dash-patient-subline">
-                    <span id="pSessionCount">0 Sesi Selesai</span>
-                    <span class="dash-dot-divider" aria-hidden="true">&middot;</span>
-                    <span id="pPeriod">Periode: —</span>
-                  </div>
-                </div>
+        <!-- 2-Column Grid: Card Status & Card Benefits/Credentials -->
+        <div class="dash-sub-grid">
+          <!-- Card 1: Status & Cooldown Pembayaran 30 Hari -->
+          <div class="dash-sub-card">
+            <div class="dash-sub-card-header">
+              <div>
+                <h3 class="dash-sub-plan-title">MoveWall AI Clinical Pro</h3>
+                <p class="dash-sub-plan-desc">
+                  Akses Penuh Portal Tele-Rehabilitasi & Kinematika ROM Bahu
+                </p>
               </div>
+              <div class="dash-sub-price-tag">
+                <span class="dash-sub-price-num">Rp 300.000</span>
+                <span class="dash-sub-price-cycle">per 30 hari</span>
+              </div>
+            </div>
 
-              <!-- Action buttons for Medical PDF Report -->
-              <div class="dash-patient-banner-actions">
-                <button id="btnDownloadPdf" class="dash-btn-pdf" type="button" title="Unduh langsung sebagai berkas file .pdf">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="12" y1="18" x2="12" y2="12"></line>
-                    <line x1="9" y1="15" x2="15" y2="15"></line>
+            <!-- Meta Ringkasan Periode -->
+            <div class="dash-sub-meta-list">
+              <div class="dash-sub-meta-box">
+                <span class="dash-sub-meta-label">Periode Masa Aktif:</span>
+                <span class="dash-sub-meta-val" id="subPeriodText"
+                  >Belum Berlangganan</span
+                >
+              </div>
+              <div class="dash-sub-meta-box">
+                <span class="dash-sub-meta-label">Sisa Hari Langganan:</span>
+                <span class="dash-sub-meta-val" id="subDaysRemainingText"
+                  >0 Hari</span
+                >
+              </div>
+            </div>
+
+            <!-- Box Cooldown Pembayaran 30 Hari -->
+            <div class="dash-cooldown-box active" id="subCooldownBox">
+              <div class="dash-cooldown-top">
+                <div class="dash-cooldown-title">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
                   </svg>
-                  <span>Unduh File PDF (.pdf)</span>
-                </button>
-                <button id="btnPrintPdf" class="dash-btn-print" type="button" title="Buka dialog cetak atau Simpan sebagai PDF">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                    <rect x="6" y="14" width="12" height="8"></rect>
-                  </svg>
-                  <span>Cetak / Print PDF</span>
-                </button>
+                  <span>Cooldown Pembayaran Berikutnya (30 Hari)</span>
+                </div>
+                <span class="dash-cooldown-days-pill" id="subCooldownPill"
+                  >Sisa 30 Hari</span
+                >
+              </div>
+              <p class="dash-cooldown-desc" id="subCooldownDesc">
+                Masa cooldown aktif selama 30 hari setelah pembayaran berhasil.
+                Pembayaran perpanjangan berikutnya dapat dilakukan setelah masa
+                aktif berakhir.
+              </p>
+              <div class="dash-cooldown-progress-bar">
+                <div
+                  class="dash-cooldown-progress-fill"
+                  id="subCooldownProgressFill"
+                  style="width: 100%"
+                ></div>
+              </div>
+              <div class="dash-cooldown-dates">
+                <span>Mulai: <strong id="subCooldownStart">-</strong></span>
+                <span
+                  >Dapat Dibayar Lagi:
+                  <strong id="subCooldownEnd">-</strong></span
+                >
               </div>
             </div>
 
-            <!-- Patient Quick Stats Cards -->
-            <div class="dash-p-stats-row">
-              <div class="dash-p-stat-card">
-                <span class="dash-p-stat-label">Rata-rata Skor Sesi</span>
-                <strong class="dash-p-stat-val" id="pAvgScore">—</strong>
-                <span class="dash-p-stat-sub" id="pMaxScore">Max: —</span>
-              </div>
-              <div class="dash-p-stat-card">
-                <span class="dash-p-stat-label">Rata-rata Target Hits</span>
-                <strong class="dash-p-stat-val" id="pAvgHits">—</strong>
-                <span class="dash-p-stat-sub">dari 10 target per sesi</span>
-              </div>
-              <div class="dash-p-stat-card">
-                <span class="dash-p-stat-label">Level Tertinggi Adaptif</span>
-                <strong class="dash-p-stat-val" id="pLatestLevel">Level —</strong>
-                <span class="dash-p-stat-sub">Tingkat kesulitan klinis</span>
-              </div>
-              <div class="dash-p-stat-card">
-                <span class="dash-p-stat-label">Frekuensi Keluhan Nyeri</span>
-                <strong class="dash-p-stat-val" id="pPainRate">—%</strong>
-                <span class="dash-p-stat-sub" id="pPainFreeSessions">— sesi bebas nyeri</span>
-              </div>
+            <!-- Action Button Pembayaran -->
+            <button
+              id="btnPaySubscription"
+              class="dash-btn-pay-cta disabled"
+              type="button"
+              disabled
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                <line x1="1" y1="10" x2="23" y2="10"></line>
+              </svg>
+              <span id="btnPayText"
+                >Pembayaran Terkunci (Cooldown 30 Hari Aktif)</span
+              >
+            </button>
+            <div class="dash-btn-pay-helper" id="btnPayHelper">
+              Pembayaran berikutnya akan terbuka otomatis setelah periode 30
+              hari selesai.
             </div>
 
-            <!-- Two-Panel: Pain Matrix & Score Progress -->
-            <div class="dash-analytics-row">
-              <!-- Pain Matrix per Movement -->
-              <div class="dash-analytics-card">
-                <div class="dash-card-header">
-                  <h3 class="dash-card-title">Checklist Nyeri per Gerakan ROM</h3>
-                  <span class="dash-card-badge">Biomekanika Bahu</span>
-                </div>
-                <p class="dash-card-desc">Frekuensi rasa nyeri yang dilaporkan saat melakukan gerakan sendi bahu:</p>
-
-                <div class="dash-pain-matrix" id="painMatrixContainer">
-                  <!-- Populated dynamically in JS -->
-                </div>
-              </div>
-
-              <!-- Score Progression & Estimasi Kamera Chart (Temuan #8 & FR-D.2) -->
-              <div class="dash-analytics-card">
-                <div class="dash-card-header">
-                  <h3 class="dash-card-title">Progres Skor & Level Latihan</h3>
-                  <!-- Tag Estimasi Kamera Wajib sesuai PRD Temuan #8 -->
-                  <span class="dash-card-badge badge-camera-tag">Estimasi kamera</span>
-                </div>
-                <p class="dash-card-desc">Perkembangan skor yang diraih pasien pada setiap sesi latihan berturut-turut:</p>
-
-                <div class="dash-chart-box">
-                  <canvas id="uiTrendCanvas" width="560" height="150"></canvas>
-                  <div class="dash-chart-legend">
-                    <span class="legend-item"><span class="legend-dot reach">●</span> Sesi Bebas Nyeri</span>
-                    <span class="legend-item"><span class="legend-dot comp">▲</span> Sesi Keluhan Nyeri</span>
-                    <span class="legend-item"><span class="legend-line line-main"></span> Garis Skor</span>
-                    <span class="legend-item"><span class="legend-line line-ceiling"></span> Batas Aman / Ceiling</span>
-                  </div>
-                </div>
-
-                <div class="dash-score-progress-list" id="scoreProgressContainer">
-                  <!-- Populated dynamically in JS -->
-                </div>
-              </div>
-            </div>
-
-            <!-- Full Chronological Session & Assessment Table (FR-D.4 & FR-D.5) -->
-            <div class="dash-table-card">
-              <div class="dash-card-header">
-                <div>
-                  <h3 class="dash-card-title">Riwayat Lengkap Latihan & Catatan Asesmen</h3>
-                  <p class="dash-card-desc">
-                    Rekam jejak setiap sesi, performa numerik, checklist rasa sakit, dan pemisahan data otomatis sistem vs catatan klinis terapis (FR-D.5).
-                  </p>
-                </div>
-                <span class="dash-table-badge" id="pTableCountBadge">0 Sesi</span>
-              </div>
-
-              <div class="dash-table-wrapper">
-                <table class="dash-table" aria-label="Tabel Riwayat Sesi Pasien">
-                  <thead>
-                    <tr>
-                      <th style="width: 5%">Sesi</th>
-                      <th style="width: 14%">Tanggal & Waktu</th>
-                      <th style="width: 13%">Misi</th>
-                      <th style="width: 8%">Level</th>
-                      <th style="width: 8%">Durasi</th>
-                      <th style="width: 7%">Hits</th>
-                      <th style="width: 8%">Skor</th>
-                      <th style="width: 15%">Keluhan Nyeri ROM</th>
-                      <th style="width: 22%">Catatan Terapis vs Data Otomatis</th>
-                    </tr>
-                  </thead>
-                  <tbody id="sessionTableBody">
-                    <!-- Populated dynamically in JS -->
-                  </tbody>
-                </table>
-              </div>
+            <!-- Sandbox / Dev Simulator Tools -->
+            <div class="dash-dev-actions">
+              <button
+                id="btnSimulateSuccess"
+                class="dash-btn-dev-sim"
+                type="button"
+                title="Simulasi aktivasi pembayaran di Sandbox Midtrans"
+              >
+                ⚡ Simulasi Bayar Berhasil (Sandbox Mode)
+              </button>
             </div>
           </div>
+
+          <!-- Card 2: Benefit & Konfigurasi Midtrans -->
+          <div class="dash-sub-card">
+            <div class="dash-sub-card-header">
+              <div>
+                <h3 class="dash-sub-plan-title">Fasilitas Lisensi Pro</h3>
+                <p class="dash-sub-plan-desc">
+                  Fitur premium bagi terapis dan dokter rehabilitasi
+                </p>
+              </div>
+            </div>
+
+            <ul class="dash-benefits-list">
+              <li class="dash-benefit-item">
+                <span class="dash-benefit-icon">✓</span>
+                <div>
+                  <strong>Kinematika ROM Real-Time</strong>
+                  <br /><span style="font-size: 0.8rem; color: var(--text-600)"
+                    >Pengukuran sudut bahu akurat dari estimasi kamera visi
+                    komputer.</span
+                  >
+                </div>
+              </li>
+              <li class="dash-benefit-item">
+                <span class="dash-benefit-icon">✓</span>
+                <div>
+                  <strong>Checklist & Toleransi Nyeri</strong>
+                  <br /><span style="font-size: 0.8rem; color: var(--text-600)"
+                    >Pencatatan klinis fleksi, abduksi, rotasi, dan ekstensi per
+                    sesi.</span
+                  >
+                </div>
+              </li>
+              <li class="dash-benefit-item">
+                <span class="dash-benefit-icon">✓</span>
+                <div>
+                  <strong>Ekspor Rekam Medis PDF Resmi</strong>
+                  <br /><span style="font-size: 0.8rem; color: var(--text-600)"
+                    >Unduh berkas laporan format A4 dengan grafik performa
+                    klinis.</span
+                  >
+                </div>
+              </li>
+              <li class="dash-benefit-item">
+                <span class="dash-benefit-icon">✓</span>
+                <div>
+                  <strong>Midtrans Payment Gateway</strong>
+                  <br /><span style="font-size: 0.8rem; color: var(--text-600)"
+                    >Mendukung QRIS, GoPay, BCA/Mandiri/BNI/BRI VA, dan Kartu
+                    Kredit.</span
+                  >
+                </div>
+              </li>
+            </ul>
+          </div>
         </div>
-      </section>
+
+        <!-- Section: Riwayat Pembayaran Midtrans -->
+        <div class="dash-sub-history-card">
+          <div class="dash-sub-history-header">
+            <div class="dash-sub-history-title-wrap">
+              <h3>Riwayat Transaksi & Pembayaran Midtrans</h3>
+              <p>
+                Daftar seluruh transaksi langganan, status verifikasi Midtrans,
+                dan nomor order resmi.
+              </p>
+            </div>
+            <button
+              id="btnRefreshHistory"
+              class="dash-btn-refresh-history"
+              type="button"
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path
+                  d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+                ></path>
+              </svg>
+              <span>Segarkan Riwayat</span>
+            </button>
+          </div>
+
+          <div class="dash-table-wrapper">
+            <table
+              class="dash-table"
+              aria-label="Tabel Riwayat Pembayaran Midtrans"
+            >
+              <thead>
+                <tr>
+                  <th style="width: 22%">Order ID Midtrans</th>
+                  <th style="width: 16%">Tanggal Transaksi</th>
+                  <th style="width: 16%">Paket Layanan</th>
+                  <th style="width: 12%">Nominal</th>
+                  <th style="width: 14%">Metode Bayar</th>
+                  <th style="width: 10%">Status</th>
+                  <th style="width: 10%">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="paymentHistoryTbody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 24px">
+                    Memuat riwayat pembayaran...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="paymentHistoryEmpty" class="dash-tx-empty-state hidden">
+            <div class="dash-tx-empty-icon">
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                <line x1="2" y1="10" x2="22" y2="10"></line>
+              </svg>
+            </div>
+            <h4>Belum Ada Riwayat Pembayaran</h4>
+            <p>
+              Transaksi langganan Anda melalui payment gateway Midtrans akan
+              tercatat otomatis di sini.
+            </p>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- ═══════════════════════════════════════════════════════════
@@ -366,17 +1034,31 @@
         <!-- Letterhead Kop Medis -->
         <div class="pdf-header">
           <div class="pdf-brand">
-            <img src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" alt="MoveWall AI" class="pdf-logo-img" />
+            <img
+              src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png"
+              alt="MoveWall AI"
+              class="pdf-logo-img"
+            />
             <div class="pdf-brand-divider" aria-hidden="true"></div>
             <div>
               <h1 class="pdf-title">MOVEWALL AI CLINICAL REPORT</h1>
-              <p class="pdf-subtitle">Sistem Tele-Rehabilitasi Kinematika & Biomekanika Sendi Bahu</p>
+              <p class="pdf-subtitle">
+                Sistem Tele-Rehabilitasi Kinematika & Biomekanika Sendi Bahu
+              </p>
             </div>
           </div>
           <div class="pdf-meta">
-            <div class="pdf-meta-item"><strong>ID Rekam:</strong> <span id="pdfReportId">MW-000000</span></div>
-            <div class="pdf-meta-item"><strong>Tanggal Cetak:</strong> <span id="pdfGeneratedDate">—</span></div>
-            <div class="pdf-meta-item"><strong>Status:</strong> <span class="pdf-badge-verified">Verified Clinical Record</span></div>
+            <div class="pdf-meta-item">
+              <strong>ID Rekam:</strong> <span id="pdfReportId">MW-000000</span>
+            </div>
+            <div class="pdf-meta-item">
+              <strong>Tanggal Cetak:</strong>
+              <span id="pdfGeneratedDate">—</span>
+            </div>
+            <div class="pdf-meta-item">
+              <strong>Status:</strong>
+              <span class="pdf-badge-verified">Verified Clinical Record</span>
+            </div>
           </div>
         </div>
 
@@ -431,7 +1113,9 @@
 
         <!-- Summary Clinical Findings -->
         <div class="pdf-section">
-          <h3 class="pdf-section-title">Ringkasan Metrik & Toleransi Latihan Pasien</h3>
+          <h3 class="pdf-section-title">
+            Ringkasan Metrik & Toleransi Latihan Pasien
+          </h3>
           <div class="pdf-kpi-summary">
             <div class="pdf-kpi-col">
               <span class="pdf-kpi-lbl">Rata-rata Skor</span>
@@ -454,20 +1138,33 @@
 
         <!-- Section: Graphic Progression by Date/Time -->
         <div class="pdf-section">
-          <h3 class="pdf-section-title">Grafik Tren Progresi Performa Latihan Berdasarkan Waktu</h3>
+          <h3 class="pdf-section-title">
+            Grafik Tren Progresi Performa Latihan Berdasarkan Waktu
+          </h3>
           <div class="pdf-chart-box">
             <canvas id="pdfTrendCanvas" width="720" height="170"></canvas>
             <div class="pdf-chart-legend">
-              <span class="pdf-legend-item"><span class="pdf-legend-dot teal"></span> Garis Skor Sesi (Poin)</span>
-              <span class="pdf-legend-item"><span class="pdf-legend-dot green"></span> Sesi Bebas Nyeri (Optimal)</span>
-              <span class="pdf-legend-item"><span class="pdf-legend-dot red"></span> Sesi dengan Keluhan Nyeri</span>
+              <span class="pdf-legend-item"
+                ><span class="pdf-legend-dot teal"></span> Garis Skor Sesi
+                (Poin)</span
+              >
+              <span class="pdf-legend-item"
+                ><span class="pdf-legend-dot green"></span> Sesi Bebas Nyeri
+                (Optimal)</span
+              >
+              <span class="pdf-legend-item"
+                ><span class="pdf-legend-dot red"></span> Sesi dengan Keluhan
+                Nyeri</span
+              >
             </div>
           </div>
         </div>
 
         <!-- ROM Pain Checklist Summary Table -->
         <div class="pdf-section">
-          <h3 class="pdf-section-title">Evaluasi Nyeri Berdasarkan Gerakan ROM (Range of Motion)</h3>
+          <h3 class="pdf-section-title">
+            Evaluasi Nyeri Berdasarkan Gerakan ROM (Range of Motion)
+          </h3>
           <table class="pdf-table">
             <thead>
               <tr>
@@ -485,7 +1182,9 @@
 
         <!-- Detailed Session History Log -->
         <div class="pdf-section">
-          <h3 class="pdf-section-title">Log Kronologis Sesi & Catatan Asesmen</h3>
+          <h3 class="pdf-section-title">
+            Log Kronologis Sesi & Catatan Asesmen
+          </h3>
           <table class="pdf-table pdf-table-sessions">
             <thead>
               <tr>
@@ -526,7 +1225,10 @@
 
         <!-- Footer -->
         <div class="pdf-doc-footer">
-          <span>MoveWall AI &bull; Tele-Rehabilitation Telemetry & Clinical System &bull; Dokumen Rahasia Medis</span>
+          <span
+            >MoveWall AI &bull; Tele-Rehabilitation Telemetry & Clinical System
+            &bull; Dokumen Rahasia Medis</span
+          >
           <span>Halaman 1 / 1</span>
         </div>
       </div>

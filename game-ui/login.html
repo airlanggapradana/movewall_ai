@@ -253,8 +253,8 @@
       const _LOGIN_BACKEND_ORIGIN =
         sessionStorage.getItem("mw_backend_url") ||
         window.MOVEWALL_BACKEND_URL ||
-        (sessionStorage.getItem("mw_use_local_backend") === "true"
-          ? "http://localhost:3001"
+        (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+          ? (sessionStorage.getItem("mw_use_local_backend") === "false" ? _DEFAULT_CLOUD_BACKEND : "http://localhost:3001")
           : _DEFAULT_CLOUD_BACKEND);
 
       const API_BASE = `${_LOGIN_BACKEND_ORIGIN}/api`;

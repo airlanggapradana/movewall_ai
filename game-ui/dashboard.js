@@ -9,7 +9,7 @@ const BACKEND_ORIGIN =
   sessionStorage.getItem("mw_backend_url") ||
   window.MOVEWALL_BACKEND_URL ||
   (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? (sessionStorage.getItem("mw_use_local_backend") === "true" ? "http://localhost:3001" : DEFAULT_CLOUD_BACKEND)
+    ? (sessionStorage.getItem("mw_use_local_backend") === "false" ? DEFAULT_CLOUD_BACKEND : "http://localhost:3001")
     : DEFAULT_CLOUD_BACKEND);
 
 const API_BASE = `${BACKEND_ORIGIN}/api`;
@@ -146,6 +146,16 @@ async function loadDashboardStats() {
     const res = await fetch(`${API_BASE}/dashboard/stats`, {
       headers: { Authorization: `Bearer ${currentToken}` },
     });
+    if (res.status === 403) {
+      const errData = await res.json().catch(() => ({}));
+      if (errData.requiresSubscription) {
+        const patientsPaywallOverlay = document.getElementById("patientsPaywallOverlay");
+        const patientsContentWrapper = document.getElementById("patientsContentWrapper");
+        patientsPaywallOverlay?.classList.remove("hidden");
+        patientsContentWrapper?.classList.add("hidden");
+        return;
+      }
+    }
     if (!res.ok) throw new Error("Gagal memuat statistik dashboard");
     const data = await res.json();
     const s = data.summary;
@@ -170,6 +180,14 @@ async function loadPatientsDirectory() {
     const res = await fetch(`${API_BASE}/patients`, {
       headers: { Authorization: `Bearer ${currentToken}` },
     });
+    if (res.status === 403) {
+      const errData = await res.json().catch(() => ({}));
+      if (errData.requiresSubscription) {
+        patientListContainer.innerHTML = `<div class="dash-empty-state" style="padding: 24px 12px; font-size: 0.82rem; color: #9a3412;">🔒 Akses direktori pasien terkunci.<br>Selesaikan pembayaran langganan di tab Langganan.</div>`;
+        if (patientCountBadge) patientCountBadge.textContent = "Terkunci";
+        return;
+      }
+    }
     if (!res.ok) throw new Error("Gagal memuat daftar pasien");
     const data = await res.json();
     allPatients = data.patients || [];
@@ -896,12 +914,549 @@ if (btnPrintPdf) {
   });
 }
 
+// ─── Subscription & Midtrans Payment Gateway Integration ─────────────────────
+
+let currentSubscription = null;
+let paymentHistoryList = [];
+
+// Memuat SDK Midtrans Snap secara dinamis dari endpoint backend /api/subscription/config
+async function ensureMidtransSnapLoaded() {
+  if (typeof window.snap !== "undefined") return true;
+  try {
+    const res = await fetch(`${API_BASE}/subscription/config`);
+    if (!res.ok) return false;
+    const config = await res.json();
+    if (!config.snapJsUrl || !config.clientKey) return false;
+
+    return new Promise((resolve) => {
+      let script = document.getElementById("midtrans-snap-script");
+      if (script) {
+        if (typeof window.snap !== "undefined") return resolve(true);
+        script.addEventListener("load", () => resolve(true));
+        script.addEventListener("error", () => resolve(false));
+        return;
+      }
+      script = document.createElement("script");
+      script.id = "midtrans-snap-script";
+      script.src = config.snapJsUrl;
+      script.setAttribute("data-client-key", config.clientKey);
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.head.appendChild(script);
+    });
+  } catch (e) {
+    console.warn("[Midtrans Snap Loader]", e);
+    return false;
+  }
+}
+
+function initSubscriptionFeature() {
+  ensureMidtransSnapLoaded();
+  const viewTabPatients = document.getElementById("viewTabPatients");
+  const viewTabSubscription = document.getElementById("viewTabSubscription");
+  const patientsViewContainer = document.getElementById("patientsViewContainer");
+  const subscriptionViewContainer = document.getElementById("subscriptionViewContainer");
+  const dashNavSubBtn = document.getElementById("dashNavSubBtn");
+  const btnRefreshHistory = document.getElementById("btnRefreshHistory");
+  const btnPaySubscription = document.getElementById("btnPaySubscription");
+  const btnSimulateSuccess = document.getElementById("btnSimulateSuccess");
+  const btnPaywallBannerPay = document.getElementById("btnPaywallBannerPay");
+  const btnUnlockPatientsView = document.getElementById("btnUnlockPatientsView");
+  const navLinkM1 = document.getElementById("navLinkMission1");
+  const navLinkM2 = document.getElementById("navLinkMission2");
+
+  // Tab navigation switching
+  if (viewTabPatients && viewTabSubscription) {
+    viewTabPatients.addEventListener("click", () => {
+      viewTabPatients.classList.add("active");
+      viewTabPatients.setAttribute("aria-selected", "true");
+      viewTabSubscription.classList.remove("active");
+      viewTabSubscription.setAttribute("aria-selected", "false");
+      patientsViewContainer?.classList.remove("hidden");
+      subscriptionViewContainer?.classList.add("hidden");
+    });
+
+    viewTabSubscription.addEventListener("click", () => {
+      viewTabSubscription.classList.add("active");
+      viewTabSubscription.setAttribute("aria-selected", "true");
+      viewTabPatients.classList.remove("active");
+      viewTabPatients.setAttribute("aria-selected", "false");
+      patientsViewContainer?.classList.add("hidden");
+      subscriptionViewContainer?.classList.remove("hidden");
+
+      // Reload subscription & history when switching tab
+      loadSubscriptionStatus();
+      loadPaymentHistory();
+    });
+  }
+
+  // Intersep klik pada nav links Misi 1 & Misi 2 jika akun belum memiliki langganan aktif
+  function handleMissionNavClick(e, missionName) {
+    if (currentSubscription && !currentSubscription.isActive) {
+      e.preventDefault();
+      alert(`Akses permainan ${missionName} terkunci karena akun Anda belum memiliki langganan aktif. Silakan lakukan pembayaran langganan untuk membuka akses permainan.`);
+      viewTabSubscription?.click();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  if (navLinkM1) {
+    navLinkM1.addEventListener("click", (e) => handleMissionNavClick(e, "Misi 1 (Archer)"));
+  }
+  if (navLinkM2) {
+    navLinkM2.addEventListener("click", (e) => handleMissionNavClick(e, "Misi 2 (Garden)"));
+  }
+
+  // Tombol aksi paywall banner & overlay
+  if (btnPaywallBannerPay) {
+    btnPaywallBannerPay.addEventListener("click", () => {
+      viewTabSubscription?.click();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  if (btnUnlockPatientsView) {
+    btnUnlockPatientsView.addEventListener("click", () => {
+      viewTabSubscription?.click();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  if (dashNavSubBtn) {
+    dashNavSubBtn.addEventListener("click", () => {
+      viewTabSubscription?.click();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  if (btnRefreshHistory) {
+    btnRefreshHistory.addEventListener("click", () => {
+      loadPaymentHistory(true);
+      loadSubscriptionStatus();
+    });
+  }
+
+  if (btnPaySubscription) {
+    btnPaySubscription.addEventListener("click", () => {
+      handlePaySubscription();
+    });
+  }
+
+  if (btnSimulateSuccess) {
+    btnSimulateSuccess.addEventListener("click", () => {
+      handleSimulatePayment();
+    });
+  }
+
+  // Check URL query parameter (misal dari game redirect: ?view=subscription)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("view") === "subscription") {
+    viewTabSubscription?.click();
+  }
+
+  // Initial load of subscription data
+  loadSubscriptionStatus();
+}
+
+async function loadSubscriptionStatus() {
+  const subTabStatusPill = document.getElementById("subTabStatusPill");
+  const dashNavSubText = document.getElementById("dashNavSubText");
+  const subBannerStatusBadge = document.getElementById("subBannerStatusBadge");
+  const subPeriodText = document.getElementById("subPeriodText");
+  const subDaysRemainingText = document.getElementById("subDaysRemainingText");
+  const subCooldownBox = document.getElementById("subCooldownBox");
+  const subCooldownPill = document.getElementById("subCooldownPill");
+  const subCooldownDesc = document.getElementById("subCooldownDesc");
+  const subCooldownProgressFill = document.getElementById("subCooldownProgressFill");
+  const subCooldownStart = document.getElementById("subCooldownStart");
+  const subCooldownEnd = document.getElementById("subCooldownEnd");
+  const btnPaySubscription = document.getElementById("btnPaySubscription");
+  const btnPayText = document.getElementById("btnPayText");
+  const btnPayHelper = document.getElementById("btnPayHelper");
+
+  // Elemen Gatekeeper / Paywall
+  const dashPaywallGlobalBanner = document.getElementById("dashPaywallGlobalBanner");
+  const patientsTabLockBadge = document.getElementById("patientsTabLockBadge");
+  const navMission1Lock = document.getElementById("navMission1Lock");
+  const navMission2Lock = document.getElementById("navMission2Lock");
+  const navLinkM1 = document.getElementById("navLinkMission1");
+  const navLinkM2 = document.getElementById("navLinkMission2");
+  const patientsPaywallOverlay = document.getElementById("patientsPaywallOverlay");
+  const patientsContentWrapper = document.getElementById("patientsContentWrapper");
+  const viewTabSubscription = document.getElementById("viewTabSubscription");
+
+  try {
+    const res = await fetch(`${API_BASE}/subscription/status`, {
+      headers: { Authorization: `Bearer ${currentToken}` },
+    });
+    if (!res.ok) throw new Error("Gagal memuat status langganan");
+    const data = await res.json();
+    currentSubscription = data;
+
+    // ── Paywall State Management ──
+    if (data.isActive) {
+      // Akses Terbuka Penuh
+      dashPaywallGlobalBanner?.classList.add("hidden");
+      patientsTabLockBadge?.classList.add("hidden");
+      navMission1Lock?.classList.add("hidden");
+      navMission2Lock?.classList.add("hidden");
+      navLinkM1?.classList.remove("locked");
+      navLinkM2?.classList.remove("locked");
+      patientsPaywallOverlay?.classList.add("hidden");
+      patientsContentWrapper?.classList.remove("hidden");
+    } else {
+      // Akses Terkunci (Belum bayar / Expired)
+      dashPaywallGlobalBanner?.classList.remove("hidden");
+      patientsTabLockBadge?.classList.remove("hidden");
+      navMission1Lock?.classList.remove("hidden");
+      navMission2Lock?.classList.remove("hidden");
+      navLinkM1?.classList.add("locked");
+      navLinkM2?.classList.add("locked");
+      patientsPaywallOverlay?.classList.remove("hidden");
+      patientsContentWrapper?.classList.add("hidden");
+
+      // Auto switch ke tab langganan saat pertama kali dibuka jika belum bayar
+      const urlParams = new URLSearchParams(window.location.search);
+      if (!sessionStorage.getItem("mw_viewed_sub_tab") && urlParams.get("view") !== "patients") {
+        sessionStorage.setItem("mw_viewed_sub_tab", "true");
+        viewTabSubscription?.click();
+      }
+    }
+
+    // 1. Status Pill in Tab & Header Nav
+    if (subTabStatusPill && dashNavSubText) {
+      if (data.isActive) {
+        subTabStatusPill.className = "dash-tab-pill-badge active";
+        subTabStatusPill.textContent = `● PRO (${data.daysRemaining} Hari)`;
+        dashNavSubText.textContent = `PRO Aktif (${data.daysRemaining} Hari)`;
+      } else if (data.status === "EXPIRED") {
+        subTabStatusPill.className = "dash-tab-pill-badge inactive";
+        subTabStatusPill.textContent = "▲ Kedaluwarsa";
+        dashNavSubText.textContent = "Kedaluwarsa";
+      } else {
+        subTabStatusPill.className = "dash-tab-pill-badge inactive";
+        subTabStatusPill.textContent = "○ Belum Berlangganan";
+        dashNavSubText.textContent = "Belum Langganan";
+      }
+    }
+
+    // 2. Banner Badge
+    if (subBannerStatusBadge) {
+      if (data.isActive) {
+        subBannerStatusBadge.className = "dash-sub-badge-indicator active";
+        subBannerStatusBadge.textContent = "● Langganan Aktif (PRO 30 Hari)";
+      } else if (data.status === "EXPIRED") {
+        subBannerStatusBadge.className = "dash-sub-badge-indicator expired";
+        subBannerStatusBadge.textContent = "▲ Langganan Kedaluwarsa";
+      } else {
+        subBannerStatusBadge.className = "dash-sub-badge-indicator inactive";
+        subBannerStatusBadge.textContent = "○ Belum Berlangganan";
+      }
+    }
+
+    // 3. Periode & Sisa Hari
+    if (subPeriodText && subDaysRemainingText) {
+      if (data.startDate && data.endDate) {
+        subPeriodText.textContent = `${formatDate(data.startDate)} s/d ${formatDate(data.endDate)}`;
+        subDaysRemainingText.textContent = data.isActive ? `${data.daysRemaining} Hari Tersisa` : "0 Hari (Berakhir)";
+      } else {
+        subPeriodText.textContent = "Belum Ada Periode Aktif";
+        subDaysRemainingText.textContent = "0 Hari";
+      }
+    }
+
+    // 4. Cooldown Box & Pay Button State
+    if (subCooldownBox) {
+      if (data.isCooldownActive) {
+        subCooldownBox.className = "dash-cooldown-box active";
+        if (subCooldownPill) subCooldownPill.textContent = `Cooldown Aktif: Sisa ${data.cooldownRemainingDays} Hari`;
+        if (subCooldownDesc) {
+          subCooldownDesc.textContent = `Masa cooldown pembayaran aktif selama 30 hari. Pembayaran perpanjangan berikutnya dapat dilakukan setelah masa aktif berakhir pada ${formatDate(data.cooldownUntil)}.`;
+        }
+        if (subCooldownStart) subCooldownStart.textContent = formatDate(data.startDate);
+        if (subCooldownEnd) subCooldownEnd.textContent = formatDate(data.cooldownUntil);
+
+        const daysPassed = Math.max(0, 30 - data.cooldownRemainingDays);
+        const percent = Math.max(5, Math.min(100, Math.round((daysPassed / 30) * 100)));
+        if (subCooldownProgressFill) subCooldownProgressFill.style.width = `${percent}%`;
+
+        // Cooldown active -> Pay button locked
+        if (btnPaySubscription) {
+          btnPaySubscription.className = "dash-btn-pay-cta disabled";
+          btnPaySubscription.disabled = true;
+        }
+        if (btnPayText) btnPayText.textContent = "Pembayaran Terkunci (Cooldown 30 Hari Aktif)";
+        if (btnPayHelper) btnPayHelper.textContent = "Pembayaran perpanjangan berikutnya akan dibuka otomatis setelah cooldown 30 hari berakhir.";
+      } else {
+        // Cooldown expired / ready to pay
+        subCooldownBox.className = "dash-cooldown-box ready";
+        if (subCooldownPill) subCooldownPill.textContent = "Cooldown Selesai / Siap Bayar";
+        if (subCooldownDesc) {
+          subCooldownDesc.textContent = "Masa cooldown telah selesai. Anda dapat melakukan pembayaran untuk mengaktifkan langganan 30 hari berikutnya.";
+        }
+        if (subCooldownStart) subCooldownStart.textContent = "-";
+        if (subCooldownEnd) subCooldownEnd.textContent = "Sekarang";
+        if (subCooldownProgressFill) subCooldownProgressFill.style.width = "100%";
+
+        if (btnPaySubscription) {
+          btnPaySubscription.className = "dash-btn-pay-cta ready";
+          btnPaySubscription.disabled = false;
+        }
+        if (btnPayText) btnPayText.textContent = "Bayar Langganan via Midtrans (Rp 300.000)";
+        if (btnPayHelper) btnPayHelper.textContent = "Mendukung QRIS, GoPay, Transfer Bank VA, dan Kartu Kredit secara instan.";
+      }
+    }
+  } catch (err) {
+    console.error("[Load Subscription Error]", err);
+  }
+}
+
+async function loadPaymentHistory(showToast = false) {
+  const tbody = document.getElementById("paymentHistoryTbody");
+  const emptyBox = document.getElementById("paymentHistoryEmpty");
+  if (!tbody) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/subscription/history`, {
+      headers: { Authorization: `Bearer ${currentToken}` },
+    });
+    if (!res.ok) throw new Error("Gagal memuat riwayat pembayaran");
+    const data = await res.json();
+    paymentHistoryList = data.payments || [];
+
+    if (paymentHistoryList.length === 0) {
+      tbody.innerHTML = "";
+      emptyBox?.classList.remove("hidden");
+      return;
+    }
+
+    emptyBox?.classList.add("hidden");
+    tbody.innerHTML = paymentHistoryList
+      .map((p) => {
+        let statusBadge = "";
+        const s = (p.status || "").toLowerCase();
+        if (s === "settlement" || s === "success") {
+          statusBadge = `<span class="dash-tx-status-badge settlement">● Berhasil</span>`;
+        } else if (s === "pending") {
+          statusBadge = `<span class="dash-tx-status-badge pending">▲ Menunggu Bayar</span>`;
+        } else {
+          statusBadge = `<span class="dash-tx-status-badge expire">✕ ${p.status || "Gagal"}</span>`;
+        }
+
+        const dateStr = formatDateTime(p.createdAt);
+        const amountStr = `Rp ${Number(p.amount).toLocaleString("id-ID")}`;
+        const payType = p.paymentType ? p.paymentType.toUpperCase() : "Midtrans";
+
+        let actionBtns = `
+          <button class="dash-btn-sync-tx" onclick="syncSpecificPayment('${p.orderId}')" title="Cek status terkini langsung ke Midtrans">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Cek</span>
+          </button>
+        `;
+
+        if (s === "pending" && p.snapToken) {
+          actionBtns += `
+            <button class="dash-btn-resume-pay" onclick="resumeSnapPayment('${p.snapToken}', '${p.orderId}')" title="Lanjutkan pembayaran di popup Midtrans">
+              <span>Bayar</span>
+            </button>
+          `;
+        }
+
+        return `
+          <tr>
+            <td>
+              <span class="dash-tx-order-code" title="${p.orderId}">${p.orderId}</span>
+            </td>
+            <td>${dateStr}</td>
+            <td>MoveWall Pro (30 Hari)</td>
+            <td><strong>${amountStr}</strong></td>
+            <td><span class="dash-midtrans-key-pill">${payType}</span></td>
+            <td>${statusBadge}</td>
+            <td>
+              <div style="display: flex; gap: 6px;">
+                ${actionBtns}
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    if (showToast) {
+      alert("Riwayat pembayaran berhasil diperbarui!");
+    }
+  } catch (err) {
+    console.error("[Payment History Error]", err);
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #dc2626; padding: 20px;">Gagal memuat riwayat: ${err.message}</td></tr>`;
+  }
+}
+
+async function handlePaySubscription() {
+  const btn = document.getElementById("btnPaySubscription");
+  const btnText = document.getElementById("btnPayText");
+  const originalText = btnText ? btnText.textContent : "Bayar Langganan";
+
+  try {
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.textContent = "Menghubungi Midtrans...";
+
+    const res = await fetch(`${API_BASE}/subscription/create-transaction`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${currentToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || data.error || "Gagal membuat transaksi");
+    }
+
+    const { token, orderId } = data;
+
+    if (!token) {
+      throw new Error("Token Snap Midtrans tidak ditemukan");
+    }
+
+    // Pastikan Midtrans Snap SDK termuat
+    if (typeof window.snap === "undefined") {
+      await ensureMidtransSnapLoaded();
+    }
+
+    // Buka Midtrans Snap Popup
+    if (typeof window.snap !== "undefined") {
+      window.snap.pay(token, {
+        onSuccess: async function (result) {
+          console.log("[Midtrans Snap Success]", result);
+          await syncSpecificPayment(orderId);
+          alert("Pembayaran berhasil! Subscription MoveWall AI Anda aktif selama 30 hari dengan masa cooldown 30 hari.");
+          loadSubscriptionStatus();
+          loadPaymentHistory();
+        },
+        onPending: async function (result) {
+          console.log("[Midtrans Snap Pending]", result);
+          await syncSpecificPayment(orderId);
+          alert("Transaksi berhasil dibuat. Silakan selesaikan pembayaran sesuai instruksi.");
+          loadSubscriptionStatus();
+          loadPaymentHistory();
+        },
+        onError: function (result) {
+          console.error("[Midtrans Snap Error]", result);
+          alert("Pembayaran gagal atau dibatalkan.");
+          loadPaymentHistory();
+        },
+        onClose: async function () {
+          console.log("[Midtrans Snap Closed]");
+          await syncSpecificPayment(orderId);
+          loadSubscriptionStatus();
+          loadPaymentHistory();
+        },
+      });
+    } else {
+      // Fallback redirection jika Snap JS tidak dimuat
+      window.open(data.redirect_url, "_blank");
+    }
+  } catch (err) {
+    console.error("[Pay Subscription Error]", err);
+    alert(err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.textContent = originalText;
+    loadSubscriptionStatus();
+  }
+}
+
+window.syncSpecificPayment = async function (orderId) {
+  try {
+    const res = await fetch(`${API_BASE}/subscription/sync/${orderId}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${currentToken}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Gagal sinkronisasi");
+
+    loadSubscriptionStatus();
+    loadPaymentHistory();
+    return data;
+  } catch (err) {
+    console.error("[Sync Error]", err);
+    alert("Sinkronisasi gagal: " + err.message);
+  }
+};
+
+window.resumeSnapPayment = async function (snapToken, orderId) {
+  if (typeof window.snap === "undefined") {
+    await ensureMidtransSnapLoaded();
+  }
+  if (typeof window.snap !== "undefined") {
+    window.snap.pay(snapToken, {
+      onSuccess: async function () {
+        await window.syncSpecificPayment(orderId);
+      },
+      onPending: async function () {
+        await window.syncSpecificPayment(orderId);
+      },
+      onError: function () {
+        alert("Pembayaran belum berhasil.");
+      },
+      onClose: async function () {
+        await window.syncSpecificPayment(orderId);
+      },
+    });
+  } else {
+    alert("Snap popup tidak tersedia, silakan refresh halaman.");
+  }
+};
+
+async function handleSimulatePayment() {
+  try {
+    // 1. Buat transaksi baru dengan force bypass cooldown untuk keperluan testing sandbox
+    const createRes = await fetch(`${API_BASE}/subscription/create-transaction`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${currentToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ force: true }),
+    });
+
+    const createData = await createRes.json();
+    if (!createRes.ok) throw new Error(createData.message || createData.error);
+
+    const orderId = createData.orderId;
+
+    // 2. Panggil endpoint simulasi sukses
+    const simRes = await fetch(`${API_BASE}/subscription/test-simulate-success/${orderId}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${currentToken}` },
+    });
+
+    const simData = await simRes.json();
+    if (!simRes.ok) throw new Error(simData.error || "Gagal simulasi");
+
+    alert(`Simulasi Sukses! Subscription aktif selama 30 hari. Cooldown berikutnya aktif untuk 30 hari ke depan.`);
+    loadSubscriptionStatus();
+    loadPaymentHistory();
+  } catch (err) {
+    console.error("[Simulate Payment Error]", err);
+    alert(err.message);
+  }
+}
+
 // ── Initialize ────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
   if (checkAuth()) {
     loadDashboardStats();
     loadPatientsDirectory();
+    initSubscriptionFeature();
   }
 });
 

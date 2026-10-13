@@ -1,0 +1,2474 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MoveWall AI — Design System Preview v1.1</title>
+  <meta name="description" content="Halaman pratinjau komponen dan token Design System MoveWall AI v1.1: swatch warna, tipografi, ROM Arc Gauge, chip repetisi, kartu statistik, tabel pasien, app shell Dashboard, dan siluet kalibrasi." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="design-tokens-v1.1.css" />
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-app);
+      color: var(--text-900);
+      font-family: var(--font-dashboard);
+      font-size: 14px;
+      line-height: 20px;
+    }
+
+    /* ── Preview Layout ── */
+    .preview-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: var(--topbar-h);
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      padding: 0 var(--space-6);
+      gap: var(--space-4);
+    }
+    .preview-topbar .logo-mark {
+      width: 32px; height: 32px;
+      background: var(--accent-700);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .preview-topbar .logo-mark svg { color: white; }
+    .preview-topbar .logo-text { font-weight: 700; font-size: 16px; letter-spacing: -0.01em; color: var(--text-900); }
+    .preview-topbar .badge {
+      background: var(--accent-50);
+      color: var(--accent-700);
+      border: 1px solid var(--accent-700);
+      border-radius: var(--r-sm);
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .preview-topbar .nav-links { margin-left: auto; display: flex; gap: var(--space-4); }
+    .preview-topbar .nav-links a {
+      color: var(--text-600);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 4px 8px;
+      border-radius: var(--r-md);
+      transition: background var(--dur-quick) var(--ease), color var(--dur-quick) var(--ease);
+    }
+    .preview-topbar .nav-links a:hover { background: var(--surface-muted); color: var(--text-900); }
+
+    .preview-main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-6);
+      display: flex;
+      flex-direction: column;
+      gap: 80px;
+    }
+
+    /* ── Section Headers ── */
+    .section-header {
+      margin-bottom: var(--space-6);
+      padding-bottom: var(--space-4);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-500);
+      margin-bottom: var(--space-1);
+    }
+    .section-title { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-900); }
+    .section-desc  { margin-top: var(--space-2); font-size: 14px; color: var(--text-600); line-height: 20px; }
+
+    /* ── Color Swatches ── */
+    .swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: var(--space-4);
+    }
+    .swatch {
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-xs);
+    }
+    .swatch-color {
+      height: 72px;
+      width: 100%;
+    }
+    .swatch-info {
+      padding: var(--space-2) var(--space-3);
+      background: var(--surface);
+    }
+    .swatch-token { font-size: 11px; font-weight: 600; color: var(--text-900); font-family: monospace; }
+    .swatch-hex   { font-size: 11px; color: var(--text-500); font-family: monospace; margin-top: 2px; }
+    .swatch-role  { font-size: 10px; color: var(--text-500); margin-top: 2px; line-height: 14px; }
+
+    .swatch-group-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-600);
+      margin: var(--space-6) 0 var(--space-3);
+    }
+
+    /* ── Typography Showcase ── */
+    .type-row {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-6);
+      padding: var(--space-4) 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .type-meta {
+      width: 200px;
+      flex-shrink: 0;
+    }
+    .type-token { font-size: 12px; font-weight: 600; color: var(--text-500); font-family: monospace; }
+    .type-spec  { font-size: 11px; color: var(--text-500); margin-top: 2px; }
+    .type-sample { flex: 1; color: var(--text-900); }
+
+    /* Stage typography sample */
+    .stage-type-showcase {
+      background: #0E1514;
+      border-radius: var(--r-lg);
+      padding: var(--space-8);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+    .stage-type-row { display: flex; align-items: center; gap: var(--space-6); }
+    .stage-type-meta { width: 180px; flex-shrink: 0; }
+    .stage-type-token { font-size: 11px; font-weight: 600; color: #A9B5B0; font-family: monospace; }
+    .stage-type-spec  { font-size: 10px; color: #A9B5B0; margin-top: 2px; }
+
+    /* ── ROM Arc Gauge ── */
+    .gauge-showcase {
+      display: flex;
+      gap: var(--space-8);
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+    .gauge-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .gauge-label { font-size: 12px; color: var(--text-500); font-weight: 500; }
+
+    .rom-gauge {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .rom-gauge svg { overflow: visible; }
+    .gauge-value {
+      position: absolute;
+      text-align: center;
+      font-family: var(--font-patient);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-900);
+      line-height: 1;
+    }
+    .gauge-unit {
+      font-size: 0.4em;
+      font-weight: 400;
+      color: var(--text-600);
+    }
+    .gauge-sub {
+      display: block;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-500);
+      margin-top: 4px;
+    }
+
+    /* Stage gauge */
+    .stage-gauge-box {
+      background: #0E1514;
+      border-radius: var(--r-xl);
+      padding: var(--space-8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-4);
+    }
+    .stage-gauge-box .gauge-value { color: #F2EFE8; }
+    .stage-gauge-box .gauge-unit  { color: #A9B5B0; }
+    .stage-gauge-box .gauge-sub   { color: #A9B5B0; }
+
+    /* ── Chip Repetisi ── */
+    .chip-row {
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .rep-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 6px 12px 6px 8px;
+      border-radius: var(--r-sm);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-patient);
+    }
+    .rep-chip svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    .chip-valid {
+      background: var(--status-reach-bg);
+      color: var(--status-reach);
+    }
+    .chip-partial {
+      background: var(--status-near-bg);
+      color: var(--status-near);
+    }
+    .chip-comp {
+      background: var(--status-comp-bg);
+      color: var(--status-comp);
+    }
+
+    /* Stage chips */
+    .chip-stage-valid   { background: rgba(79,214,165,0.15); color: #4FD6A5; border: 1px solid rgba(79,214,165,0.4); }
+    .chip-stage-partial { background: rgba(245,192,74,0.15); color: #F5C04A; border: 1px solid rgba(245,192,74,0.4); }
+    .chip-stage-comp    { background: rgba(255,122,92,0.15); color: #FF7A5C; border: 1px solid rgba(255,122,92,0.4); }
+
+    .chip-stage-row {
+      background: #0E1514;
+      border-radius: var(--r-lg);
+      padding: var(--space-4) var(--space-6);
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* ── Kartu Statistik / KPI ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: var(--space-4);
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-lg);
+      padding: var(--space-6);
+      box-shadow: var(--shadow-xs);
+      transition: box-shadow var(--dur-quick) var(--ease);
+    }
+    .kpi-card:hover { box-shadow: var(--shadow-sm); }
+    .kpi-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: var(--space-3);
+    }
+    .kpi-label {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-600);
+      line-height: 18px;
+    }
+    .kpi-tag {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      background: var(--ember-50);
+      color: var(--ember-600);
+      border-radius: var(--r-sm);
+      white-space: nowrap;
+    }
+    .kpi-value {
+      font-size: 32px;
+      line-height: 40px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-900);
+    }
+    .kpi-unit { font-size: 16px; font-weight: 400; color: var(--text-600); }
+    .kpi-change {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: var(--space-2);
+      font-size: 12px;
+      color: var(--text-600);
+    }
+    .kpi-change svg { width: 14px; height: 14px; }
+    .kpi-change.up   { color: var(--status-reach); }
+    .kpi-change.down { color: var(--status-comp); }
+
+    /* ── Tabel Pasien ── */
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-xs);
+      overflow: hidden;
+    }
+    .table-toolbar {
+      padding: var(--space-4) var(--space-6);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+    .table-toolbar-title { font-size: 16px; font-weight: 600; color: var(--text-900); }
+    .filter-pills { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 12px;
+      border-radius: var(--r-full);
+      border: 1px solid var(--border-default);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-600);
+      background: var(--surface);
+      cursor: pointer;
+      transition: background var(--dur-quick) var(--ease), border-color var(--dur-quick) var(--ease);
+    }
+    .pill.active {
+      background: var(--accent-50);
+      border-color: var(--accent-700);
+      color: var(--accent-700);
+    }
+    .pill:hover:not(.active) { background: var(--surface-muted); }
+    .pill .count {
+      background: var(--surface-muted);
+      border-radius: var(--r-full);
+      padding: 0 5px;
+      font-size: 10px;
+    }
+    .pill.active .count { background: rgba(15,118,110,0.15); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead tr { background: var(--surface-muted); }
+    thead th {
+      padding: 12px var(--space-4);
+      text-align: left;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-600);
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background var(--dur-instant);
+      cursor: pointer;
+    }
+    tbody tr:hover { background: var(--surface-muted); }
+    tbody tr.selected { background: var(--accent-50); }
+    tbody td {
+      padding: 14px var(--space-4);
+      vertical-align: middle;
+    }
+    .patient-name { font-size: 14px; font-weight: 500; color: var(--text-900); }
+    .patient-diag { font-size: 12px; color: var(--text-500); margin-top: 2px; }
+
+    .priority-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: var(--r-sm);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .priority-badge svg { width: 12px; height: 12px; }
+    .priority-badge.alert { background: var(--status-comp-bg); color: var(--status-comp); }
+    .priority-badge.ok    { background: var(--status-reach-bg); color: var(--status-reach); }
+    .priority-badge.warn  { background: var(--status-near-bg); color: var(--status-near); }
+    .priority-reason {
+      font-size: 11px;
+      color: var(--text-500);
+      margin-top: 3px;
+      max-width: 200px;
+    }
+
+    .sparkline {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 24px;
+    }
+    .sparkline span {
+      display: block;
+      width: 4px;
+      background: var(--accent-700);
+      border-radius: 2px;
+      opacity: 0.7;
+      transition: opacity var(--dur-quick);
+    }
+    .sparkline:hover span { opacity: 1; }
+
+    .rom-delta {
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .rom-delta.up   { color: var(--status-reach); }
+    .rom-delta.down { color: var(--status-comp); }
+
+    /* ── App Shell Demo ── */
+    .app-shell-demo {
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      height: 600px;
+      display: flex;
+      flex-direction: column;
+    }
+    .shell-topbar {
+      height: var(--topbar-h);
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      padding: 0 var(--space-6);
+      gap: var(--space-4);
+      flex-shrink: 0;
+    }
+    .shell-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .shell-sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border-subtle);
+      padding: var(--space-4);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .shell-sidebar .logo-section {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-3) var(--space-4);
+      margin-bottom: var(--space-2);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: 10px var(--space-3);
+      border-radius: var(--r-md);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-700);
+      cursor: pointer;
+      transition: background var(--dur-quick) var(--ease), color var(--dur-quick) var(--ease);
+      position: relative;
+    }
+    .sidebar-nav-item:hover { background: var(--surface-muted); color: var(--text-900); }
+    .sidebar-nav-item.active {
+      background: var(--accent-50);
+      color: var(--accent-700);
+    }
+    .sidebar-nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 6px; bottom: 6px;
+      width: 3px;
+      background: var(--accent-700);
+      border-radius: 0 3px 3px 0;
+    }
+    .sidebar-nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .sidebar-badge {
+      margin-left: auto;
+      background: var(--status-comp-bg);
+      color: var(--status-comp);
+      border-radius: var(--r-full);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 1px 6px;
+    }
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--border-subtle);
+    }
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: var(--accent-50);
+      color: var(--accent-700);
+      border-radius: var(--r-sm);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .shell-content {
+      flex: 1;
+      background: var(--bg-app);
+      padding: var(--space-6);
+      overflow-y: auto;
+    }
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: var(--space-6);
+    }
+
+    /* ── Tombol ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 0 var(--space-4);
+      height: var(--control-dash);
+      border-radius: var(--r-md);
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: background var(--dur-quick) var(--ease), box-shadow var(--dur-quick) var(--ease);
+      outline: none;
+    }
+    .btn:focus-visible { box-shadow: var(--focus-ring); }
+    .btn-primary {
+      background: var(--accent-700);
+      color: var(--on-accent);
+    }
+    .btn-primary:hover { background: var(--accent-800); }
+    .btn-primary:active { background: var(--accent-900); }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text-700);
+      border: 1px solid var(--border-default);
+      box-shadow: var(--shadow-xs);
+    }
+    .btn-secondary:hover { background: var(--surface-muted); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-700);
+    }
+    .btn-ghost:hover { background: var(--surface-muted); }
+    .btn-danger {
+      background: var(--stop-bg);
+      color: var(--on-stop);
+    }
+    .btn-danger:hover { background: #8B1E0D; }
+    .btn-patient {
+      height: var(--control-patient);
+      font-size: 16px;
+      padding: 0 var(--space-6);
+    }
+    .btn-compact {
+      height: var(--control-dash-compact);
+      font-size: 13px;
+      padding: 0 var(--space-3);
+    }
+
+    /* ── Input ── */
+    .input-field {
+      width: 100%;
+      height: var(--control-dash);
+      padding: 0 var(--space-3);
+      border: 1px solid var(--border-control);
+      border-radius: var(--r-md);
+      background: var(--surface);
+      color: var(--text-900);
+      font-size: 14px;
+      font-family: var(--font-dashboard);
+      transition: border-color var(--dur-quick) var(--ease), box-shadow var(--dur-quick) var(--ease);
+      outline: none;
+    }
+    .input-field:focus { border-color: var(--accent-700); box-shadow: var(--focus-ring); }
+    .input-field::placeholder { color: var(--text-500); }
+    .input-group { display: flex; flex-direction: column; gap: var(--space-1); }
+    .input-label { font-size: 13px; font-weight: 500; color: var(--text-700); }
+
+    /* ── Daftar Periksa Pra-sesi ── */
+    .checklist-card {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-xs);
+      overflow: hidden;
+      max-width: 420px;
+      font-family: var(--font-patient);
+    }
+    .checklist-header {
+      padding: var(--space-4) var(--space-6);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-900);
+    }
+    .checklist-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-6);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .check-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+    }
+    .check-icon.ok      { background: var(--status-reach-bg); color: var(--status-reach); }
+    .check-icon.warn    { background: var(--status-near-bg);  color: var(--status-near); }
+    .check-icon.fail    { background: var(--status-comp-bg);  color: var(--status-comp); }
+    .check-icon.pending { background: var(--surface-muted);   color: var(--text-500); }
+    .check-icon svg { width: 14px; height: 14px; }
+    .check-body { flex: 1; }
+    .check-name { font-size: 16px; font-weight: 700; color: var(--text-900); }
+    .check-msg  { font-size: 14px; color: var(--text-600); margin-top: 2px; }
+    .checklist-footer { padding: var(--space-4) var(--space-6); }
+
+    /* ── Kartu Misi ── */
+    .mission-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-4);
+    }
+    .mission-card {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-xs);
+      padding: var(--space-6);
+      font-family: var(--font-patient);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      transition: box-shadow var(--dur-quick) var(--ease);
+      cursor: pointer;
+    }
+    .mission-card:hover { box-shadow: var(--shadow-sm); }
+    .mission-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--r-md);
+      background: var(--accent-50);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    .mission-name { font-size: 20px; font-weight: 700; color: var(--text-900); }
+    .mission-sets { font-size: 16px; color: var(--text-600); }
+    .mission-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .mission-status.done  { color: var(--status-reach); }
+    .mission-status.progress { color: var(--status-near); }
+    .mission-status.todo  { color: var(--text-500); }
+
+    /* ── Indikator Sinkron ── */
+    .sync-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: var(--r-full);
+      border: 1px solid var(--border-subtle);
+      background: var(--surface);
+    }
+    .sync-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .sync-dot.saved   { background: var(--status-reach); }
+    .sync-dot.syncing {
+      background: var(--accent-700);
+      animation: pulse-dot 1s infinite;
+    }
+    .sync-dot.synced  { background: var(--accent-700); }
+    .sync-dot.error   { background: var(--status-comp); }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Toast ── */
+    .toast-stack { display: flex; flex-direction: column; gap: var(--space-3); }
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--r-md);
+      box-shadow: var(--shadow-md);
+      max-width: 380px;
+      border: 1px solid transparent;
+    }
+    .toast.success {
+      background: var(--surface);
+      border-color: var(--border-default);
+    }
+    .toast.warning {
+      background: var(--ember-50);
+      border-color: #FDE68A;
+    }
+    .toast.error {
+      background: var(--status-comp-bg);
+      border-color: var(--status-comp);
+    }
+    .toast-icon { flex-shrink: 0; margin-top: 2px; }
+    .toast-icon svg { width: 16px; height: 16px; }
+    .toast.success .toast-icon { color: var(--status-reach); }
+    .toast.warning .toast-icon { color: var(--status-near); }
+    .toast.error   .toast-icon { color: var(--status-comp); }
+    .toast-body { flex: 1; }
+    .toast-title { font-size: 13px; font-weight: 600; color: var(--text-900); }
+    .toast-msg   { font-size: 12px; color: var(--text-600); margin-top: 2px; }
+    .toast-close {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-500);
+      padding: 2px;
+      border-radius: 4px;
+    }
+    .toast-close:hover { color: var(--text-900); }
+
+    /* ── Formulir Resep ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: var(--space-6);
+    }
+    .form-card, .preview-sticky {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-xs);
+      padding: var(--space-6);
+    }
+    .preview-sticky { position: sticky; top: calc(var(--topbar-h) + 16px); }
+    .form-row { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-4); }
+    .form-label { font-size: 13px; font-weight: 500; color: var(--text-700); }
+    .form-hint  { font-size: 12px; color: var(--text-500); margin-top: 2px; }
+    .warning-box {
+      background: var(--ember-50);
+      border: 1px solid #FDE68A;
+      border-radius: var(--r-md);
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-2);
+      margin-top: var(--space-4);
+    }
+    .warning-box svg { width: 16px; height: 16px; color: var(--status-near); flex-shrink: 0; margin-top: 2px; }
+    .warning-box p { font-size: 13px; color: var(--text-700); line-height: 18px; }
+
+    /* ── Catatan Klinis vs Otomatis ── */
+    .notes-stack { display: flex; flex-direction: column; gap: var(--space-3); max-width: 560px; }
+    .note-auto {
+      background: var(--surface-muted);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-lg);
+      padding: var(--space-4) var(--space-5);
+    }
+    .note-therapist {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-left: 3px solid var(--accent-700);
+      border-radius: 0 var(--r-lg) var(--r-lg) 0;
+      padding: var(--space-4) var(--space-5);
+    }
+    .note-tag {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-500);
+      margin-bottom: var(--space-2);
+    }
+    .note-therapist .note-tag { color: var(--accent-700); }
+    .note-text { font-size: 14px; color: var(--text-700); line-height: 20px; }
+    .note-meta { font-size: 11px; color: var(--text-500); margin-top: var(--space-2); }
+
+    /* ── Siluet Kalibrasi (Stage) ── */
+    .calibration-demo {
+      background: #0E1514;
+      border-radius: var(--r-xl);
+      padding: var(--space-8);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-6);
+      min-height: 400px;
+      overflow: hidden;
+    }
+    .calib-brackets {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .bracket-line {
+      width: 100%;
+      height: 2px;
+      background: rgba(169,181,176,0.5);
+      border-radius: 1px;
+    }
+    .bracket-label {
+      font-size: 10px;
+      color: #A9B5B0;
+      font-family: var(--font-patient);
+      text-align: center;
+    }
+    .calib-instruction {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 5;
+    }
+    .calib-word {
+      font-size: 64px;
+      font-weight: 700;
+      color: #F2EFE8;
+      font-family: var(--font-patient);
+      line-height: 1;
+      letter-spacing: -2px;
+    }
+    .calib-arrow {
+      font-size: 40px;
+      color: #A9B5B0;
+    }
+    .calib-progress {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .calib-ring {
+      width: 60px;
+      height: 60px;
+    }
+    .calib-ring-label {
+      font-size: 16px;
+      color: #A9B5B0;
+      font-family: var(--font-patient);
+    }
+
+    /* Siluet SVG glow effect */
+    .silhouette-locked { filter: drop-shadow(0 0 16px rgba(79,214,165,0.6)); }
+
+    /* ── Skeleton ── */
+    .skeleton-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+    }
+    .skeleton-card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-lg);
+      padding: var(--space-6);
+      box-shadow: var(--shadow-xs);
+    }
+    .skel {
+      border-radius: var(--r-sm);
+      background: linear-gradient(90deg, var(--surface-muted) 25%, #E8EDF2 50%, var(--surface-muted) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .skel { animation: none; background: var(--surface-muted); }
+    }
+
+    /* ── State Kosong ── */
+    .empty-state {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-xs);
+      padding: var(--space-16) var(--space-8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--space-4);
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .empty-arc { color: var(--text-500); opacity: 0.5; }
+    .empty-title { font-size: 18px; font-weight: 600; color: var(--text-900); }
+    .empty-desc  { font-size: 14px; color: var(--text-600); line-height: 20px; }
+
+    /* ── Tombol Darurat ── */
+    .emergency-btn {
+      width: 128px;
+      height: 128px;
+      border-radius: var(--r-xl);
+      background: #A82C16;
+      color: white;
+      border: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      cursor: pointer;
+      font-family: var(--font-patient);
+      transition: background var(--dur-quick);
+      box-shadow: 0 0 0 4px rgba(168,44,22,0.25);
+    }
+    .emergency-btn:hover { background: #8B1E0D; box-shadow: 0 0 0 6px rgba(168,44,22,0.3); }
+    .emergency-btn .stop-label    { font-size: 18px; font-weight: 700; letter-spacing: 0.04em; }
+    .emergency-btn .stop-sublabel { font-size: 12px; opacity: 0.85; }
+
+    /* ── Focus Demo ── */
+    .focus-demo-grid {
+      display: flex;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* ── HUD Stage ── */
+    .hud-demo {
+      background: #0E1514;
+      border-radius: var(--r-xl);
+      padding: 0;
+      position: relative;
+      min-height: 320px;
+      overflow: hidden;
+    }
+    .hud-counter {
+      position: absolute;
+      top: var(--space-6);
+      left: var(--space-6);
+      background: #162321;
+      border-radius: 12px;
+      padding: var(--space-3) var(--space-5);
+    }
+    .hud-count-num {
+      font-size: 72px;
+      font-weight: 700;
+      color: #F2EFE8;
+      font-family: var(--font-patient);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .hud-count-of {
+      font-size: 28px;
+      font-weight: 500;
+      color: #A9B5B0;
+      font-family: var(--font-patient);
+    }
+    .hud-cue {
+      position: absolute;
+      bottom: var(--space-6);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #162321;
+      border-radius: 12px;
+      padding: var(--space-3) var(--space-6);
+      font-size: 40px;
+      font-weight: 500;
+      color: #F5C04A;
+      font-family: var(--font-patient);
+      white-space: nowrap;
+    }
+    .hud-stop-btn {
+      position: absolute;
+      bottom: var(--space-4);
+      right: var(--space-4);
+      width: 80px;
+      height: 80px;
+      border-radius: 12px;
+      background: #FF7A5C;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    .hud-stop-label    { font-size: 13px; font-weight: 700; color: #13211F; font-family: var(--font-patient); }
+    .hud-stop-sublabel { font-size: 9px;  color: rgba(19,33,31,0.7); font-family: var(--font-patient); }
+
+    /* ── Highlight ── */
+    .highlight-box {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-left: 3px solid var(--accent-700);
+      border-radius: 0 var(--r-md) var(--r-md) 0;
+      padding: var(--space-3) var(--space-4);
+      font-size: 13px;
+      color: var(--text-700);
+      line-height: 18px;
+    }
+    .highlight-box strong { color: var(--text-900); }
+
+    /* ── Warna Grafik ── */
+    .chart-demo {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-xs);
+      padding: var(--space-6);
+    }
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+    }
+    .chart-title { font-size: 16px; font-weight: 600; color: var(--text-900); }
+    .chart-tag-cam {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: var(--r-sm);
+      background: var(--ember-50);
+      color: var(--ember-600);
+    }
+    .chart-svg-wrapper { position: relative; }
+
+    /* Utility */
+    .flex-row { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-start; }
+    .mt-4  { margin-top: var(--space-4); }
+    .mt-6  { margin-top: var(--space-6); }
+    .gap-2 { gap: var(--space-2); }
+    .items-center { align-items: center; }
+
+    /* ── Heatmap Adherence ── */
+    .heatmap-card {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-xs);
+      padding: var(--space-6);
+    }
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      margin-top: var(--space-4);
+    }
+    .heatmap-day-label {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-500);
+      padding-bottom: var(--space-2);
+    }
+    .heatmap-cell {
+      aspect-ratio: 1;
+      border-radius: var(--r-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .heatmap-cell.done    { background: var(--accent-700); }
+    .heatmap-cell.partial { background: rgba(15,118,110,0.4); }
+    .heatmap-cell.missed  { background: var(--status-comp-bg); border: 1px solid var(--status-comp); color: var(--status-comp); }
+    .heatmap-cell.off     { background: var(--surface-muted); }
+    .heatmap-legend {
+      display: flex;
+      gap: var(--space-4);
+      margin-top: var(--space-4);
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-600);
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    /* ── Section scroll targets ── */
+    section[id] { scroll-margin-top: calc(var(--topbar-h) + 24px); }
+
+    /* ── Print ── */
+    @media print { .preview-topbar { display: none; } }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     TOP BAR PRATINJAU
+     ═══════════════════════════════════════════ -->
+<header class="preview-topbar" role="banner">
+  <div class="logo-mark" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Busur goniometer sederhana -->
+      <path d="M2 14 A8 8 0 0 1 16 14" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <line x1="9" y1="14" x2="14.5" y2="7" stroke="#FB923C" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <span class="logo-text">MoveWall AI</span>
+  <span class="badge">Design System v1.1</span>
+  <nav class="nav-links" aria-label="Navigasi Pratinjau">
+    <a href="#warna">Warna</a>
+    <a href="#tipografi">Tipografi</a>
+    <a href="#komponen">Komponen</a>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#stage">Stage</a>
+  </nav>
+</header>
+
+<main class="preview-main" role="main">
+
+  <!-- ═══════════════════════════════════════
+       BAGIAN 0 — INTRO
+       ═══════════════════════════════════════ -->
+  <section id="intro" aria-labelledby="intro-title">
+    <div style="max-width: 720px;">
+      <h1 id="intro-title" style="font-size: 36px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-900); margin-bottom: var(--space-4);">
+        MoveWall AI<br><span style="color: var(--accent-700);">Design System v1.1</span>
+      </h1>
+      <p style="font-size: 18px; color: var(--text-600); line-height: 28px; margin-bottom: var(--space-6);">
+        Pratinjau HTML dari seluruh token desain, tipografi, dan komponen. Arah visual <strong>SaaS modern dengan penerapan berlapis</strong>: Dashboard terapis sepenuhnya SaaS; Aplikasi Pasien memakai bahasa visual SaaS tanpa mengorbankan ukuran; Stage (gameplay) tidak mengikuti gaya SaaS.
+      </p>
+      <div class="highlight-box">
+        <strong>Prinsip utama:</strong> Terbaca dari dua meter · Tidak pernah hanya warna · Aman lebih penting dari menang · Jujur soal ketidakpastian kamera
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       BAGIAN 1 — WARNA
+       ═══════════════════════════════════════ -->
+  <section id="warna" aria-labelledby="warna-title">
+    <div class="section-header">
+      <p class="section-label">Bagian 4</p>
+      <h2 class="section-title" id="warna-title">Token Warna</h2>
+      <p class="section-desc">Seluruh hex sudah diverifikasi kontras dengan rumus WCAG 2.x. Pasangan yang gagal ditandai dan dilarang untuk teks.</p>
+    </div>
+
+    <h3 class="swatch-group-title">Studio — Neutral (Slate)</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-color" style="background:#F8FAFC; border-bottom: 1px solid #E2E8F0;"></div>
+        <div class="swatch-info"><div class="swatch-token">--bg-app</div><div class="swatch-hex">#F8FAFC</div><div class="swatch-role">Latar halaman</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#FFFFFF; border-bottom: 1px solid #E2E8F0;"></div>
+        <div class="swatch-info"><div class="swatch-token">--surface</div><div class="swatch-hex">#FFFFFF</div><div class="swatch-role">Kartu, panel, dialog</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#F1F5F9;"></div>
+        <div class="swatch-info"><div class="swatch-token">--surface-muted</div><div class="swatch-hex">#F1F5F9</div><div class="swatch-role">Latar sekunder, header tabel</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#E2E8F0;"></div>
+        <div class="swatch-info"><div class="swatch-token">--border-subtle</div><div class="swatch-hex">#E2E8F0</div><div class="swatch-role">Pemisah halus (dekoratif)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#CBD5E1;"></div>
+        <div class="swatch-info"><div class="swatch-token">--border-default</div><div class="swatch-hex">#CBD5E1</div><div class="swatch-role">Border kartu, tabel (dekoratif)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#7C8CA3;"></div>
+        <div class="swatch-info"><div class="swatch-token">--border-control</div><div class="swatch-hex">#7C8CA3</div><div class="swatch-role">Input, checkbox (≥3:1)</div></div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title">Studio — Teks</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-color" style="background:#0F172A;"></div>
+        <div class="swatch-info"><div class="swatch-token">--text-900</div><div class="swatch-hex">#0F172A</div><div class="swatch-role">Teks utama (17,85:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#334155;"></div>
+        <div class="swatch-info"><div class="swatch-token">--text-700</div><div class="swatch-hex">#334155</div><div class="swatch-role">Teks isi (10,35:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#475569;"></div>
+        <div class="swatch-info"><div class="swatch-token">--text-600</div><div class="swatch-hex">#475569</div><div class="swatch-role">Sekunder (7,58:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#64748B;"></div>
+        <div class="swatch-info"><div class="swatch-token">--text-500</div><div class="swatch-hex">#64748B</div><div class="swatch-role">Tersier, hanya surface/bg-app ≥14px</div></div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title">Studio — Accent (Teal)</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-color" style="background:#F0FDFA; border-bottom: 1px solid #E2E8F0;"></div>
+        <div class="swatch-info"><div class="swatch-token">--accent-50</div><div class="swatch-hex">#F0FDFA</div><div class="swatch-role">Baris terpilih, latar info ringan</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#0F766E;"></div>
+        <div class="swatch-info"><div class="swatch-token">--accent-700</div><div class="swatch-hex">#0F766E</div><div class="swatch-role">Aksi utama, tautan, fokus (5,47:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#115E59;"></div>
+        <div class="swatch-info"><div class="swatch-token">--accent-800</div><div class="swatch-hex">#115E59</div><div class="swatch-role">Hover aksi utama (7,58:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#134E4A;"></div>
+        <div class="swatch-info"><div class="swatch-token">--accent-900</div><div class="swatch-hex">#134E4A</div><div class="swatch-role">Pressed (9,48:1)</div></div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title">Studio — Ember (Target / Perhatian)</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-color" style="background:#FFF7ED; border-bottom: 1px solid #E2E8F0;"></div>
+        <div class="swatch-info"><div class="swatch-token">--ember-50</div><div class="swatch-hex">#FFF7ED</div><div class="swatch-role">Latar peringatan ringan</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#FB923C;"></div>
+        <div class="swatch-info"><div class="swatch-token">--ember-400</div><div class="swatch-hex">#FB923C</div><div class="swatch-role">Isian aksen (teks-900 di atasnya)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#EA580C;"></div>
+        <div class="swatch-info"><div class="swatch-token">--ember-500</div><div class="swatch-hex">#EA580C</div><div class="swatch-role">Hanya grafis non-teks (3,56:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#C2410C;"></div>
+        <div class="swatch-info"><div class="swatch-token">--ember-600</div><div class="swatch-hex">#C2410C</div><div class="swatch-role">Tombol sekunder (5,18:1)</div></div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title">Warna Status Gerakan</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-color" style="background:#ECFDF5;"></div>
+        <div class="swatch-info"><div class="swatch-token">--status-reach-bg</div><div class="swatch-hex">#ECFDF5</div><div class="swatch-role">Latar badge Tercapai</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#0B6B4A;"></div>
+        <div class="swatch-info"><div class="swatch-token">--status-reach</div><div class="swatch-hex">#0B6B4A</div><div class="swatch-role">Tercapai — teks Studio (6,53:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#FFFBEB; border-bottom: 1px solid #E2E8F0;"></div>
+        <div class="swatch-info"><div class="swatch-token">--status-near-bg</div><div class="swatch-hex">#FFFBEB</div><div class="swatch-role">Latar badge Hampir</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#7A5200;"></div>
+        <div class="swatch-info"><div class="swatch-token">--status-near</div><div class="swatch-hex">#7A5200</div><div class="swatch-role">Hampir — teks Studio (6,92:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#FEF2F2; border-bottom: 1px solid #E2E8F0;"></div>
+        <div class="swatch-info"><div class="swatch-token">--status-comp-bg</div><div class="swatch-hex">#FEF2F2</div><div class="swatch-role">Latar badge Koreksi</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#A82C16;"></div>
+        <div class="swatch-info"><div class="swatch-token">--status-comp</div><div class="swatch-hex">#A82C16</div><div class="swatch-role">Koreksi — teks Studio (6,92:1)</div></div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title">Stage (Gelap)</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-color" style="background:#0E1514;"></div>
+        <div class="swatch-info"><div class="swatch-token">stage-900</div><div class="swatch-hex">#0E1514</div><div class="swatch-role">Latar</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#162321;"></div>
+        <div class="swatch-info"><div class="swatch-token">stage-800</div><div class="swatch-hex">#162321</div><div class="swatch-role">Panel HUD</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#F2EFE8;"></div>
+        <div class="swatch-info"><div class="swatch-token">stage-text</div><div class="swatch-hex">#F2EFE8</div><div class="swatch-role">Teks utama (16,10:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#A9B5B0;"></div>
+        <div class="swatch-info"><div class="swatch-token">stage-muted</div><div class="swatch-hex">#A9B5B0</div><div class="swatch-role">Teks sekunder (8,74:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#4FD6A5;"></div>
+        <div class="swatch-info"><div class="swatch-token">stage-reach</div><div class="swatch-hex">#4FD6A5</div><div class="swatch-role">Tercapai Stage (10,12:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#F5C04A;"></div>
+        <div class="swatch-info"><div class="swatch-token">stage-near</div><div class="swatch-hex">#F5C04A</div><div class="swatch-role">Hampir Stage (11,02:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#FF7A5C;"></div>
+        <div class="swatch-info"><div class="swatch-token">stage-comp</div><div class="swatch-hex">#FF7A5C</div><div class="swatch-role">Koreksi Stage (7,21:1)</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       BAGIAN 2 — TIPOGRAFI
+       ═══════════════════════════════════════ -->
+  <section id="tipografi" aria-labelledby="typo-title">
+    <div class="section-header">
+      <p class="section-label">Bagian 5</p>
+      <h2 class="section-title" id="typo-title">Tipografi</h2>
+      <p class="section-desc">Inter untuk Dashboard (terapis duduk). Atkinson Hyperlegible Next untuk Aplikasi Pasien dan Stage (keterbacaan jarak jauh dan penglihatan rendah).</p>
+    </div>
+
+    <h3 class="swatch-group-title">Dashboard — Inter (near-field)</h3>
+    <div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">d-display</div><div class="type-spec">32px / 40 · 600 · tracking −2%</div></div>
+        <div class="type-sample d-display" style="font-family: var(--font-dashboard);">112°</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">d-title</div><div class="type-spec">24px / 32 · 600 · tracking −1%</div></div>
+        <div class="type-sample d-title" style="font-family: var(--font-dashboard);">Daftar Pasien</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">d-heading</div><div class="type-spec">18px / 28 · 600</div></div>
+        <div class="type-sample d-heading" style="font-family: var(--font-dashboard);">Riwayat Sesi</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">d-body</div><div class="type-spec">14px / 20 · 400</div></div>
+        <div class="type-sample d-body" style="font-family: var(--font-dashboard);">Data ROM diperbarui berdasarkan sesi terakhir pasien.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">d-data</div><div class="type-spec">14px / 20 · 500 · tabular</div></div>
+        <div class="type-sample d-data" style="font-family: var(--font-dashboard);">112° → 128° → 135°</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">d-caption</div><div class="type-spec">13px / 18 · 400 · minimum Dashboard</div></div>
+        <div class="type-sample d-caption" style="font-family: var(--font-dashboard); color: var(--text-600);">Estimasi kamera · Sesi 12 Okt 2026</div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Aplikasi Pasien — Atkinson Hyperlegible Next (near-field)</h3>
+    <div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">p-display</div><div class="type-spec">36px / 44 · 700</div></div>
+        <div class="type-sample p-display" style="font-family: var(--font-patient);">ROM bahu rata-rata 112°</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">p-title</div><div class="type-spec">28px / 36 · 700</div></div>
+        <div class="type-sample p-title" style="font-family: var(--font-patient);">Misi Hari Ini</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">p-heading</div><div class="type-spec">20px / 28 · 700</div></div>
+        <div class="type-sample p-heading" style="font-family: var(--font-patient);">Fleksi Bahu</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">p-body-lg</div><div class="type-spec">18px / 28 · 400 · minimum pasien</div></div>
+        <div class="type-sample p-body-lg" style="font-family: var(--font-patient);">Angkat lengan perlahan ke atas sampai terasa nyaman.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">p-body</div><div class="type-spec">16px / 24 · 400 · hanya keterangan sekunder</div></div>
+        <div class="type-sample p-body" style="font-family: var(--font-patient); color: var(--text-600);">Hasil akan dikirim ke terapis Anda.</div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Stage — Atkinson Hyperlegible Next (far-field, ±2 m)</h3>
+    <div class="stage-type-showcase" aria-label="Contoh tipografi Stage pada latar gelap">
+      <div class="stage-type-row">
+        <div class="stage-type-meta"><div class="stage-type-token">stage-cue</div><div class="stage-type-spec">96px · 700 · instruksi kritikal</div></div>
+        <div style="font-family: var(--font-patient); font-size: 72px; font-weight: 700; color: #F2EFE8; line-height: 1; letter-spacing: -2px;">TAHAN</div>
+      </div>
+      <div class="stage-type-row">
+        <div class="stage-type-meta"><div class="stage-type-token">stage-metric</div><div class="stage-type-spec">80px · 700 · tabular · sudut/rep</div></div>
+        <div style="font-family: var(--font-patient); font-size: 64px; font-weight: 700; color: #F2EFE8; font-variant-numeric: tabular-nums; line-height: 1;">112°</div>
+      </div>
+      <div class="stage-type-row">
+        <div class="stage-type-meta"><div class="stage-type-token">stage-label</div><div class="stage-type-spec">40px · 500 · LANTAI minimum Stage</div></div>
+        <div style="font-family: var(--font-patient); font-size: 40px; font-weight: 500; color: #A9B5B0; line-height: 1;">dari 10 rep</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       BAGIAN 3 — KOMPONEN
+       ═══════════════════════════════════════ -->
+  <section id="komponen" aria-labelledby="comp-title">
+    <div class="section-header">
+      <p class="section-label">Bagian 10</p>
+      <h2 class="section-title" id="comp-title">Komponen</h2>
+    </div>
+
+    <!-- ROM Arc Gauge -->
+    <h3 class="swatch-group-title">ROM Arc Gauge (Komponen Penanda Produk)</h3>
+    <div class="gauge-showcase">
+
+      <!-- Gauge Studio — Tercapai -->
+      <div class="gauge-wrapper">
+        <div class="rom-gauge" style="width:200px; height:120px;">
+          <svg width="200" height="120" viewBox="0 0 200 120" aria-label="ROM Arc Gauge: sudut bahu 112 derajat, target 120, batas aman 140, status Tercapai">
+            <!-- Track -->
+            <path d="M20 110 A80 80 0 0 1 180 110" stroke="#E2E8F0" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <!-- Safety ceiling arsir -->
+            <path d="M155 43 A80 80 0 0 1 180 110" stroke="#EA580C" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="4 5" opacity="0.5"/>
+            <!-- Isian Tercapai (112/180 = 62% of arc) -->
+            <path d="M20 110 A80 80 0 0 1 143 37" stroke="#0B6B4A" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <!-- Tanda target (120°) -->
+            <line x1="155" y1="43" x2="162" y2="31" stroke="#EA580C" stroke-width="3" stroke-linecap="round"/>
+            <!-- Tanda minimum (60°) -->
+            <line x1="60" y1="50" x2="51" y2="41" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round"/>
+            <!-- Tanda skala muted -->
+            <text x="12" y="116" font-size="9" fill="#A9B5B0" text-anchor="middle" font-family="monospace">0°</text>
+            <text x="100" y="25" font-size="9" fill="#A9B5B0" text-anchor="middle" font-family="monospace">90°</text>
+            <text x="188" y="116" font-size="9" fill="#A9B5B0" text-anchor="middle" font-family="monospace">180°</text>
+          </svg>
+          <div class="gauge-value" style="bottom: 20px; font-size: 36px; font-family: var(--font-patient); color: var(--text-900);">
+            112<span class="gauge-unit">°</span>
+            <span class="gauge-sub" style="font-size: 11px; color: var(--status-reach);">✓ Tercapai</span>
+          </div>
+        </div>
+        <span class="gauge-label">Studio — Tercapai (112° / target 120°)</span>
+      </div>
+
+      <!-- Gauge Studio — Hampir -->
+      <div class="gauge-wrapper">
+        <div class="rom-gauge" style="width:200px; height:120px;">
+          <svg width="200" height="120" viewBox="0 0 200 120">
+            <path d="M20 110 A80 80 0 0 1 180 110" stroke="#E2E8F0" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M155 43 A80 80 0 0 1 180 110" stroke="#EA580C" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="4 5" opacity="0.5"/>
+            <!-- Isian Hampir (85/180) -->
+            <path d="M20 110 A80 80 0 0 1 111 21" stroke="#7A5200" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="8 3"/>
+            <line x1="155" y1="43" x2="162" y2="31" stroke="#EA580C" stroke-width="3" stroke-linecap="round"/>
+            <text x="12" y="116" font-size="9" fill="#A9B5B0" text-anchor="middle" font-family="monospace">0°</text>
+            <text x="188" y="116" font-size="9" fill="#A9B5B0" text-anchor="middle" font-family="monospace">180°</text>
+          </svg>
+          <div class="gauge-value" style="bottom: 20px; font-size: 36px; font-family: var(--font-patient); color: var(--text-900);">
+            85<span class="gauge-unit">°</span>
+            <span class="gauge-sub" style="font-size: 11px; color: var(--status-near);">◇ Hampir</span>
+          </div>
+        </div>
+        <span class="gauge-label">Studio — Hampir (85° / target 120°)</span>
+      </div>
+
+      <!-- Gauge Stage -->
+      <div class="gauge-wrapper">
+        <div class="stage-gauge-box">
+          <div class="rom-gauge" style="width:200px; height:120px;">
+            <svg width="200" height="120" viewBox="0 0 200 120" aria-label="Stage ROM gauge, sudut 112 derajat">
+              <path d="M20 110 A80 80 0 0 1 180 110" stroke="#1F312E" stroke-width="14" fill="none" stroke-linecap="round"/>
+              <path d="M160 46 A80 80 0 0 1 180 110" stroke="#EA580C" stroke-width="14" fill="none" stroke-linecap="round" stroke-dasharray="5 6" opacity="0.7"/>
+              <path d="M20 110 A80 80 0 0 1 143 37" stroke="#4FD6A5" stroke-width="14" fill="none" stroke-linecap="round"/>
+              <line x1="160" y1="46" x2="168" y2="34" stroke="#FB923C" stroke-width="4" stroke-linecap="round"/>
+              <!-- Tanda skala — wajib stage-muted bukan track -->
+              <text x="12" y="118" font-size="10" fill="#A9B5B0" text-anchor="middle" font-family="monospace">0°</text>
+              <text x="100" y="25" font-size="10" fill="#A9B5B0" text-anchor="middle" font-family="monospace">90°</text>
+              <text x="190" y="118" font-size="10" fill="#A9B5B0" text-anchor="middle" font-family="monospace">180°</text>
+            </svg>
+            <div class="gauge-value" style="bottom: 16px; font-size: 40px; font-family: var(--font-patient); color: #F2EFE8;">
+              112<span class="gauge-unit" style="color: #A9B5B0;">°</span>
+              <span class="gauge-sub" style="font-size: 11px; color: #4FD6A5;">✓ Tercapai</span>
+            </div>
+          </div>
+        </div>
+        <span class="gauge-label">Stage — far-field (gelap)</span>
+      </div>
+    </div>
+
+    <!-- Chip Repetisi -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Chip Repetisi</h3>
+    <div style="margin-bottom: var(--space-4);">
+      <p class="d-caption" style="color: var(--text-500); margin-bottom: var(--space-3);">Studio</p>
+      <div class="chip-row">
+        <!-- Valid -->
+        <div class="rep-chip chip-valid" role="status" aria-label="Repetisi Valid">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="8" r="7"/><polyline points="5,8 7,10 11,6"/>
+          </svg>
+          Valid
+        </div>
+        <!-- Parsial -->
+        <div class="rep-chip chip-partial" role="status" aria-label="Repetisi Parsial">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="8" cy="8" r="7" stroke-dasharray="22 22"/>
+            <path d="M8 1 A7 7 0 0 1 15 8" stroke-dasharray="none"/>
+          </svg>
+          Parsial
+        </div>
+        <!-- Kompensasi -->
+        <div class="rep-chip chip-comp" role="status" aria-label="Repetisi Kompensasi">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="8" cy="8" r="7"/>
+            <line x1="5" y1="5" x2="11" y2="11"/>
+          </svg>
+          Kompensasi
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="d-caption" style="color: var(--text-500); margin-bottom: var(--space-3);">Stage</p>
+      <div class="chip-stage-row">
+        <div class="rep-chip chip-stage-valid">✓ Valid</div>
+        <div class="rep-chip chip-stage-partial">◇ Parsial</div>
+        <div class="rep-chip chip-stage-comp">△ Kompensasi</div>
+      </div>
+    </div>
+
+    <!-- Tombol -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Tombol & Kontrol</h3>
+    <div class="flex-row items-center">
+      <button class="btn btn-primary" id="btn-primary">Mulai Sesi</button>
+      <button class="btn btn-secondary" id="btn-secondary">Simpan Resep</button>
+      <button class="btn btn-ghost" id="btn-ghost">Batal</button>
+      <button class="btn btn-danger" id="btn-danger">Hentikan</button>
+    </div>
+    <div class="flex-row items-center mt-4">
+      <button class="btn btn-primary btn-patient" id="btn-patient-start" style="font-family: var(--font-patient);">Mulai Latihan</button>
+      <button class="btn btn-secondary btn-compact" id="btn-compact">Filter</button>
+    </div>
+
+    <!-- Input -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Input</h3>
+    <div style="max-width: 400px; display: flex; flex-direction: column; gap: var(--space-4);">
+      <div class="input-group">
+        <label class="input-label" for="input-demo-1">Target ROM</label>
+        <input type="text" class="input-field" id="input-demo-1" placeholder="mis. 120" />
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="input-demo-2">Batas Aman (Safety Ceiling)</label>
+        <input type="text" class="input-field" id="input-demo-2" placeholder="mis. 150 — wajib diisi" />
+        <span class="form-hint">Tanpa batas aman, algoritma adaptif tidak punya pagar (6.3.4)</span>
+      </div>
+    </div>
+
+    <!-- Indikator Sinkron -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Indikator Sinkron</h3>
+    <div class="flex-row items-center" style="flex-wrap: wrap; gap: var(--space-3);">
+      <div class="sync-indicator"><div class="sync-dot saved"></div><span style="color: var(--status-reach);">Tersimpan di perangkat</span></div>
+      <div class="sync-indicator"><div class="sync-dot syncing"></div><span style="color: var(--text-700);">Menyinkronkan…</span></div>
+      <div class="sync-indicator"><div class="sync-dot synced"></div><span style="color: var(--accent-700);">Tersinkron</span></div>
+      <div class="sync-indicator"><div class="sync-dot error"></div><span style="color: var(--status-comp);">Belum tersinkron, akan dicoba lagi</span></div>
+    </div>
+
+    <!-- Toast -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Toast Notifikasi</h3>
+    <div class="toast-stack">
+      <div class="toast success" role="status" aria-live="polite">
+        <div class="toast-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="7"/><polyline points="5,8 7,10 11,6"/></svg></div>
+        <div class="toast-body">
+          <div class="toast-title">Resep disimpan.</div>
+          <div class="toast-msg">Berlaku pada sesi berikutnya pasien.</div>
+        </div>
+        <button class="toast-close" aria-label="Tutup notifikasi"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button>
+      </div>
+      <div class="toast warning" role="alert">
+        <div class="toast-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2L14 13H2Z"/><line x1="8" y1="7" x2="8" y2="10"/><circle cx="8" cy="12" r="0.5" fill="currentColor"/></svg></div>
+        <div class="toast-body">
+          <div class="toast-title">Target 150° lebih tinggi dari rentang umum.</div>
+          <div class="toast-msg">Lanjutkan jika sudah sesuai penilaian Anda.</div>
+        </div>
+        <button class="toast-close" aria-label="Tutup notifikasi"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button>
+      </div>
+      <div class="toast error" role="alert" aria-live="assertive">
+        <div class="toast-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="7"/><line x1="8" y1="5" x2="8" y2="9"/><circle cx="8" cy="11.5" r="0.5" fill="currentColor"/></svg></div>
+        <div class="toast-body">
+          <div class="toast-title">Resep belum tersimpan.</div>
+          <div class="toast-msg">Periksa koneksi lalu coba lagi.</div>
+        </div>
+        <!-- Error: tidak ada tombol tutup otomatis -->
+        <button class="btn btn-secondary btn-compact" style="flex-shrink:0;">Coba lagi</button>
+      </div>
+    </div>
+
+    <!-- Tombol Darurat -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Kontrol Darurat "Berhenti"</h3>
+    <div class="flex-row items-center">
+      <button class="emergency-btn" id="btn-stop-studio" aria-label="Berhenti, terasa nyeri">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect x="9" y="9" width="14" height="14" rx="2" fill="white" opacity="0.9"/>
+        </svg>
+        <span class="stop-label">BERHENTI</span>
+        <span class="stop-sublabel">Terasa nyeri</span>
+      </button>
+      <div style="max-width: 280px;">
+        <p class="d-body" style="color: var(--text-700);">128×128 px · pojok kanan bawah Stage · tiga jalur aktif bersamaan: gestur silang dada, suara "Berhenti", tombol layar ini.</p>
+        <p class="d-caption" style="color: var(--text-500); margin-top: var(--space-2);">Komponen ini tidak mengikuti gaya SaaS. Kontras dan ukuran lebih penting.</p>
+      </div>
+    </div>
+
+    <!-- Daftar Periksa Pra-sesi -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Daftar Periksa Pra-sesi</h3>
+    <div class="checklist-card" aria-label="Daftar periksa pra-sesi">
+      <div class="checklist-header">Persiapan Sesi</div>
+      <div class="checklist-item">
+        <div class="check-icon ok" aria-label="Baik">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2,7 5,10 12,3"/></svg>
+        </div>
+        <div class="check-body">
+          <div class="check-name">Kamera</div>
+          <div class="check-msg">Kamera terdeteksi dan berfungsi.</div>
+        </div>
+      </div>
+      <div class="checklist-item">
+        <div class="check-icon ok" aria-label="Baik">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2,7 5,10 12,3"/></svg>
+        </div>
+        <div class="check-body">
+          <div class="check-name">Izin kamera</div>
+          <div class="check-msg">Izin diberikan.</div>
+        </div>
+      </div>
+      <div class="checklist-item">
+        <div class="check-icon warn" aria-label="Perhatian">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 2L13 11H1Z"/><line x1="7" y1="6" x2="7" y2="8.5"/></svg>
+        </div>
+        <div class="check-body">
+          <div class="check-name">Cahaya</div>
+          <div class="check-msg">Ruangan agak gelap. Nyalakan lampu di depan Anda.</div>
+        </div>
+      </div>
+      <div class="checklist-item">
+        <div class="check-icon ok" aria-label="Baik">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="2,7 5,10 12,3"/></svg>
+        </div>
+        <div class="check-body">
+          <div class="check-name">Ruang</div>
+          <div class="check-msg">Cukup ruang untuk bergerak.</div>
+        </div>
+      </div>
+      <div class="checklist-footer">
+        <button class="btn btn-primary btn-patient" id="btn-mulai" style="width: 100%; font-family: var(--font-patient); justify-content: center;">
+          Mulai
+        </button>
+      </div>
+    </div>
+
+    <!-- Kartu Misi Hari Ini -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Kartu Misi Hari Ini</h3>
+    <div class="mission-grid">
+      <div class="mission-card" role="button" tabindex="0" aria-label="Mulai Misi Fleksi Bahu">
+        <div class="mission-icon" aria-hidden="true">🎯</div>
+        <div>
+          <div class="mission-name">Fleksi Bahu</div>
+          <div class="mission-sets">3 set × 10 repetisi</div>
+        </div>
+        <div class="mission-status done">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="7"/><polyline points="5,8 7,10 11,6"/></svg>
+          Selesai
+        </div>
+        <button class="btn btn-secondary btn-patient" id="btn-ulang" style="font-family: var(--font-patient); width:100%; justify-content: center;">Ulangi</button>
+      </div>
+      <div class="mission-card" role="button" tabindex="0" aria-label="Mulai Misi Abduksi Bahu">
+        <div class="mission-icon" aria-hidden="true">🌿</div>
+        <div>
+          <div class="mission-name">Abduksi Bahu</div>
+          <div class="mission-sets">2 set × 8 repetisi</div>
+        </div>
+        <div class="mission-status progress">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="7" stroke-dasharray="28 16"/></svg>
+          1 dari 2 set
+        </div>
+        <button class="btn btn-primary btn-patient" id="btn-lanjut" style="font-family: var(--font-patient); width:100%; justify-content: center;">Lanjutkan</button>
+      </div>
+      <div class="mission-card" role="button" tabindex="0" aria-label="Mulai Misi Fleksi Siku">
+        <div class="mission-icon" aria-hidden="true">💪</div>
+        <div>
+          <div class="mission-name">Fleksi Siku</div>
+          <div class="mission-sets">3 set × 12 repetisi</div>
+        </div>
+        <div class="mission-status todo">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="7"/></svg>
+          Belum dimulai
+        </div>
+        <button class="btn btn-primary btn-patient" id="btn-mulai-misi3" style="font-family: var(--font-patient); width:100%; justify-content: center;">Mulai</button>
+      </div>
+    </div>
+
+    <!-- State Kosong & Skeleton -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Keadaan Sistem: Kosong, Memuat, Galat</h3>
+    <div class="flex-row" style="gap: var(--space-6); align-items: flex-start;">
+      <!-- Skeleton -->
+      <div style="flex: 1; min-width: 280px;">
+        <p class="d-caption" style="color: var(--text-500); margin-bottom: var(--space-3);">Memuat (skeleton)</p>
+        <div class="skeleton-grid" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="skeleton-card">
+            <div class="skel" style="height:12px; width:60%; margin-bottom:8px;"></div>
+            <div class="skel" style="height:32px; width:80%; margin-bottom:8px;"></div>
+            <div class="skel" style="height:10px; width:40%;"></div>
+          </div>
+          <div class="skeleton-card">
+            <div class="skel" style="height:12px; width:50%; margin-bottom:8px;"></div>
+            <div class="skel" style="height:32px; width:70%; margin-bottom:8px;"></div>
+            <div class="skel" style="height:10px; width:55%;"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Empty State -->
+      <div style="flex: 1; min-width: 280px;">
+        <p class="d-caption" style="color: var(--text-500); margin-bottom: var(--space-3);">Kosong</p>
+        <div class="empty-state">
+          <!-- Motif busur goniometer -->
+          <svg class="empty-arc" width="64" height="36" viewBox="0 0 64 36" fill="none" aria-hidden="true">
+            <path d="M4 32 A28 28 0 0 1 60 32" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <line x1="32" y1="32" x2="46" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="46" cy="12" r="3" fill="currentColor"/>
+          </svg>
+          <div class="empty-title">Belum ada sesi minggu ini.</div>
+          <p class="empty-desc">Pasien akan muncul di sini setelah menyelesaikan latihan.</p>
+          <button class="btn btn-secondary" id="btn-lihat-semua">Lihat semua pasien</button>
+        </div>
+      </div>
+      <!-- Galat inline -->
+      <div style="flex: 1; min-width: 280px;">
+        <p class="d-caption" style="color: var(--text-500); margin-bottom: var(--space-3);">Galat (inline, dekat sumber)</p>
+        <div class="toast error" style="max-width: none;" role="alert">
+          <div class="toast-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="7"/><line x1="8" y1="5" x2="8" y2="9"/><circle cx="8" cy="11.5" r="0.5" fill="currentColor"/></svg></div>
+          <div class="toast-body">
+            <div class="toast-title">Gagal memuat data pasien.</div>
+            <div class="toast-msg">Periksa koneksi lalu coba lagi.</div>
+          </div>
+          <button class="btn btn-secondary btn-compact" style="flex-shrink:0;">Muat ulang</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Catatan Klinis vs Otomatis -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Data Otomatis vs Catatan Terapis (FR-D.5)</h3>
+    <div class="notes-stack">
+      <div class="note-auto" aria-label="Data otomatis">
+        <div class="note-tag">Otomatis · Estimasi kamera</div>
+        <div class="note-text">ROM puncak bahu kanan: <strong>112°</strong>. Kompensasi terdeteksi pada repetisi ke-4 dan ke-7 (elevasi bahu kiri).</div>
+        <div class="note-meta">Sesi 12 Okt 2026, 09:14</div>
+      </div>
+      <div class="note-therapist" aria-label="Catatan terapis">
+        <div class="note-tag">Catatan Terapis</div>
+        <div class="note-text">Pasien melaporkan nyeri ringan pada awal sesi. Sudah dikonfirmasi tidak ada cedera baru. Target ROM sesi berikutnya tetap 120°, perhatikan kompensasi bahu kiri.</div>
+        <div class="note-meta">Dr. Rina Setiawati · 12 Okt 2026, 10:02</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       BAGIAN 4 — DASHBOARD (App Shell)
+       ═══════════════════════════════════════ -->
+  <section id="dashboard" aria-labelledby="dash-title">
+    <div class="section-header">
+      <p class="section-label">Bagian 10.2</p>
+      <h2 class="section-title" id="dash-title">Therapist Dashboard</h2>
+      <p class="section-desc">App shell SaaS penuh: sidebar 256 px, top bar 56 px, grid 12 kolom. Terapis duduk, memakai mouse, membaca data padat.</p>
+    </div>
+
+    <!-- App Shell Demo -->
+    <div class="app-shell-demo" aria-label="Contoh app shell Therapist Dashboard">
+      <div class="shell-topbar">
+        <div class="logo-mark" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+            <path d="M2 14 A8 8 0 0 1 16 14" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+            <line x1="9" y1="14" x2="14.5" y2="7" stroke="#FB923C" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span style="font-size: 14px; font-weight: 600; color: var(--text-700);">MoveWall AI</span>
+        <span style="color: var(--text-500); font-size: 13px; margin-left: 4px;">/ Pasien</span>
+        <div style="flex:1;"></div>
+        <div class="input-group" style="width: 200px; margin-bottom: 0;">
+          <input type="search" class="input-field" id="input-search" placeholder="Cari pasien…" style="height: 32px;" aria-label="Cari pasien" />
+        </div>
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent-700); display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; font-weight: 600; flex-shrink: 0;">DR</div>
+      </div>
+      <div class="shell-body">
+        <nav class="shell-sidebar" aria-label="Navigasi utama dashboard">
+          <div class="logo-section">
+            <div class="logo-mark" style="width: 28px; height: 28px;" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none"><path d="M2 14 A8 8 0 0 1 16 14" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/><line x1="9" y1="14" x2="14.5" y2="7" stroke="#FB923C" stroke-width="2.5" stroke-linecap="round"/></svg>
+            </div>
+            <span style="font-weight: 700; font-size: 14px; color: var(--text-900);">MoveWall AI</span>
+          </div>
+
+          <div class="sidebar-nav-item active" aria-current="page">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+            Pasien
+            <span class="sidebar-badge">3</span>
+          </div>
+          <div class="sidebar-nav-item">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="2" y="2" width="14" height="14" rx="2"/><path d="M6 9h6M9 6v6"/></svg>
+            Resep
+          </div>
+          <div class="sidebar-nav-item">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polyline points="2,13 6,8 10,11 14,5 16,7"/></svg>
+            Laporan
+          </div>
+          <div class="sidebar-nav-item">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="9" cy="9" r="3"/><path d="M9 2v2M9 14v2M2 9h2M14 9h2M4 4l1.5 1.5M12.5 12.5L14 14M4 14l1.5-1.5M12.5 5.5L14 4"/></svg>
+            Pengaturan
+          </div>
+          <div class="sidebar-footer">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--r-md);">
+              <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--accent-700); display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; flex-shrink: 0;">DR</div>
+              <div>
+                <div style="font-size: 12px; font-weight: 600; color: var(--text-900);">Dr. Rina</div>
+                <div class="role-badge" style="margin-top: 2px;">Terapis</div>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        <main class="shell-content">
+          <div class="page-header">
+            <div>
+              <h1 class="d-title" style="color: var(--text-900);">Daftar Pasien</h1>
+              <p class="d-body" style="color: var(--text-600); margin-top: 4px;">Tampilkan pasien yang membutuhkan perhatian lebih dahulu.</p>
+            </div>
+            <button class="btn btn-primary btn-compact" id="btn-tambah-pasien">+ Tambah pasien</button>
+          </div>
+
+          <!-- KPI Cards -->
+          <div class="kpi-grid" style="margin-bottom: var(--space-6); grid-template-columns: repeat(3, 1fr);">
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-label">ROM Bahu Rata-rata</span>
+                <span class="kpi-tag">Estimasi kamera</span>
+              </div>
+              <div class="kpi-value">112<span class="kpi-unit">°</span></div>
+              <div class="kpi-change up">
+                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,10 7,4 12,10"/></svg>
+                naik 6° dibanding minggu lalu
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-label">Adherence Mingguan</span>
+              </div>
+              <div class="kpi-value">78<span class="kpi-unit">%</span></div>
+              <div class="kpi-change down">
+                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,4 7,10 12,4"/></svg>
+                turun 4% dari minggu lalu
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-label">Pasien Aktif</span>
+              </div>
+              <div class="kpi-value">12</div>
+              <div class="kpi-change" style="color: var(--text-600);">
+                <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="7" x2="12" y2="7"/></svg>
+                tidak berubah minggu ini
+              </div>
+            </div>
+          </div>
+
+          <!-- Patient Table (compact in shell) -->
+          <div class="table-card">
+            <div class="table-toolbar">
+              <span class="d-heading" style="font-size: 14px;">Triage Pasien</span>
+              <div class="filter-pills">
+                <div class="pill active" tabindex="0">Semua <span class="count">12</span></div>
+                <div class="pill" tabindex="0">Perlu Perhatian <span class="count">3</span></div>
+                <div class="pill" tabindex="0">Aktif <span class="count">7</span></div>
+              </div>
+            </div>
+            <table aria-label="Tabel triage pasien">
+              <thead>
+                <tr>
+                  <th scope="col">Prioritas</th>
+                  <th scope="col">Pasien</th>
+                  <th scope="col">Adherence</th>
+                  <th scope="col">ROM ∆</th>
+                  <th scope="col">Sesi Terakhir</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="selected">
+                  <td>
+                    <div class="priority-badge alert">
+                      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 1L11 10H1Z"/></svg>
+                      Perlu perhatian
+                    </div>
+                    <div class="priority-reason">Adherence turun 3 sesi berturut</div>
+                  </td>
+                  <td>
+                    <div class="patient-name">Budi Santoso</div>
+                    <div class="patient-diag">Frozen shoulder kiri</div>
+                  </td>
+                  <td>
+                    <div class="sparkline" aria-label="Tren adherence">
+                      <span style="height:70%"></span>
+                      <span style="height:80%"></span>
+                      <span style="height:50%"></span>
+                      <span style="height:30%"></span>
+                      <span style="height:20%"></span>
+                    </div>
+                  </td>
+                  <td><span class="rom-delta down d-data">−8°</span></td>
+                  <td class="d-data" style="color: var(--text-600);">4 hari lalu</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="priority-badge warn">
+                      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><line x1="6" y1="4" x2="6" y2="6.5"/></svg>
+                      Pantau
+                    </div>
+                    <div class="priority-reason">ROM menurun 2 sesi</div>
+                  </td>
+                  <td>
+                    <div class="patient-name">Siti Rahmawati</div>
+                    <div class="patient-diag">Rotator cuff kanan</div>
+                  </td>
+                  <td>
+                    <div class="sparkline" aria-label="Tren adherence">
+                      <span style="height:90%"></span>
+                      <span style="height:85%"></span>
+                      <span style="height:70%"></span>
+                      <span style="height:60%"></span>
+                      <span style="height:55%"></span>
+                    </div>
+                  </td>
+                  <td><span class="rom-delta down d-data">−3°</span></td>
+                  <td class="d-data" style="color: var(--text-600);">2 hari lalu</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="priority-badge ok">
+                      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><polyline points="3.5,6 5.5,8 8.5,4"/></svg>
+                      Baik
+                    </div>
+                    <div class="priority-reason">Progres sesuai rencana</div>
+                  </td>
+                  <td>
+                    <div class="patient-name">Dewi Anggraini</div>
+                    <div class="patient-diag">Fleksi bahu post-op</div>
+                  </td>
+                  <td>
+                    <div class="sparkline" aria-label="Tren adherence">
+                      <span style="height:60%"></span>
+                      <span style="height:70%"></span>
+                      <span style="height:80%"></span>
+                      <span style="height:90%"></span>
+                      <span style="height:95%"></span>
+                    </div>
+                  </td>
+                  <td><span class="rom-delta up d-data">+12°</span></td>
+                  <td class="d-data" style="color: var(--text-600);">Kemarin</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- KPI Cards full-width -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Kartu Statistik (KPI) — Detail</h3>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">ROM Bahu Rata-rata</span>
+          <span class="kpi-tag">Estimasi kamera</span>
+        </div>
+        <div class="kpi-value">112<span class="kpi-unit">°</span></div>
+        <div class="kpi-change up">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,10 7,4 12,10"/></svg>
+          naik 6° dibanding minggu lalu
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header"><span class="kpi-label">Repetisi Valid Minggu Ini</span></div>
+        <div class="kpi-value">143</div>
+        <div class="kpi-change up">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,10 7,4 12,10"/></svg>
+          naik 18 dari minggu lalu
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header"><span class="kpi-label">Adherence</span></div>
+        <div class="kpi-value">78<span class="kpi-unit">%</span></div>
+        <div class="kpi-change down">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,4 7,10 12,4"/></svg>
+          turun 4%
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header"><span class="kpi-label">Kompensasi Terdeteksi</span><span class="kpi-tag">Estimasi kamera</span></div>
+        <div class="kpi-value">12<span class="kpi-unit">%</span></div>
+        <div class="kpi-change" style="color: var(--text-600);">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="7" x2="12" y2="7"/></svg>
+          stabil
+        </div>
+      </div>
+    </div>
+
+    <!-- Heatmap Adherence -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Heatmap Adherence (FR-D.2)</h3>
+    <div class="heatmap-card">
+      <div class="d-heading">Oktober 2026</div>
+      <div class="heatmap-grid" aria-label="Kalender adherence Oktober 2026">
+        <div class="heatmap-day-label">Sen</div>
+        <div class="heatmap-day-label">Sel</div>
+        <div class="heatmap-day-label">Rab</div>
+        <div class="heatmap-day-label">Kam</div>
+        <div class="heatmap-day-label">Jum</div>
+        <div class="heatmap-day-label">Sab</div>
+        <div class="heatmap-day-label">Min</div>
+
+        <div class="heatmap-cell off"></div>
+        <div class="heatmap-cell done" aria-label="1 Oktober: selesai"></div>
+        <div class="heatmap-cell done" aria-label="2 Oktober: selesai"></div>
+        <div class="heatmap-cell off" aria-label="3 Oktober: tidak dijadwalkan"></div>
+        <div class="heatmap-cell done" aria-label="4 Oktober: selesai"></div>
+        <div class="heatmap-cell off" aria-label="5 Oktober: tidak dijadwalkan"></div>
+        <div class="heatmap-cell off" aria-label="6 Oktober: tidak dijadwalkan"></div>
+        <div class="heatmap-cell done" aria-label="7 Oktober: selesai"></div>
+        <div class="heatmap-cell partial" aria-label="8 Oktober: sebagian"></div>
+        <div class="heatmap-cell done" aria-label="9 Oktober: selesai"></div>
+        <div class="heatmap-cell off" aria-label="10 Oktober: tidak dijadwalkan"></div>
+        <div class="heatmap-cell missed" aria-label="11 Oktober: terlewat">✕</div>
+        <div class="heatmap-cell off" aria-label="12 Oktober: tidak dijadwalkan"></div>
+        <div class="heatmap-cell off" aria-label="13 Oktober: tidak dijadwalkan"></div>
+        <div class="heatmap-cell missed" aria-label="14 Oktober: terlewat">✕</div>
+        <div class="heatmap-cell off" aria-label="15 Oktober: tidak dijadwalkan"></div>
+        <div class="heatmap-cell off" aria-label="16 Oktober: tidak dijadwalkan"></div>
+      </div>
+      <div class="heatmap-legend">
+        <div class="legend-item"><div class="legend-dot" style="background: var(--accent-700);"></div>Selesai</div>
+        <div class="legend-item"><div class="legend-dot" style="background: rgba(15,118,110,0.4);"></div>Sebagian</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--status-comp-bg); border: 1px solid var(--status-comp);"></div>Terlewat</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--surface-muted);"></div>Tidak dijadwalkan</div>
+      </div>
+    </div>
+
+    <!-- Grafik ROM -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Grafik ROM (FR-D.2)</h3>
+    <div class="chart-demo">
+      <div class="chart-header">
+        <span class="chart-title">Tren ROM Bahu Kiri — Fleksi</span>
+        <span class="chart-tag-cam">Estimasi kamera</span>
+      </div>
+      <div class="chart-svg-wrapper">
+        <svg width="100%" height="180" viewBox="0 0 640 180" preserveAspectRatio="none" aria-label="Grafik ROM bahu kiri fleksi, tren naik dari 90 ke 112 derajat" role="img">
+          <!-- Gridlines (dekoratif) -->
+          <line x1="0" y1="30"  x2="640" y2="30"  stroke="#E2E8F0" stroke-width="1"/>
+          <line x1="0" y1="70"  x2="640" y2="70"  stroke="#E2E8F0" stroke-width="1"/>
+          <line x1="0" y1="110" x2="640" y2="110" stroke="#E2E8F0" stroke-width="1"/>
+          <line x1="0" y1="150" x2="640" y2="150" stroke="#E2E8F0" stroke-width="1"/>
+          <!-- Label sumbu Y -->
+          <text x="2" y="33"  font-size="10" fill="#A9B5B0" font-family="monospace">150°</text>
+          <text x="2" y="73"  font-size="10" fill="#A9B5B0" font-family="monospace">120°</text>
+          <text x="2" y="113" font-size="10" fill="#A9B5B0" font-family="monospace">90°</text>
+          <!-- Pita target (accent-50) -->
+          <rect x="0" y="50" width="640" height="40" fill="#F0FDFA" opacity="0.8"/>
+          <text x="630" y="45" font-size="10" fill="#0F766E" text-anchor="end" font-family="sans-serif">Target</text>
+          <!-- Safety ceiling (ember-500, putus-putus) -->
+          <line x1="0" y1="10" x2="640" y2="10" stroke="#EA580C" stroke-width="1.5" stroke-dasharray="6 4"/>
+          <text x="630" y="8" font-size="10" fill="#EA580C" text-anchor="end" font-family="sans-serif">Batas aman</text>
+          <!-- Garis ROM (accent-700) -->
+          <polyline points="40,150 120,138 200,130 280,118 360,108 440,98 520,88 600,78" stroke="#0F766E" stroke-width="2" fill="none" stroke-linejoin="round"/>
+          <!-- Titik data biasa -->
+          <circle cx="40"  cy="150" r="4" fill="#0F766E"/>
+          <circle cx="120" cy="138" r="4" fill="#0F766E"/>
+          <circle cx="200" cy="130" r="4" fill="#0F766E"/>
+          <circle cx="280" cy="118" r="4" fill="#0F766E"/>
+          <circle cx="360" cy="108" r="4" fill="#0F766E"/>
+          <circle cx="440" cy="98"  r="4" fill="#0F766E"/>
+          <!-- Titik anomali (berongga, ember) -->
+          <circle cx="520" cy="88" r="5" fill="white" stroke="#EA580C" stroke-width="2"/>
+          <circle cx="600" cy="78" r="4" fill="#0F766E"/>
+          <!-- Label ujung garis -->
+          <text x="608" y="74" font-size="11" fill="#0F766E" font-weight="600" font-family="sans-serif">112°</text>
+        </svg>
+      </div>
+      <div style="display: flex; gap: var(--space-4); margin-top: var(--space-3); flex-wrap: wrap;">
+        <div class="legend-item"><div style="width:16px; height:2px; background: var(--accent-700); border-radius:1px;"></div>ROM Fleksi</div>
+        <div class="legend-item"><div style="width:16px; height:8px; background: var(--accent-50); border-radius:2px;"></div>Pita Target</div>
+        <div class="legend-item">
+          <svg width="16" height="10"><circle cx="8" cy="5" r="4" fill="white" stroke="#EA580C" stroke-width="2"/></svg>
+          Sesi anomali (hover untuk detail)
+        </div>
+        <div class="legend-item"><div style="width:20px; height:1.5px; background: var(--ember-500); margin-top:4px; background: repeating-linear-gradient(90deg, #EA580C 0, #EA580C 6px, transparent 6px, transparent 10px);"></div>Batas aman</div>
+      </div>
+    </div>
+
+    <!-- Formulir Resep -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Formulir Resep (FR-D.3)</h3>
+    <div class="form-grid">
+      <div class="form-card">
+        <h3 class="d-heading" style="margin-bottom: var(--space-4);">Resep Latihan</h3>
+        <div class="form-row">
+          <label class="form-label" for="form-jenis">Jenis latihan</label>
+          <select class="input-field" id="form-jenis">
+            <option>Fleksi Bahu (Shoulder Flexion)</option>
+            <option>Abduksi Bahu</option>
+            <option>Fleksi Siku</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="form-target">Target ROM</label>
+          <input type="number" class="input-field" id="form-target" value="120" placeholder="°"/>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="form-ceiling">
+            Batas aman (Safety Ceiling)
+            <span style="color: var(--status-comp); margin-left: 4px; font-size: 11px;">*wajib</span>
+          </label>
+          <input type="number" class="input-field" id="form-ceiling" placeholder="Wajib diisi — mis. 150°" style="border-color: var(--border-control);"/>
+          <span class="form-hint">Tanpa batas aman, algoritma adaptif tidak punya pagar. Tidak ada nilai bawaan.</span>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="form-reps">Repetisi × Set</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+            <input type="number" class="input-field" id="form-reps" value="10" placeholder="Rep"/>
+            <input type="number" class="input-field" id="form-sets" value="3" placeholder="Set"/>
+          </div>
+        </div>
+        <div class="warning-box">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2L14 13H2Z"/><line x1="8" y1="7" x2="8" y2="10"/></svg>
+          <p>Target 150° lebih tinggi dari rentang umum untuk frozen shoulder. Lanjutkan jika sudah sesuai penilaian Anda.</p>
+        </div>
+      </div>
+      <div class="preview-sticky">
+        <h4 class="d-heading" style="margin-bottom: var(--space-4);">Pratinjau</h4>
+        <!-- Mini Gauge Pratinjau -->
+        <div style="display: flex; justify-content: center; margin-bottom: var(--space-4);">
+          <div class="rom-gauge" style="width:180px; height:106px;">
+            <svg width="180" height="106" viewBox="0 0 200 120">
+              <path d="M20 110 A80 80 0 0 1 180 110" stroke="#E2E8F0" stroke-width="12" fill="none" stroke-linecap="round"/>
+              <path d="M155 43 A80 80 0 0 1 180 110" stroke="#EA580C" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="4 5" opacity="0.5"/>
+              <path d="M20 110 A80 80 0 0 1 143 37" stroke="#E2E8F0" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.3"/>
+              <line x1="155" y1="43" x2="163" y2="31" stroke="#EA580C" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="60" cy="49" r="4" fill="none" stroke="#CBD5E1" stroke-width="2"/>
+              <text x="100" y="108" font-size="9" fill="#A9B5B0" text-anchor="middle" font-family="monospace">Target: 120° · Ceiling: —</text>
+            </svg>
+            <div class="gauge-value" style="bottom: 26px; font-size: 24px; font-family: var(--font-patient); color: var(--text-900);">
+              120<span class="gauge-unit">°</span>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 13px; color: var(--text-600); line-height: 20px;">
+          <div style="margin-bottom: 4px;"><strong style="color: var(--text-900);">Target:</strong> 120°</div>
+          <div style="margin-bottom: 4px;"><strong style="color: var(--text-900);">Batas aman:</strong> <span style="color: var(--status-comp);">Belum diisi</span></div>
+          <div style="margin-bottom: 4px;"><strong style="color: var(--text-900);">Program:</strong> 10 rep × 3 set</div>
+        </div>
+        <button class="btn btn-primary" id="btn-simpan-resep" style="width: 100%; margin-top: var(--space-4); justify-content: center;">Simpan Resep</button>
+        <p class="d-caption" style="color: var(--text-500); margin-top: var(--space-2); text-align: center;">Perubahan berlaku pada sesi berikutnya pasien.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       BAGIAN 5 — STAGE (Gameplay)
+       ═══════════════════════════════════════ -->
+  <section id="stage" aria-labelledby="stage-title">
+    <div class="section-header">
+      <p class="section-label">Bagian 11–12</p>
+      <h2 class="section-title" id="stage-title">Stage — Gameplay</h2>
+      <p class="section-desc">Far-field (±2 m). Tidak mengikuti arah SaaS. Kontras dan ukuran lebih penting dari gaya. Maksimal tiga elemen teks sekaligus saat bermain.</p>
+    </div>
+
+    <!-- HUD Demo -->
+    <h3 class="swatch-group-title">HUD Gameplay (berdiri)</h3>
+    <div class="hud-demo" aria-label="Contoh HUD gameplay Stage">
+      <!-- Hitungan (kiri atas) -->
+      <div class="hud-counter" aria-label="Hitungan repetisi: 7 dari 10">
+        <div class="hud-count-num" style="font-family: var(--font-patient);">7</div>
+        <div class="hud-count-of" style="font-family: var(--font-patient);">dari 10</div>
+      </div>
+      <!-- ROM Gauge (kanan atas) dalam HUD -->
+      <div style="position: absolute; top: 16px; right: 16px; background: #162321; border-radius: 12px; padding: 16px;">
+        <svg width="120" height="72" viewBox="0 0 200 120" aria-label="ROM 112 derajat">
+          <path d="M20 110 A80 80 0 0 1 180 110" stroke="#1F312E" stroke-width="14" fill="none" stroke-linecap="round"/>
+          <path d="M155 43 A80 80 0 0 1 180 110" stroke="#EA580C" stroke-width="14" fill="none" stroke-linecap="round" stroke-dasharray="5 6" opacity="0.7"/>
+          <path d="M20 110 A80 80 0 0 1 143 37" stroke="#4FD6A5" stroke-width="14" fill="none" stroke-linecap="round"/>
+          <line x1="155" y1="43" x2="163" y2="31" stroke="#FB923C" stroke-width="4" stroke-linecap="round"/>
+          <text x="12" y="118" font-size="10" fill="#A9B5B0" text-anchor="middle" font-family="monospace">0°</text>
+          <text x="188" y="118" font-size="10" fill="#A9B5B0" text-anchor="middle" font-family="monospace">180°</text>
+        </svg>
+        <div style="font-size: 28px; font-weight: 700; color: #F2EFE8; font-family: var(--font-patient); text-align: center; margin-top: -8px; font-variant-numeric: tabular-nums;">112°</div>
+      </div>
+      <!-- Cue (tengah bawah) -->
+      <div class="hud-cue" aria-live="assertive">Naik sedikit lagi</div>
+      <!-- Tombol Berhenti (kanan bawah) -->
+      <button class="hud-stop-btn" id="btn-stop-stage" aria-label="Berhenti, terasa nyeri">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="7" y="7" width="10" height="10" rx="1" fill="#13211F" opacity="0.9"/></svg>
+        <span class="hud-stop-label">BERHENTI</span>
+        <span class="hud-stop-sublabel">Terasa nyeri</span>
+      </button>
+      <!-- Dots rep history -->
+      <div style="position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#4FD6A5;" aria-label="Rep 1: valid"></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:#4FD6A5;" aria-label="Rep 2: valid"></div>
+        <div style="width:10px;height:10px;transform:rotate(45deg);background:#F5C04A;" aria-label="Rep 3: parsial"></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:#4FD6A5;" aria-label="Rep 4: valid"></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:#4FD6A5;" aria-label="Rep 5: valid"></div>
+        <div style="width:10px;height:10px;clip-path:polygon(50% 0%,100% 100%,0% 100%);background:#FF7A5C;" aria-label="Rep 6: kompensasi"></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:#4FD6A5;" aria-label="Rep 7: valid"></div>
+        <div style="width:10px;height:10px;border-radius:50%;border:1.5px solid #A9B5B0;" aria-label="Rep 8: belum"></div>
+        <div style="width:10px;height:10px;border-radius:50%;border:1.5px solid #A9B5B0;" aria-label="Rep 9: belum"></div>
+        <div style="width:10px;height:10px;border-radius:50%;border:1.5px solid #A9B5B0;" aria-label="Rep 10: belum"></div>
+      </div>
+    </div>
+
+    <!-- Siluet Kalibrasi -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Siluet Kalibrasi (FR-2.1 – 2.6)</h3>
+    <div class="calibration-demo" aria-label="Contoh layar kalibrasi Stage">
+      <!-- Kurung rentang tinggi tubuh -->
+      <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; width: 200px; gap: 2px;">
+        <div style="width: 100%; height: 2px; background: rgba(169,181,176,0.4); border-radius:1px;"></div>
+        <div style="font-size: 10px; color: #A9B5B0; font-family: var(--font-patient);">Batas atas (85%)</div>
+      </div>
+
+      <!-- Siluet SVG — terkunci (hijau) -->
+      <svg class="silhouette-locked" width="120" height="240" viewBox="0 0 120 240" fill="none" aria-label="Siluet tubuh terkunci" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+        <!-- Kepala -->
+        <circle cx="60" cy="30" r="16" stroke="#4FD6A5" stroke-width="5"/>
+        <!-- Badan -->
+        <line x1="60" y1="46" x2="60" y2="130" stroke="#4FD6A5" stroke-width="5" stroke-linecap="round"/>
+        <!-- Bahu kiri -->
+        <line x1="60" y1="65" x2="20" y2="95" stroke="#4FD6A5" stroke-width="5" stroke-linecap="round"/>
+        <line x1="20" y1="95" x2="10" y2="140" stroke="#4FD6A5" stroke-width="5" stroke-linecap="round"/>
+        <!-- Bahu kanan -->
+        <line x1="60" y1="65" x2="100" y2="95" stroke="#4FD6A5" stroke-width="5" stroke-linecap="round"/>
+        <line x1="100" y1="95" x2="110" y2="140" stroke="#4FD6A5" stroke-width="5" stroke-linecap="round"/>
+        <!-- Kaki kiri -->
+        <line x1="60" y1="130" x2="40" y2="185" stroke="#4FD6A5" stroke-width="5" stroke-linecap="round"/>
+        <line x1="40" y1="185" x2="35" y2="235" stroke="#4FD6A5" stroke-width="5" stroke-linecap="round"/>
+        <!-- Kaki kanan -->
+        <line x1="60" y1="130" x2="80" y2="185" stroke="#4FD6A5" stroke-width="5" stroke-linecap="round"/>
+        <line x1="80" y1="185" x2="85" y2="235" stroke="#4FD6A5" stroke-width="5" stroke-linecap="round"/>
+        <!-- Sendi (bulat = Tercapai) -->
+        <circle cx="60" cy="65" r="7" fill="#4FD6A5"/>
+        <circle cx="20" cy="95" r="5" fill="#4FD6A5"/>
+        <circle cx="100" cy="95" r="5" fill="#4FD6A5"/>
+        <circle cx="60" cy="130" r="5" fill="#4FD6A5"/>
+      </svg>
+
+      <!-- Instruksi sudah terkunci -->
+      <div style="position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); background: #162321; border-radius: 12px; padding: 12px 24px; text-align: center;">
+        <div style="font-size: 28px; font-weight: 700; color: #4FD6A5; font-family: var(--font-patient);">Posisi terkunci ✓</div>
+        <div style="font-size: 20px; color: #A9B5B0; font-family: var(--font-patient); margin-top: 4px;">Tahan 3 detik…</div>
+      </div>
+
+      <!-- Cincin kemajuan -->
+      <div style="position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);">
+        <svg width="48" height="48" viewBox="0 0 48 48" aria-label="Kemajuan tahan pose 2 dari 3 detik">
+          <circle cx="24" cy="24" r="20" fill="none" stroke="#1F312E" stroke-width="4"/>
+          <circle cx="24" cy="24" r="20" fill="none" stroke="#4FD6A5" stroke-width="4"
+                  stroke-dasharray="84 42" stroke-dashoffset="-21" stroke-linecap="round" transform="rotate(-90 24 24)"/>
+        </svg>
+      </div>
+
+      <!-- Kurung rentang bawah -->
+      <div style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; width: 200px; gap: 2px;">
+        <div style="font-size: 10px; color: #A9B5B0; font-family: var(--font-patient);">Batas bawah (60%)</div>
+        <div style="width: 100%; height: 2px; background: rgba(169,181,176,0.4); border-radius:1px;"></div>
+      </div>
+    </div>
+
+    <!-- Pose-to-Confirm -->
+    <h3 class="swatch-group-title" style="margin-top: var(--space-8);">Pose-to-Confirm & Gestur Berhenti</h3>
+    <div style="background: #0E1514; border-radius: var(--r-xl); padding: var(--space-8); display: flex; gap: var(--space-8); flex-wrap: wrap;">
+      <!-- Pose to confirm -->
+      <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; align-items: center; gap: var(--space-4);">
+        <div style="font-size: 20px; font-weight: 700; color: #F2EFE8; font-family: var(--font-patient);">Mulai Misi?</div>
+        <div style="font-size: 16px; color: #A9B5B0; font-family: var(--font-patient);">Tahan pose ini 2 detik</div>
+        <svg width="80" height="80" viewBox="0 0 80 80" aria-label="Lingkaran kemajuan pose-to-confirm 75%">
+          <circle cx="40" cy="40" r="34" fill="none" stroke="#1F312E" stroke-width="6"/>
+          <circle cx="40" cy="40" r="34" fill="none" stroke="#4FD6A5" stroke-width="6"
+                  stroke-dasharray="160 53" stroke-dashoffset="-21" stroke-linecap="round" transform="rotate(-90 40 40)" style="animation: none;"/>
+          <text x="40" y="45" text-anchor="middle" fill="#F2EFE8" font-size="18" font-weight="700" font-family="var(--font-patient)">1.5s</text>
+        </svg>
+        <div style="font-size: 12px; color: #A9B5B0; font-family: var(--font-patient); text-align: center;">Alternatif: tekan Spasi (pendamping)</div>
+      </div>
+      <!-- Gestur Berhenti -->
+      <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; align-items: center; gap: var(--space-4);">
+        <div style="font-size: 20px; font-weight: 700; color: #FF7A5C; font-family: var(--font-patient);">Gestur Berhenti</div>
+        <div style="font-size: 16px; color: #A9B5B0; font-family: var(--font-patient); text-align: center;">Silangkan lengan di dada, tahan 1 detik</div>
+        <!-- Animasi cincin gestur berhenti -->
+        <svg width="100" height="100" viewBox="0 0 100 100" aria-label="Cincin kemajuan gestur berhenti 60%">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#1F312E" stroke-width="6"/>
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#FF7A5C" stroke-width="6"
+                  stroke-dasharray="158 106" stroke-dashoffset="-26" stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text x="50" y="45" text-anchor="middle" fill="#FF7A5C" font-size="18" font-weight="700" font-family="var(--font-patient)">✕</text>
+          <text x="50" y="65" text-anchor="middle" fill="#FF7A5C" font-size="12" font-family="var(--font-patient)">0.6s</text>
+        </svg>
+        <div style="font-size: 12px; color: #A9B5B0; font-family: var(--font-patient); text-align: center;">Lepas sebelum penuh = batal. Lepas = batal.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       BAGIAN 6 — SPASI, RADIUS, ELEVASI, FOKUS
+       ═══════════════════════════════════════ -->
+  <section id="tokens" aria-labelledby="tokens-title">
+    <div class="section-header">
+      <p class="section-label">Bagian 6 & 8</p>
+      <h2 class="section-title" id="tokens-title">Spasi, Radius, Elevasi & Motion</h2>
+    </div>
+
+    <h3 class="swatch-group-title">Radius</h3>
+    <div class="flex-row items-center" style="gap: var(--space-6); flex-wrap: wrap;">
+      <div style="text-align: center;">
+        <div style="width: 80px; height: 40px; background: var(--accent-700); border-radius: var(--r-sm); margin-bottom: var(--space-2);"></div>
+        <div class="swatch-token">r-sm</div><div class="swatch-hex">6 px · chip, badge</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="width: 80px; height: 40px; background: var(--accent-700); border-radius: var(--r-md); margin-bottom: var(--space-2);"></div>
+        <div class="swatch-token">r-md</div><div class="swatch-hex">8 px · tombol, input</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="width: 80px; height: 40px; background: var(--accent-700); border-radius: var(--r-lg); margin-bottom: var(--space-2);"></div>
+        <div class="swatch-token">r-lg</div><div class="swatch-hex">12 px · kartu</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="width: 80px; height: 40px; background: var(--accent-700); border-radius: var(--r-xl); margin-bottom: var(--space-2);"></div>
+        <div class="swatch-token">r-xl</div><div class="swatch-hex">16 px · dialog, HUD</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="width: 80px; height: 40px; background: var(--accent-700); border-radius: var(--r-full); margin-bottom: var(--space-2);"></div>
+        <div class="swatch-token">r-full</div><div class="swatch-hex">9999 px · pil, avatar</div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title" style="margin-top: var(--space-6);">Elevasi (Shadow)</h3>
+    <div class="flex-row" style="gap: var(--space-6); flex-wrap: wrap; align-items: flex-start;">
+      <div style="background: var(--surface); border-radius: var(--r-lg); padding: var(--space-6); box-shadow: var(--shadow-xs); border: 1px solid var(--border-default); text-align: center; min-width: 120px;">
+        <div class="swatch-token">shadow-xs</div>
+        <div class="swatch-hex" style="margin-top: 4px;">Kartu default</div>
+      </div>
+      <div style="background: var(--surface); border-radius: var(--r-lg); padding: var(--space-6); box-shadow: var(--shadow-sm); border: 1px solid var(--border-default); text-align: center; min-width: 120px;">
+        <div class="swatch-token">shadow-sm</div>
+        <div class="swatch-hex" style="margin-top: 4px;">Kartu hover</div>
+      </div>
+      <div style="background: var(--surface); border-radius: var(--r-lg); padding: var(--space-6); box-shadow: var(--shadow-md); text-align: center; min-width: 120px;">
+        <div class="swatch-token">shadow-md</div>
+        <div class="swatch-hex" style="margin-top: 4px;">Menu, popover</div>
+      </div>
+      <div style="background: var(--surface); border-radius: var(--r-lg); padding: var(--space-6); box-shadow: var(--shadow-lg); text-align: center; min-width: 120px;">
+        <div class="swatch-token">shadow-lg</div>
+        <div class="swatch-hex" style="margin-top: 4px;">Dialog</div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title" style="margin-top: var(--space-6);">Fokus Keyboard</h3>
+    <div class="flex-row items-center">
+      <button class="btn btn-primary" style="box-shadow: var(--focus-ring);" id="btn-focus-demo">Tombol dengan fokus</button>
+      <input class="input-field" style="width: 200px; box-shadow: var(--focus-ring); border-color: var(--accent-700);" value="Input dengan fokus" aria-label="Contoh input dengan fokus" id="input-focus-demo"/>
+      <div class="d-caption" style="color: var(--text-500);">Cincin 2 px accent-700 + offset 2 px · 5,47:1 di putih</div>
+    </div>
+
+    <h3 class="swatch-group-title" style="margin-top: var(--space-6);">Motion Tokens</h3>
+    <div class="table-card" style="max-width: 640px;">
+      <table aria-label="Tabel motion tokens">
+        <thead><tr>
+          <th>Token</th>
+          <th>Durasi</th>
+          <th>Easing</th>
+          <th>Dipakai untuk</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="d-data" style="font-family: monospace;">motion-instant</td><td class="d-data">80 ms</td><td class="d-data">linear</td><td class="d-body">Perubahan status kecil</td></tr>
+          <tr><td class="d-data" style="font-family: monospace;">motion-quick</td><td class="d-data">160 ms</td><td class="d-data">ease</td><td class="d-body">Hover, fokus, chip, tombol</td></tr>
+          <tr><td class="d-data" style="font-family: monospace;">motion-standard</td><td class="d-data">240 ms</td><td class="d-data">ease</td><td class="d-body">Transisi panel, dialog, toast masuk</td></tr>
+          <tr><td class="d-data" style="font-family: monospace;">motion-slow</td><td class="d-data">400 ms</td><td class="d-data">ease-slow</td><td class="d-body">Perpindahan antar langkah sesi, Stage ↔ Studio</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       BAGIAN 7 — MIKROCOPY
+       ═══════════════════════════════════════ -->
+  <section id="microcopy" aria-labelledby="micro-title">
+    <div class="section-header">
+      <p class="section-label">Bagian 13</p>
+      <h2 class="section-title" id="micro-title">Suara & Nada Penulisan</h2>
+      <p class="section-desc">Tenang, singkat, konkret. Tidak menggurui. Tidak berlebihan memuji. Tidak ada istilah teknis di sisi pasien.</p>
+    </div>
+    <div class="table-card">
+      <table aria-label="Tabel panduan mikrocopy">
+        <thead><tr>
+          <th>Situasi</th>
+          <th style="color: var(--status-comp);">❌ Hindari</th>
+          <th style="color: var(--status-reach);">✓ Pakai</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="d-body">Repetisi bagus</td><td class="d-body" style="color: var(--text-500);">"LUAR BIASA!!! Kamu juara!"</td><td class="d-body" style="color: var(--text-900); font-weight: 500;">"Bagus."</td></tr>
+          <tr><td class="d-body">Kurang naik</td><td class="d-body" style="color: var(--text-500);">"Gerakan salah"</td><td class="d-body" style="color: var(--text-900); font-weight: 500;">"Naik sedikit lagi"</td></tr>
+          <tr><td class="d-body">Kompensasi</td><td class="d-body" style="color: var(--text-500);">"Postur salah, skor dikurangi"</td><td class="d-body" style="color: var(--text-900); font-weight: 500;">"Bahu tetap rileks"</td></tr>
+          <tr><td class="d-body">Nyeri</td><td class="d-body" style="color: var(--text-500);">"Sesi dihentikan karena kesalahan"</td><td class="d-body" style="color: var(--text-900); font-weight: 500;">"Istirahat dulu. Tidak apa-apa."</td></tr>
+          <tr><td class="d-body">Akhir sesi</td><td class="d-body" style="color: var(--text-500);">"Coba tingkatkan level besok"</td><td class="d-body" style="color: var(--text-900); font-weight: 500;">"Sesi selesai. Terapis Anda akan melihat hasil hari ini."</td></tr>
+          <tr><td class="d-body">Offline</td><td class="d-body" style="color: var(--text-500);">"Gagal terhubung"</td><td class="d-body" style="color: var(--text-900); font-weight: 500;">"Tersimpan di perangkat. Akan dikirim saat tersambung."</td></tr>
+          <tr><td class="d-body">Resep tersimpan (terapis)</td><td class="d-body" style="color: var(--text-500);">"Yay, berhasil disimpan!"</td><td class="d-body" style="color: var(--text-900); font-weight: 500;">"Resep disimpan. Berlaku pada sesi berikutnya pasien."</td></tr>
+          <tr><td class="d-body">Data kamera</td><td class="d-body" style="color: var(--text-500);">"Akurasi klinis"</td><td class="d-body" style="color: var(--text-900); font-weight: 500;">"Estimasi kamera"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════ -->
+  <footer style="border-top: 1px solid var(--border-subtle); padding: var(--space-8) 0; color: var(--text-500); font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4);">
+    <div>MoveWall AI · Design System v1.1 · Oktober 2026</div>
+    <div>Studio: Inter + Atkinson Hyperlegible Next · Stage: tidak mengikuti gaya SaaS</div>
+    <div>Kesan SaaS modern dinilai pada pratinjau ini ✓</div>
+  </footer>
+
+</main>
+
+<script>
+  // Interaksi minimal untuk demo
+  document.querySelectorAll('.toast-close').forEach(btn => {
+    btn.addEventListener('click', () => btn.closest('.toast').style.display = 'none');
+  });
+
+  document.querySelectorAll('.filter-pills .pill').forEach(pill => {
+    pill.addEventListener('click', function() {
+      this.closest('.filter-pills').querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  document.querySelectorAll('.sidebar-nav-item').forEach(item => {
+    item.addEventListener('click', function() {
+      this.closest('nav').querySelectorAll('.sidebar-nav-item').forEach(i => { i.classList.remove('active'); i.removeAttribute('aria-current'); });
+      this.classList.add('active');
+      this.setAttribute('aria-current', 'page');
+    });
+  });
+</script>
+</body>
+</html>

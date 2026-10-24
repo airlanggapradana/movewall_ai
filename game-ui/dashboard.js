@@ -328,7 +328,7 @@ async function selectPatient(name) {
   }
 }
 
-// ── Biomechanics & Score Timeline Trend Chart (Studio Palette) ───────────────
+// ── Biomechanics & Score Timeline Trend Chart (Design System v2.0) ───────────
 
 function drawTrendChart(canvas, sessions, isDark = false) {
   if (!canvas) return;
@@ -339,14 +339,30 @@ function drawTrendChart(canvas, sessions, isDark = false) {
   const w = canvas.width;
   const h = canvas.height;
 
-  // Clear background (Studio clean white canvas)
+  // Auto detect dark theme if not explicitly forced
+  const isDarkTheme = isDark || document.documentElement.getAttribute("data-theme") === "dark";
+
+  // v2.0 Semantic Tokens
+  const colBg       = isDarkTheme ? "#121B2C" : "#FFFFFF"; // surface
+  const colGrid     = isDarkTheme ? "#1F2A3F" : "#E2E8F0"; // border-subtle
+  const colTextMute = isDarkTheme ? "#8B9BB2" : "#64748B"; // text-500
+  const colTextBody = isDarkTheme ? "#CBD5E1" : "#334155"; // text-700
+  const colTextHead = isDarkTheme ? "#F1F5F9" : "#0F172A"; // text-900
+  const colS1       = isDarkTheme ? "#2DD4BF" : "#0F766E"; // chart-1 (S1)
+  const colFill18   = isDarkTheme ? "rgba(45, 212, 191, 0.18)" : "rgba(15, 118, 110, 0.18)";
+  const colFill0    = isDarkTheme ? "rgba(45, 212, 191, 0.0)"  : "rgba(15, 118, 110, 0.0)";
+  const colCeiling  = isDarkTheme ? "#FB923C" : "#EA580C"; // ember-400 / ember-500
+  const colReach    = isDarkTheme ? "#4FD6A5" : "#0B6B4A"; // status-reach
+  const colComp     = isDarkTheme ? "#FF7A5C" : "#9F1239"; // status-comp (v2.0 crimson #9F1239)
+
+  // Clear background
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = colBg;
   ctx.fillRect(0, 0, w, h);
 
   if (!sessions || sessions.length === 0) {
-    ctx.fillStyle = "#5C6B66";
-    ctx.font = '12px "Atkinson Hyperlegible Next", sans-serif';
+    ctx.fillStyle = colTextMute;
+    ctx.font = '12px "Inter", sans-serif';
     ctx.textAlign = "center";
     ctx.fillText("Belum ada data sesi untuk digambar pada grafik", w / 2, h / 2);
     return;
@@ -369,35 +385,35 @@ function drawTrendChart(canvas, sessions, isDark = false) {
   // Draw Grid Lines & Y-axis labels
   const yTicks = 4;
   ctx.lineWidth = 1;
-  ctx.font = '10px "Atkinson Hyperlegible Next", sans-serif';
+  ctx.font = '10px "Inter", sans-serif';
   ctx.textAlign = "right";
 
   for (let i = 0; i <= yTicks; i++) {
     const val = Math.round((maxVal / yTicks) * i);
     const y = padTop + chartH - (i / yTicks) * chartH;
 
-    ctx.strokeStyle = "#E3DCCD"; // bone-200
+    ctx.strokeStyle = colGrid;
     ctx.beginPath();
     ctx.moveTo(padLeft, y);
     ctx.lineTo(w - padRight, y);
     ctx.stroke();
 
-    ctx.fillStyle = "#5C6B66"; // ink-500
+    ctx.fillStyle = colTextMute;
     ctx.fillText(val.toString(), padLeft - 8, y + 3);
   }
 
-  // Draw Target Ceiling Guideline (Dashed line in Ember-600)
+  // Draw Target Ceiling Guideline (Dashed line in Ember)
   const ceilingY = padTop + chartH - (0.85 * chartH);
   ctx.save();
-  ctx.strokeStyle = "#C2410C"; // ember-600
+  ctx.strokeStyle = colCeiling;
   ctx.lineWidth = 1.2;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(padLeft, ceilingY);
   ctx.lineTo(w - padRight, ceilingY);
   ctx.stroke();
-  ctx.fillStyle = "#C2410C";
-  ctx.font = '8.5px "Atkinson Hyperlegible Next", sans-serif';
+  ctx.fillStyle = colCeiling;
+  ctx.font = '8.5px "Inter", sans-serif';
   ctx.textAlign = "right";
   ctx.fillText("Batas Aman / Ceiling", w - padRight - 4, ceilingY - 4);
   ctx.restore();
@@ -412,11 +428,11 @@ function drawTrendChart(canvas, sessions, isDark = false) {
     return { x, y, session: s };
   });
 
-  // Area under curve with subtle clinical teal gradient
+  // Area under curve: S1 area fill 18% memudar ke 0% opasitas (v2.0 spesifikasi)
   if (pts.length > 1) {
     const grad = ctx.createLinearGradient(0, padTop, 0, padTop + chartH);
-    grad.addColorStop(0, "rgba(23, 89, 79, 0.16)"); // primary-600 soft
-    grad.addColorStop(1, "rgba(23, 89, 79, 0.0)");
+    grad.addColorStop(0, colFill18);
+    grad.addColorStop(1, colFill0);
 
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -427,8 +443,8 @@ function drawTrendChart(canvas, sessions, isDark = false) {
     ctx.fill();
   }
 
-  // Connecting Line (primary-600: #17594F)
-  ctx.strokeStyle = "#17594F";
+  // Connecting Line (S1 Teal)
+  ctx.strokeStyle = colS1;
   ctx.lineWidth = 2.5;
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
@@ -445,8 +461,8 @@ function drawTrendChart(canvas, sessions, isDark = false) {
     const hasPain = s.hasPain || (s.painChecklist && Object.values(s.painChecklist).some(Boolean));
 
     if (hasPain) {
-      // Triangle marker for Pain (Status Koreksi: #A82C16)
-      ctx.fillStyle = "#A82C16";
+      // Triangle marker for Pain/Kompensasi (Status Koreksi: crimson #9F1239 / dark #FF7A5C)
+      ctx.fillStyle = colComp;
       ctx.beginPath();
       const r = 6;
       ctx.moveTo(p.x, p.y - r);
@@ -454,23 +470,23 @@ function drawTrendChart(canvas, sessions, isDark = false) {
       ctx.lineTo(p.x - r, p.y + r);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = "#ffffff";
+      ctx.strokeStyle = isDarkTheme ? "#121B2C" : "#ffffff";
       ctx.lineWidth = 1.5;
       ctx.stroke();
     } else {
-      // Circle marker for Pain-Free (Status Tercapai: #0B6B4A)
-      ctx.fillStyle = "#0B6B4A";
+      // Circle marker for Pain-Free (Status Tercapai: #0B6B4A / dark #4FD6A5)
+      ctx.fillStyle = colReach;
       ctx.beginPath();
       ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = "#ffffff";
+      ctx.strokeStyle = isDarkTheme ? "#121B2C" : "#ffffff";
       ctx.lineWidth = 2;
       ctx.stroke();
     }
 
-    // Value tag above point (ink-900: #13211F)
-    ctx.fillStyle = "#13211F";
-    ctx.font = 'bold 9.5px "Atkinson Hyperlegible Next", sans-serif';
+    // Value tag above point
+    ctx.fillStyle = colTextHead;
+    ctx.font = 'bold 9.5px "Inter", sans-serif';
     ctx.textAlign = "center";
     ctx.fillText(`${s.score} pt`, p.x, p.y - 9);
 
@@ -478,13 +494,13 @@ function drawTrendChart(canvas, sessions, isDark = false) {
     const dateStr = s.date
       ? new Date(s.date).toLocaleDateString("id-ID", { day: "numeric", month: "short" })
       : `S${idx + 1}`;
-    ctx.fillStyle = "#34443F"; // ink-700
-    ctx.font = '9.5px "Atkinson Hyperlegible Next", sans-serif';
+    ctx.fillStyle = colTextBody;
+    ctx.font = '9.5px "Inter", sans-serif';
     ctx.fillText(`S${idx + 1} (${dateStr})`, p.x, padTop + chartH + 15);
 
     // Level tag below date
-    ctx.fillStyle = "#17594F"; // primary-600
-    ctx.font = '8.5px "Atkinson Hyperlegible Next", sans-serif';
+    ctx.fillStyle = colS1;
+    ctx.font = '8.5px "Inter", sans-serif';
     const timeInfo = s.time && s.time !== "—" ? ` · ${s.time}` : "";
     ctx.fillText(`Lv.${s.level}${timeInfo}`, p.x, padTop + chartH + 26);
   });
@@ -1450,9 +1466,64 @@ async function handleSimulatePayment() {
   }
 }
 
+// ── v2.0: Theme Toggle (Studio Terang / Studio Gelap) ─────────────────────────
+const dashThemeToggle = document.getElementById("dashThemeToggle");
+const iconThemeLight  = document.getElementById("iconThemeLight");
+const iconThemeDark   = document.getElementById("iconThemeDark");
+
+function updateThemeToggleUI(theme) {
+  if (!iconThemeLight || !iconThemeDark) return;
+  if (theme === "dark") {
+    iconThemeLight.style.display = "none";
+    iconThemeDark.style.display = "block";
+    if (dashThemeToggle) dashThemeToggle.title = "Ganti ke Studio Terang";
+  } else {
+    iconThemeLight.style.display = "block";
+    iconThemeDark.style.display = "none";
+    if (dashThemeToggle) dashThemeToggle.title = "Ganti ke Studio Gelap";
+  }
+}
+
+function initThemeToggle() {
+  const saved = localStorage.getItem("mw-theme");
+  const currentTheme = saved === "dark" ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", currentTheme);
+  updateThemeToggleUI(currentTheme);
+
+  if (dashThemeToggle) {
+    dashThemeToggle.addEventListener("click", () => {
+      const activeTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", activeTheme);
+      localStorage.setItem("mw-theme", activeTheme);
+      updateThemeToggleUI(activeTheme);
+
+      // Redraw trend chart if active
+      const trendCanvas = document.getElementById("uiTrendCanvas");
+      if (trendCanvas && currentPatientHistory && currentPatientHistory.length > 0 && patientWorkspace && !patientWorkspace.classList.contains("hidden")) {
+        drawTrendChart(trendCanvas, currentPatientHistory, activeTheme === "dark");
+      }
+    });
+  }
+}
+
+// ── v2.0: Global Shortcuts (Ctrl/Cmd + K untuk fokus pencarian) ───────────────
+function initShortcuts() {
+  window.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      if (patientSearchInput) {
+        e.preventDefault();
+        patientSearchInput.focus();
+        patientSearchInput.select();
+      }
+    }
+  });
+}
+
 // ── Initialize ────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
+  initThemeToggle();
+  initShortcuts();
   if (checkAuth()) {
     loadDashboardStats();
     loadPatientsDirectory();
@@ -1467,4 +1538,5 @@ window.addEventListener("resize", () => {
     drawTrendChart(trendCanvas, currentPatientHistory, false);
   }
 });
+
 

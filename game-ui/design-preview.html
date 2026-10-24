@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MoveWall AI — Design System Preview v1.1</title>
-  <meta name="description" content="Halaman pratinjau komponen dan token Design System MoveWall AI v1.1: swatch warna, tipografi, ROM Arc Gauge, chip repetisi, kartu statistik, tabel pasien, app shell Dashboard, dan siluet kalibrasi." />
+  <title>MoveWall AI — Design System Preview v2.0</title>
+  <meta name="description" content="Halaman pratinjau komponen dan token Design System MoveWall AI v2.0: Studio Terang & Gelap, tipografi Inter + Atkinson, ROM Arc Gauge, bento grid, palet grafik 4 seri, chip repetisi, kartu statistik, tabel pasien dengan laci detail, dan siluet kalibrasi." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="design-tokens-v1.1.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Atkinson+Hyperlegible+Next:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="design-tokens-v2.0.css" />
   <style>
     /* ── Reset & Base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,6 +19,7 @@
       font-family: var(--font-dashboard);
       font-size: 14px;
       line-height: 20px;
+      transition: background var(--dur-std) var(--ease), color var(--dur-std) var(--ease);
     }
 
     /* ── Preview Layout ── */
@@ -27,13 +28,14 @@
       top: 0;
       z-index: 100;
       height: var(--topbar-h);
-      background: rgba(255,255,255,0.85);
+      background: var(--surface);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
       padding: 0 var(--space-6);
       gap: var(--space-4);
+      transition: background var(--dur-std) var(--ease), border-color var(--dur-std) var(--ease);
     }
     .preview-topbar .logo-mark {
       width: 32px; height: 32px;
@@ -52,6 +54,31 @@
       padding: 2px 8px;
       font-size: 12px;
       font-weight: 600;
+    }
+    .theme-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border-default);
+      color: var(--text-700);
+      border-radius: var(--r-sm);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--dur-quick) var(--ease);
+      margin-left: 8px;
+    }
+    .theme-toggle-btn:hover {
+      background: var(--accent-100);
+      border-color: var(--accent-700);
+      color: var(--accent-700);
+    }
+    [data-theme="dark"] .theme-toggle-btn:hover {
+      background: var(--accent-subtle);
+      border-color: var(--accent-text);
+      color: var(--accent-text);
     }
     .preview-topbar .nav-links { margin-left: auto; display: flex; gap: var(--space-4); }
     .preview-topbar .nav-links a {
@@ -952,7 +979,7 @@
       width: 128px;
       height: 128px;
       border-radius: var(--r-xl);
-      background: #A82C16;
+      background: #9F1239;
       color: white;
       border: none;
       display: flex;
@@ -963,9 +990,9 @@
       cursor: pointer;
       font-family: var(--font-patient);
       transition: background var(--dur-quick);
-      box-shadow: 0 0 0 4px rgba(168,44,22,0.25);
+      box-shadow: 0 0 0 4px rgba(159,18,57,0.25);
     }
-    .emergency-btn:hover { background: #8B1E0D; box-shadow: 0 0 0 6px rgba(168,44,22,0.3); }
+    .emergency-btn:hover { background: #881337; box-shadow: 0 0 0 6px rgba(159,18,57,0.3); }
     .emergency-btn .stop-label    { font-size: 18px; font-weight: 700; letter-spacing: 0.04em; }
     .emergency-btn .stop-sublabel { font-size: 12px; opacity: 0.85; }
 
@@ -1160,7 +1187,7 @@
     </svg>
   </div>
   <span class="logo-text">MoveWall AI</span>
-  <span class="badge">Design System v1.1</span>
+  <span class="badge">Design System v2.0</span>
   <nav class="nav-links" aria-label="Navigasi Pratinjau">
     <a href="#warna">Warna</a>
     <a href="#tipografi">Tipografi</a>
@@ -1168,6 +1195,10 @@
     <a href="#dashboard">Dashboard</a>
     <a href="#stage">Stage</a>
   </nav>
+  <button id="previewThemeToggle" class="theme-toggle-btn" type="button" title="Ganti tema pratinjau (Studio Terang / Studio Gelap)">
+    <span id="themeToggleIcon">🌙</span>
+    <span id="themeToggleLabel">Studio Gelap</span>
+  </button>
 </header>
 
 <main class="preview-main" role="main">
@@ -1176,15 +1207,15 @@
        BAGIAN 0 — INTRO
        ═══════════════════════════════════════ -->
   <section id="intro" aria-labelledby="intro-title">
-    <div style="max-width: 720px;">
+    <div style="max-width: 760px;">
       <h1 id="intro-title" style="font-size: 36px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-900); margin-bottom: var(--space-4);">
-        MoveWall AI<br><span style="color: var(--accent-700);">Design System v1.1</span>
+        MoveWall AI<br><span style="color: var(--accent-700);">Design System v2.0</span>
       </h1>
       <p style="font-size: 18px; color: var(--text-600); line-height: 28px; margin-bottom: var(--space-6);">
-        Pratinjau HTML dari seluruh token desain, tipografi, dan komponen. Arah visual <strong>SaaS modern dengan penerapan berlapis</strong>: Dashboard terapis sepenuhnya SaaS; Aplikasi Pasien memakai bahasa visual SaaS tanpa mengorbankan ukuran; Stage (gameplay) tidak mengikuti gaya SaaS.
+        Pratinjau HTML interaktif dari seluruh token desain, tipografi, dan komponen v2.0. Bahasa visual SaaS modern terkini: <strong>Studio Terang & Gelap</strong> untuk Dashboard terapis, <strong>bento grid</strong> berhierarki klinis, <strong>palet grafik 4 seri</strong>, warna status koreksi crimson <code>#9F1239</code> yang ramah buta warna (CIE76 14.0), tipografi <strong>Inter</strong> untuk dashboard dan <strong>Atkinson Hyperlegible Next</strong> untuk pasien, serta <strong>kanvas konten melayang</strong> ber-cincin 1 px dan bayangan berlapis.
       </p>
       <div class="highlight-box">
-        <strong>Prinsip utama:</strong> Terbaca dari dua meter · Tidak pernah hanya warna · Aman lebih penting dari menang · Jujur soal ketidakpastian kamera
+        <strong>Prinsip utama:</strong> Terbaca dari dua meter · Tidak pernah hanya warna · Aman lebih penting dari menang · Modern berarti hierarki dan kecepatan, bukan dekorasi
       </div>
     </div>
   </section>
@@ -1287,7 +1318,7 @@
       </div>
     </div>
 
-    <h3 class="swatch-group-title">Warna Status Gerakan</h3>
+    <h3 class="swatch-group-title">Warna Status Gerakan (v2.0)</h3>
     <div class="swatch-grid">
       <div class="swatch">
         <div class="swatch-color" style="background:#ECFDF5;"></div>
@@ -1306,12 +1337,60 @@
         <div class="swatch-info"><div class="swatch-token">--status-near</div><div class="swatch-hex">#7A5200</div><div class="swatch-role">Hampir — teks Studio (6,92:1)</div></div>
       </div>
       <div class="swatch">
-        <div class="swatch-color" style="background:#FEF2F2; border-bottom: 1px solid #E2E8F0;"></div>
-        <div class="swatch-info"><div class="swatch-token">--status-comp-bg</div><div class="swatch-hex">#FEF2F2</div><div class="swatch-role">Latar badge Koreksi</div></div>
+        <div class="swatch-color" style="background:#FFF1F2; border-bottom: 1px solid #E2E8F0;"></div>
+        <div class="swatch-info"><div class="swatch-token">--status-comp-bg</div><div class="swatch-hex">#FFF1F2</div><div class="swatch-role">Latar badge Koreksi (v2.0)</div></div>
       </div>
       <div class="swatch">
-        <div class="swatch-color" style="background:#A82C16;"></div>
-        <div class="swatch-info"><div class="swatch-token">--status-comp</div><div class="swatch-hex">#A82C16</div><div class="swatch-role">Koreksi — teks Studio (6,92:1)</div></div>
+        <div class="swatch-color" style="background:#9F1239;"></div>
+        <div class="swatch-info"><div class="swatch-token">--status-comp</div><div class="swatch-hex">#9F1239</div><div class="swatch-role">Koreksi crimson v2.0 (8,02:1 · CIE76 14.0)</div></div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title">Studio Gelap (Baru v2.0 — Dashboard Saja)</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-color" style="background:#0B1220; border-bottom: 1px solid #1F2A3F;"></div>
+        <div class="swatch-info"><div class="swatch-token">--bg-app (dark)</div><div class="swatch-hex">#0B1220</div><div class="swatch-role">Latar halaman & sidebar gelap</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#121B2C; border-bottom: 1px solid #2A3750;"></div>
+        <div class="swatch-info"><div class="swatch-token">--surface (dark)</div><div class="swatch-hex">#121B2C</div><div class="swatch-role">Kartu & kanvas konten</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#18233A;"></div>
+        <div class="swatch-info"><div class="swatch-token">--surface-raised</div><div class="swatch-hex">#18233A</div><div class="swatch-role">Popover, dialog, menu elevasi</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#1A2640;"></div>
+        <div class="swatch-info"><div class="swatch-token">--surface-muted (dark)</div><div class="swatch-hex">#1A2640</div><div class="swatch-role">Header tabel & chip gelap</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#2DD4BF;"></div>
+        <div class="swatch-info"><div class="swatch-token">--accent-text</div><div class="swatch-hex">#2DD4BF</div><div class="swatch-role">Tautan & ikon aktif (9,26:1)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#14B8A6;"></div>
+        <div class="swatch-info"><div class="swatch-token">--accent-fill</div><div class="swatch-hex">#14B8A6</div><div class="swatch-role">Tombol utama Studio Gelap</div></div>
+      </div>
+    </div>
+
+    <h3 class="swatch-group-title">Grafik Multi-Seri (Baru v2.0 — 4 Seri)</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-color" style="background:#0F766E;"></div>
+        <div class="swatch-info"><div class="swatch-token">--chart-1 (S1)</div><div class="swatch-hex">#0F766E / #2DD4BF</div><div class="swatch-role">Seri utama (dilatih, minggu ini)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#2563EB;"></div>
+        <div class="swatch-info"><div class="swatch-token">--chart-2 (S2)</div><div class="swatch-hex">#2563EB / #60A5FA</div><div class="swatch-role">Perbandingan (sisi sebaliknya)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#BE185D;"></div>
+        <div class="swatch-info"><div class="swatch-token">--chart-3 (S3)</div><div class="swatch-hex">#BE185D / #FB7185</div><div class="swatch-role">Seri ketiga (jarang dipakai)</div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#64748B;"></div>
+        <div class="swatch-info"><div class="swatch-token">--chart-4 (S4)</div><div class="swatch-hex">#64748B / #94A3B8</div><div class="swatch-role">Baseline/pembanding netral</div></div>
       </div>
     </div>
 
@@ -2442,9 +2521,9 @@
        FOOTER
        ═══════════════════════════════════════ -->
   <footer style="border-top: 1px solid var(--border-subtle); padding: var(--space-8) 0; color: var(--text-500); font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4);">
-    <div>MoveWall AI · Design System v1.1 · Oktober 2026</div>
+    <div>MoveWall AI · Design System v2.0 · Oktober 2026</div>
     <div>Studio: Inter + Atkinson Hyperlegible Next · Stage: tidak mengikuti gaya SaaS</div>
-    <div>Kesan SaaS modern dinilai pada pratinjau ini ✓</div>
+    <div>Kesan SaaS modern v2.0 dinilai pada pratinjau ini ✓</div>
   </footer>
 
 </main>
@@ -2469,6 +2548,33 @@
       this.setAttribute('aria-current', 'page');
     });
   });
+
+  // v2.0 Theme Toggle Logic
+  const themeBtn = document.getElementById('previewThemeToggle');
+  const themeIcon = document.getElementById('themeToggleIcon');
+  const themeLabel = document.getElementById('themeToggleLabel');
+
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('mw_preview_theme', t);
+    if (t === 'dark') {
+      if (themeIcon) themeIcon.textContent = '☀️';
+      if (themeLabel) themeLabel.textContent = 'Studio Terang';
+    } else {
+      if (themeIcon) themeIcon.textContent = '🌙';
+      if (themeLabel) themeLabel.textContent = 'Studio Gelap';
+    }
+  }
+
+  const initialTheme = localStorage.getItem('mw_preview_theme') || 'light';
+  setTheme(initialTheme);
+
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      setTheme(current === 'dark' ? 'light' : 'dark');
+    });
+  }
 </script>
 </body>
 </html>

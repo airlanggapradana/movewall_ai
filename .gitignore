@@ -8,3 +8,20 @@ build/
 .env
 .env.*
 !.env.example
+
+# Project documentation & task files
+MOVEWALL-AI.md
+MoveWall AI Fitur Tambahan untuk Unique Selling Point.md
+MoveWall_AI_Design_System_v1.0.md
+MoveWall_AI_Design_System_v1.1.md
+MoveWall_AI_Design_System_v2_0.md
+PRD.md
+PRD_MoveWall_AI_v1.0.md
+TADD_MoveWall_AI_v1.0.md
+Task.md
+Task_2.md
+Task_3.md
+Task_4.md
+Task_5.md
+Task_6.md
+walkthrough.md

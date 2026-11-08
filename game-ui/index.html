@@ -10,27 +10,79 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
     <link rel="icon" type="image/png" href="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#0f172a" />
   </head>
   <body data-mission="mission-1">
+    <!-- ═══ Game Navbar v2.0 ═══════════════════════════════════════════════ -->
+    <header class="game-navbar">
+      <div class="game-nav-left">
+        <div class="game-nav-app-icon">🎯</div>
+        <span class="game-nav-title">Apple Archer</span>
+        <span class="game-nav-divider"></span>
+        <div class="game-session-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>Today's Session</span>
+        </div>
+        <div class="game-patient-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span id="hudPatientName" class="hud-name">Pasien: —</span>
+        </div>
+      </div>
+
+      <div class="game-nav-right">
+        <div class="game-gesture-pill">
+          <span class="game-gesture-icon">🤚</span>
+          <span class="game-gesture-label">Hand Gesture</span>
+          <span class="game-gesture-status">Target Tutup</span>
+          <svg class="game-gesture-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <button class="game-theme-btn" title="Toggle tema" aria-label="Toggle tema">☀️</button>
+        <div class="game-avatar">A</div>
+      </div>
+    </header>
+
     <main class="shell">
       <section class="projection" aria-label="MoveWall AI game projection">
         <canvas id="gameCanvas" width="1280" height="720"></canvas>
         <video id="cameraPreview" class="camera-preview" autoplay muted playsinline></video>
 
+        <!-- Target Instruction Card (top-left overlay) -->
         <div class="mission-card" aria-label="Current mission">
-          <span>Today's Mission</span>
-          <strong>Apple Archer</strong>
+          <div class="mission-card-icon">🎯</div>
+          <div class="mission-card-content">
+            <span>Target</span>
+            <strong>Tembak objek yang muncul!</strong>
+          </div>
         </div>
 
+        <!-- Clinical Patient & Safety Ceiling Badge -->
+        <div id="patientActiveHud" class="patient-active-hud" aria-label="Status Pasien & Batas Aman">
+          <div class="patient-hud-badge">
+            <span class="hud-dot"></span>
+            <span class="hud-name-text">Pasien: —</span>
+            <span class="hud-sep">|</span>
+            <span id="hudSafetyCeiling" class="hud-ceiling">Batas Aman: 135°</span>
+            <span id="hudAdaptivePill" class="hud-adaptive-pill">ADAPTIF AKTIF</span>
+          </div>
+        </div>
+
+        <!-- Circular ROM Meter (top-right) -->
         <div class="rom-meter" aria-label="ROM meter">
-          <span>ROM</span>
-          <strong id="rom">0</strong>
-          <small id="target">Target 30</small>
+          <div class="rom-meter-inner">
+            <span>ROM</span>
+            <strong id="rom">0</strong>
+            <small id="target">TARGET 30</small>
+          </div>
         </div>
 
+        <!-- Feedback Card (bottom-left) -->
         <div id="feedback" class="feedback neutral">
-          <strong id="feedbackTitle">Ready</strong>
-          <span id="feedbackText">Start camera to draw the bow</span>
+          <div class="feedback-icon-box">💡</div>
+          <div class="feedback-content">
+            <strong id="feedbackTitle">Siap Memulai!</strong>
+            <span id="feedbackText">Tekan Start Camera untuk mulai sesi</span>
+          </div>
         </div>
 
         <!-- Mission Complete Modal / Overlay -->
@@ -148,50 +200,143 @@
             </div>
           </div>
         </div>
+
+        <!-- Occlusion / Lost Player Auto-Pause Overlay (Fitur 9: Player Lock) -->
+        <div id="playerOccludedOverlay" class="player-occluded-overlay hidden" aria-modal="true" role="dialog">
+          <div class="player-occluded-backdrop"></div>
+          <div class="player-occluded-card">
+            <div class="occluded-icon">⚠️</div>
+            <h3 class="occluded-title">Pemain Terhalang / Di Luar Area</h3>
+            <p class="occluded-desc">
+              Pelacakan tubuh pemain terkunci terputus karena terhalang orang lain atau melangkah keluar dari area kamera. Gim dijeda otomatis agar skor dan repetisi tidak rusak.
+            </p>
+            <div class="occluded-status-box">
+              <span>Status: <strong id="occludedStatusText">Menunggu pemain kembali ke tengah kamera...</strong></span>
+            </div>
+            <div class="occluded-actions">
+              <button type="button" id="btnRelockPlayer" class="btn-occluded-primary">
+                <span>🔄 Pilih Ulang / Kunci Pemain Baru</span>
+              </button>
+              <button type="button" id="btnUnlockPlayer" class="btn-occluded-secondary">
+                <span>🔓 Buka Kunci (Mode Bebas)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Camera Calibration Modal (Fitur 4: Kalibrasi Kamera) -->
+        <div id="calibrationOverlay" class="calibration-overlay hidden" aria-modal="true" role="dialog">
+          <div class="calibration-backdrop"></div>
+          <div class="calibration-card">
+            <div class="calibration-header">
+              <div class="calibration-header-icon">📐</div>
+              <div>
+                <h2 class="calibration-title">Kalibrasi Kamera &amp; Postur Netral</h2>
+                <p class="calibration-subtitle">Menyesuaikan sudut elevasi 0° dan jarak optimal terhadap webcam</p>
+              </div>
+              <button id="calibrationCloseBtn" type="button" class="calibration-close-btn">&times;</button>
+            </div>
+            <div class="calibration-body">
+              <div class="calibration-steps">
+                <div class="calibration-step active">
+                  <span class="step-num">1</span>
+                  <span>Berdiri tegak menghadap kamera dengan kedua lengan rileks di samping tubuh</span>
+                </div>
+                <div class="calibration-step">
+                  <span class="step-num">2</span>
+                  <span>Pastikan bahu, siku, dan tangan terlihat jelas di dalam layar</span>
+                </div>
+              </div>
+              <div class="calibration-metrics-box">
+                <div class="calib-metric">
+                  <span>Status Jarak</span>
+                  <strong id="calibDistanceStatus">Menunggu kamera...</strong>
+                </div>
+                <div class="calib-metric">
+                  <span>Leveling Bahu</span>
+                  <strong id="calibShoulderStatus">—</strong>
+                </div>
+                <div class="calib-metric">
+                  <span>Zero Offset</span>
+                  <strong id="calibZeroOffset">0.0°</strong>
+                </div>
+              </div>
+              <div id="calibrationFeedback" class="calibration-feedback">
+                Nyalakan kamera lalu klik "Ambil Sampel Baseline" untuk menyimpan titik nol.
+              </div>
+            </div>
+            <div class="calibration-footer">
+              <button type="button" id="btnSampleBaseline" class="btn-calibration-action">
+                <span>✓ Ambil Sampel Postur Netral (0°)</span>
+              </button>
+              <button type="button" id="btnApplyCalibration" class="btn-calibration-primary">
+                <span>Selesai &amp; Mulai Latihan</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="control-band" aria-label="Game controls">
-        <div class="control-group">
-          <button id="startButton" type="button">Start Camera</button>
-          <button id="pauseButton" type="button">Pause</button>
-          <button id="resetButton" type="button">Reset</button>
-          <button id="musicToggleButton" type="button" class="btn-music-toggle" title="Putar/Bisukan Musik Latar">
-            <span id="musicToggleIcon">🎵</span>
-            <span>Musik</span>
+        <div class="control-left">
+          <button id="startButton" type="button" class="btn-start-camera">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+            <span>Start Camera</span>
           </button>
+          <button id="pauseButton" type="button" class="ctrl-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            <span>Pause</span>
+          </button>
+          <button id="resetButton" type="button" class="ctrl-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24L21 8"/><path d="M21 3v5h-5"/></svg>
+            <span>Reset</span>
+          </button>
+          <button id="btnPlayerLock" type="button" class="ctrl-btn btn-player-lock" title="Kunci pelacakan pada tubuh pemain aktif">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>Kunci Pemain</span>
+          </button>
+          <button id="btnCalibrate" type="button" class="ctrl-btn btn-calibrate" title="Kalibrasi postur netral 0° & jarak kamera">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+            <span>Kalibrasi</span>
+          </button>
+          <div class="music-toggle-wrap">
+            <span class="ctrl-label-music">🎵 Musik</span>
+            <button id="musicToggleButton" type="button" class="btn-music-toggle music-switch" title="Putar/Bisukan Musik Latar" role="switch" aria-checked="false">
+              <span id="musicToggleIcon" class="music-switch-thumb"></span>
+            </button>
+          </div>
         </div>
 
-        <div class="stats-bar" aria-label="Game statistics">
+        <div class="control-right stats-bar" aria-label="Game statistics">
           <div class="stat-chip">
-            <span>Score</span>
+            <span>SCORE</span>
             <strong id="score">0</strong>
           </div>
           <div class="stat-chip">
-            <span>Time</span>
-            <strong id="time">01:30</strong>
+            <span>TIME</span>
+            <strong id="time">02:00</strong>
           </div>
           <div class="stat-chip">
-            <span>Level</span>
+            <span>LEVEL</span>
             <strong id="level">1</strong>
           </div>
           <div class="stat-chip">
-            <span>Hits</span>
+            <span>HITS</span>
             <strong><span id="reps">0</span>/10</strong>
+          </div>
+          <div class="stat-chip rom-check-chip">
+            <span>ROM CHECK</span>
+            <strong id="romStatus"><span class="rom-cam-icon">📷</span> Menunggu kamera</strong>
           </div>
         </div>
 
-        <div class="rom-status">
-          <span>ROM Check</span>
-          <strong id="romStatus">Waiting for camera</strong>
-        </div>
-
-        <nav class="mission-switcher" aria-label="Mission selector">
+        <!-- Hidden elements kept for JS compatibility -->
+        <nav class="mission-switcher hidden-nav" aria-label="Mission selector" aria-hidden="true">
           <a class="active" href="./index.html" aria-current="page">M1</a>
           <a href="./mission2.html">M2</a>
           <a href="./dashboard.html" title="Dashboard Admin Terapis">📊 Admin</a>
         </nav>
-
-        <button id="painButton" class="pain-button" type="button">Stop</button>
+        <button id="painButton" class="pain-button visually-hidden" type="button">Stop</button>
       </section>
     </main>
 
@@ -397,58 +542,179 @@
                 <span id="patientAgeHint" class="patient-age-hint hidden">Otomatis terisi dari riwayat</span>
               </div>
             </div>
+
+            <!-- Persetujuan Data Pasien (UU PDP) -->
+            <div class="assessment-consent-field">
+              <label class="assessment-consent-label" for="patientConsent">
+                <input
+                  type="checkbox"
+                  id="patientConsent"
+                  name="consent"
+                  class="assessment-checkbox-visible"
+                  checked
+                />
+                <span class="consent-text">
+                  <strong>Persetujuan Pasien (UU PDP):</strong> Pasien menyetujui perekaman biomekanika gerak dan evaluasi fisioterapi tele-rehabilitasi.
+                </span>
+              </label>
+            </div>
           </div>
 
-          <!-- Section 2: Pain Checklist -->
+          <!-- Section 2: Telemetri Sesi (Fitur 3: ROM Maksimum, Akurasi, Kompensasi) -->
+          <div class="assessment-section assessment-metrics-section">
+            <div class="assessment-section-header">
+              <h3 class="assessment-section-title">Hasil Pengukuran Sesi Ini</h3>
+              <span class="dash-card-badge badge-camera-tag">Estimasi kamera</span>
+            </div>
+            <div class="assessment-metrics-grid">
+              <div class="metric-mini-card">
+                <span class="metric-mini-label">ROM Maksimum</span>
+                <strong class="metric-mini-val" id="evalMaxRom">—°</strong>
+                <span class="metric-mini-sub">Fleksi aktif lengan</span>
+              </div>
+              <div class="metric-mini-card">
+                <span class="metric-mini-label">Akurasi Target</span>
+                <strong class="metric-mini-val" id="evalAccuracy">—%</strong>
+                <span class="metric-mini-sub">Di jendela target</span>
+              </div>
+              <div class="metric-mini-card">
+                <span class="metric-mini-label">Episode Kompensasi</span>
+                <strong class="metric-mini-val" id="evalCompensation">0</strong>
+                <span class="metric-mini-sub">Bahu terangkat (hike)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: Pain Checklist & Skala Nyeri 0-10 (Fitur 2) -->
           <div class="assessment-section">
-            <h3 class="assessment-section-title">Pemeriksaan Nyeri pada Gerakan ROM</h3>
-            <p class="assessment-section-desc">Centang apakah pasien merasakan nyeri saat melakukan gerakan berikut:</p>
+            <h3 class="assessment-section-title">Pemeriksaan Nyeri per Gerakan (Skala 0–10)</h3>
+            <p class="assessment-section-desc">Centang gerakan yang menimbulkan rasa nyeri, lalu tentukan intensitas (0 = Bebas Nyeri, 1–3 = Ringan, 4–6 = Sedang, 7–10 = Berat):</p>
 
             <div class="assessment-pain-grid">
-              <label class="assessment-radio-label" for="painFlexion">
-                <input type="checkbox" id="painFlexion" name="painFlexion" class="assessment-checkbox" />
-                <span class="assessment-radio-custom"></span>
-                <div class="assessment-radio-content">
-                  <span class="radio-movement">Fleksi Bahu</span>
-                  <span class="radio-desc">Mengangkat lengan ke depan (0°–180°)</span>
+              <!-- Fleksi Bahu -->
+              <div class="pain-movement-card" id="cardPainFlexion">
+                <label class="assessment-radio-label" for="painFlexion">
+                  <input type="checkbox" id="painFlexion" name="painFlexion" class="assessment-checkbox pain-toggle" data-target="painFlexionScore" />
+                  <span class="assessment-radio-custom"></span>
+                  <div class="assessment-radio-content">
+                    <span class="radio-movement">Fleksi Bahu</span>
+                    <span class="radio-desc">Mengangkat lengan ke depan (0°–180°)</span>
+                  </div>
+                </label>
+                <div class="pain-score-slider-wrap hidden" id="wrapPainFlexionScore">
+                  <div class="pain-score-header">
+                    <span class="pain-score-label">Skala Nyeri (NRS):</span>
+                    <span class="pain-score-value" id="valPainFlexionScore">4 (Sedang)</span>
+                  </div>
+                  <input type="range" min="0" max="10" step="1" value="0" class="pain-range-slider" id="painFlexionScore" name="painFlexionScore" />
                 </div>
-              </label>
+              </div>
 
-              <label class="assessment-radio-label" for="painAbduction">
-                <input type="checkbox" id="painAbduction" name="painAbduction" class="assessment-checkbox" />
-                <span class="assessment-radio-custom"></span>
-                <div class="assessment-radio-content">
-                  <span class="radio-movement">Abduksi Bahu</span>
-                  <span class="radio-desc">Mengangkat lengan ke samping (0°–180°)</span>
+              <!-- Abduksi Bahu -->
+              <div class="pain-movement-card" id="cardPainAbduction">
+                <label class="assessment-radio-label" for="painAbduction">
+                  <input type="checkbox" id="painAbduction" name="painAbduction" class="assessment-checkbox pain-toggle" data-target="painAbductionScore" />
+                  <span class="assessment-radio-custom"></span>
+                  <div class="assessment-radio-content">
+                    <span class="radio-movement">Abduksi Bahu</span>
+                    <span class="radio-desc">Mengangkat lengan ke samping (0°–180°)</span>
+                  </div>
+                </label>
+                <div class="pain-score-slider-wrap hidden" id="wrapPainAbductionScore">
+                  <div class="pain-score-header">
+                    <span class="pain-score-label">Skala Nyeri (NRS):</span>
+                    <span class="pain-score-value" id="valPainAbductionScore">4 (Sedang)</span>
+                  </div>
+                  <input type="range" min="0" max="10" step="1" value="0" class="pain-range-slider" id="painAbductionScore" name="painAbductionScore" />
                 </div>
-              </label>
+              </div>
 
-              <label class="assessment-radio-label" for="painExternalRotation">
-                <input type="checkbox" id="painExternalRotation" name="painExternalRotation" class="assessment-checkbox" />
-                <span class="assessment-radio-custom"></span>
-                <div class="assessment-radio-content">
-                  <span class="radio-movement">Rotasi Eksternal</span>
-                  <span class="radio-desc">Memutar lengan ke luar</span>
+              <!-- Rotasi Eksternal -->
+              <div class="pain-movement-card" id="cardPainExternalRotation">
+                <label class="assessment-radio-label" for="painExternalRotation">
+                  <input type="checkbox" id="painExternalRotation" name="painExternalRotation" class="assessment-checkbox pain-toggle" data-target="painExternalRotationScore" />
+                  <span class="assessment-radio-custom"></span>
+                  <div class="assessment-radio-content">
+                    <span class="radio-movement">Rotasi Eksternal</span>
+                    <span class="radio-desc">Memutar lengan ke luar</span>
+                  </div>
+                </label>
+                <div class="pain-score-slider-wrap hidden" id="wrapPainExternalRotationScore">
+                  <div class="pain-score-header">
+                    <span class="pain-score-label">Skala Nyeri (NRS):</span>
+                    <span class="pain-score-value" id="valPainExternalRotationScore">4 (Sedang)</span>
+                  </div>
+                  <input type="range" min="0" max="10" step="1" value="0" class="pain-range-slider" id="painExternalRotationScore" name="painExternalRotationScore" />
                 </div>
-              </label>
+              </div>
 
-              <label class="assessment-radio-label" for="painInternalRotation">
-                <input type="checkbox" id="painInternalRotation" name="painInternalRotation" class="assessment-checkbox" />
-                <span class="assessment-radio-custom"></span>
-                <div class="assessment-radio-content">
-                  <span class="radio-movement">Rotasi Internal</span>
-                  <span class="radio-desc">Memutar lengan ke dalam</span>
+              <!-- Rotasi Internal -->
+              <div class="pain-movement-card" id="cardPainInternalRotation">
+                <label class="assessment-radio-label" for="painInternalRotation">
+                  <input type="checkbox" id="painInternalRotation" name="painInternalRotation" class="assessment-checkbox pain-toggle" data-target="painInternalRotationScore" />
+                  <span class="assessment-radio-custom"></span>
+                  <div class="assessment-radio-content">
+                    <span class="radio-movement">Rotasi Internal</span>
+                    <span class="radio-desc">Memutar lengan ke dalam</span>
+                  </div>
+                </label>
+                <div class="pain-score-slider-wrap hidden" id="wrapPainInternalRotationScore">
+                  <div class="pain-score-header">
+                    <span class="pain-score-label">Skala Nyeri (NRS):</span>
+                    <span class="pain-score-value" id="valPainInternalRotationScore">4 (Sedang)</span>
+                  </div>
+                  <input type="range" min="0" max="10" step="1" value="0" class="pain-range-slider" id="painInternalRotationScore" name="painInternalRotationScore" />
                 </div>
-              </label>
+              </div>
 
-              <label class="assessment-radio-label" for="painExtension">
-                <input type="checkbox" id="painExtension" name="painExtension" class="assessment-checkbox" />
-                <span class="assessment-radio-custom"></span>
-                <div class="assessment-radio-content">
-                  <span class="radio-movement">Ekstensi Bahu</span>
-                  <span class="radio-desc">Menggerakkan lengan ke belakang</span>
+              <!-- Ekstensi Bahu -->
+              <div class="pain-movement-card" id="cardPainExtension">
+                <label class="assessment-radio-label" for="painExtension">
+                  <input type="checkbox" id="painExtension" name="painExtension" class="assessment-checkbox pain-toggle" data-target="painExtensionScore" />
+                  <span class="assessment-radio-custom"></span>
+                  <div class="assessment-radio-content">
+                    <span class="radio-movement">Ekstensi Bahu</span>
+                    <span class="radio-desc">Menggerakkan lengan ke belakang</span>
+                  </div>
+                </label>
+                <div class="pain-score-slider-wrap hidden" id="wrapPainExtensionScore">
+                  <div class="pain-score-header">
+                    <span class="pain-score-label">Skala Nyeri (NRS):</span>
+                    <span class="pain-score-value" id="valPainExtensionScore">4 (Sedang)</span>
+                  </div>
+                  <input type="range" min="0" max="10" step="1" value="0" class="pain-range-slider" id="painExtensionScore" name="painExtensionScore" />
                 </div>
-              </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 4: Peta Nyeri Bahu (Nordic Body Map Light) -->
+          <div class="assessment-section">
+            <h3 class="assessment-section-title">Peta Lokasi Nyeri Bahu (Nordic Body Map)</h3>
+            <p class="assessment-section-desc">Pilih area anatomi bahu yang dilaporkan nyeri oleh pasien:</p>
+            <div class="nordic-map-container">
+              <div class="nordic-shoulder-col">
+                <span class="nordic-col-title">Sisi Kanan (Right)</span>
+                <div class="nordic-chips-grid">
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="R_ANTERIOR" /> <span>Bahu Depan</span></label>
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="R_LATERAL" /> <span>Sisi Deltoid</span></label>
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="R_UPPER_ARM" /> <span>Lengan Atas</span></label>
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="R_POSTERIOR" /> <span>Bahu Belakang</span></label>
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="R_SCAPULA" /> <span>Tulang Belikat</span></label>
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="R_TRAPEZIUS" /> <span>Leher / Trapezius</span></label>
+                </div>
+              </div>
+              <div class="nordic-shoulder-col">
+                <span class="nordic-col-title">Sisi Kiri (Left)</span>
+                <div class="nordic-chips-grid">
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="L_ANTERIOR" /> <span>Bahu Depan</span></label>
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="L_LATERAL" /> <span>Sisi Deltoid</span></label>
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="L_UPPER_ARM" /> <span>Lengan Atas</span></label>
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="L_POSTERIOR" /> <span>Bahu Belakang</span></label>
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="L_SCAPULA" /> <span>Tulang Belikat</span></label>
+                  <label class="nordic-chip"><input type="checkbox" name="painRegions" value="L_TRAPEZIUS" /> <span>Leher / Trapezius</span></label>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -479,6 +745,32 @@
       </div>
     </div>
 
+    <script src="./session-metrics.js"></script>
+    <script src="./adaptive-engine.js"></script>
+    <script src="./player-tracker.js"></script>
+    <script src="./kinematic-replay.js"></script>
+    <script src="./sync-queue.js"></script>
     <script src="./app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(console.warn);
+        });
+      }
+      if (typeof MoveWallSyncQueue !== "undefined") {
+        MoveWallSyncQueue.initAutoSync();
+      }
+
+      // Sync patient name to projection HUD badge
+      const pNavName = document.getElementById("hudPatientName");
+      const pHudName = document.querySelector(".hud-name-text");
+      if (pNavName && pHudName) {
+        const obs = new MutationObserver(() => {
+          pHudName.textContent = pNavName.textContent;
+        });
+        obs.observe(pNavName, { childList: true, characterData: true, subtree: true });
+        if (pNavName.textContent) pHudName.textContent = pNavName.textContent;
+      }
+    </script>
   </body>
 </html>

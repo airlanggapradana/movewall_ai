@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "npx nodemon server.js",
     "seed": "node prisma/seed.js",
+    "test": "node --test lib/*.test.js",
     "build": "prisma generate",
     "postinstall": "prisma generate"
   },

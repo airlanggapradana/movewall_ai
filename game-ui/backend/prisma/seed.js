@@ -13,6 +13,7 @@ const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const connectionString =
   process.env.DATABASE_URL ??
@@ -25,8 +26,12 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 [MoveWall] Starting therapist database seeding (2 data)...\n");
 
-  const defaultPassword = "movewall2026";
-  const hashedPassword = await bcrypt.hash(defaultPassword, 12);
+  // Tidak ada kata sandi bawaan yang diketahui publik: gunakan SEED_PASSWORD
+  // atau biarkan skrip membuat yang acak (hanya dicetak ke konsol, sekali).
+  const seedPassword =
+    process.env.SEED_PASSWORD || crypto.randomBytes(9).toString("base64url");
+  const hashedPassword = await bcrypt.hash(seedPassword, 12);
+  const createdUsernames = [];
 
   const therapistsData = [
     {
@@ -54,6 +59,11 @@ async function main() {
   ];
 
   for (const data of therapistsData) {
+    const alreadyExists = await prisma.therapist.findUnique({
+      where: { username: data.username },
+      select: { id: true },
+    });
+    if (!alreadyExists) createdUsernames.push(data.username);
     const therapist = await prisma.therapist.upsert({
       where: { username: data.username },
       update: {
@@ -300,40 +310,123 @@ async function main() {
       },
     ];
 
-    // Clear existing assessments to avoid duplication on re-seed
-    await prisma.assessment.deleteMany({
-      where: { therapistId: therapist1.id },
-    });
-
-    for (const item of sampleAssessments) {
-      await prisma.assessment.create({ data: item });
+    // Skor nyeri 0–10 dan metrik kamera contoh, diturunkan deterministik dari data di atas.
+    const PAIN_FIELDS = [
+      ["painFlexion", "painFlexionScore", "R_ANTERIOR"],
+      ["painAbduction", "painAbductionScore", "R_LATERAL"],
+      ["painExternalRotation", "painExternalRotationScore", "R_POSTERIOR"],
+      ["painInternalRotation", "painInternalRotationScore", "R_SCAPULA"],
+      ["painExtension", "painExtensionScore", "R_UPPER_ARM"],
+    ];
+    function enrichSample(item, index) {
+      const out = { ...item, painRegions: [] };
+      PAIN_FIELDS.forEach(([flag, scoreField, region], i) => {
+        out[scoreField] = item[flag] ? 3 + ((index + i) % 4) : 0;
+        if (item[flag]) out.painRegions.push(region);
+      });
+      out.maxRomDeg = 55 + item.sessionHits * 9 + item.sessionLevel * 6;
+      out.accuracyPercent = 55 + item.sessionHits * 4;
+      out.compensationEvents = Math.max(0, 5 - item.sessionHits + (index % 2));
+      return out;
     }
 
-    console.log(`✅ Berhasil membuat ${sampleAssessments.length} rekam asesmen untuk 4 pasien teladan!`);
+    // Satu entitas Patient per nama untuk setiap terapis, dengan persetujuan data & resep batas aman.
+    const PATIENT_PRESCRIPTIONS = {
+      "Siti Aminah": {
+        initialTargetRom: 45.0,
+        maxSafetyCeiling: 90.0, // Frozen shoulder stadium awal, nyeri tajam >90°
+        minFunctionalRom: 30.0,
+        adaptiveEnabled: true,
+      },
+      "Budi Pratama": {
+        initialTargetRom: 50.0,
+        maxSafetyCeiling: 110.0, // Post-op rotatorkuff 8 minggu
+        minFunctionalRom: 30.0,
+        adaptiveEnabled: true,
+      },
+      "Dewi Lestari": {
+        initialTargetRom: 60.0,
+        maxSafetyCeiling: 120.0, // Impingement / capsulitis thawing
+        minFunctionalRom: 35.0,
+        adaptiveEnabled: true,
+      },
+      "Ahmad Fauzi": {
+        initialTargetRom: 90.0,
+        maxSafetyCeiling: 155.0, // Pemulihan akhir, atletik
+        minFunctionalRom: 45.0,
+        adaptiveEnabled: true,
+      },
+    };
+
+    async function seedForTherapist(therapistId, items) {
+      await prisma.assessment.deleteMany({ where: { therapistId } });
+      await prisma.patient.deleteMany({ where: { therapistId } });
+
+      const patientsByName = new Map();
+      for (const [index, item] of items.entries()) {
+        let patient = patientsByName.get(item.patientName);
+        if (!patient) {
+          const rx = PATIENT_PRESCRIPTIONS[item.patientName] || {
+            initialTargetRom: 45.0,
+            maxSafetyCeiling: 135.0,
+            minFunctionalRom: 30.0,
+            adaptiveEnabled: true,
+          };
+          const created = await prisma.patient.create({
+            data: {
+              medicalRecordNo: `SEED-${crypto.randomUUID()}`,
+              name: item.patientName,
+              age: item.patientAge,
+              therapistId,
+              consentGivenAt: new Date(),
+              consentVersion: "2026-11-v1",
+              initialTargetRom: rx.initialTargetRom,
+              maxSafetyCeiling: rx.maxSafetyCeiling,
+              minFunctionalRom: rx.minFunctionalRom,
+              adaptiveEnabled: rx.adaptiveEnabled,
+            },
+          });
+          patient = await prisma.patient.update({
+            where: { id: created.id },
+            data: {
+              medicalRecordNo: `MW-${String(created.id).padStart(6, "0")}`,
+            },
+          });
+          patientsByName.set(item.patientName, patient);
+        }
+        await prisma.assessment.create({
+          data: { ...enrichSample(item, index), patientId: patient.id, therapistId },
+        });
+      }
+      return patientsByName.size;
+    }
+
+    const patientCount = await seedForTherapist(therapist1.id, sampleAssessments);
+    console.log(`✅ Berhasil membuat ${sampleAssessments.length} rekam asesmen untuk ${patientCount} pasien teladan!`);
 
     // Also assign sample patient to therapist02 if exists
     const therapist2 = await prisma.therapist.findUnique({
       where: { username: "therapist02" },
     });
     if (therapist2) {
-      await prisma.assessment.deleteMany({
-        where: { therapistId: therapist2.id },
-      });
-      for (const item of sampleAssessments.slice(0, 4)) {
-        await prisma.assessment.create({
-          data: {
-            ...item,
-            therapistId: therapist2.id,
-          },
-        });
-      }
+      await seedForTherapist(therapist2.id, sampleAssessments.slice(0, 4));
     }
   }
 
   console.log("\n🎉 Seeding selesai! Data Terapis & Riwayat Pasien siap digunakan.");
-  console.log("📋 Kredensial Login Default:");
-  console.log("   1. Username: therapist01 | Password: movewall2026");
-  console.log("   2. Username: therapist02 | Password: movewall2026\n");
+  if (createdUsernames.length > 0) {
+    console.log(
+      process.env.SEED_PASSWORD
+        ? "📋 Akun baru dibuat dengan kata sandi dari SEED_PASSWORD:"
+        : "📋 Akun baru dibuat. Kata sandi acak (catat sekarang, tidak ditampilkan lagi):",
+    );
+    for (const username of createdUsernames) {
+      console.log(
+        `   - ${username}${process.env.SEED_PASSWORD ? "" : ` | ${seedPassword}`}`,
+      );
+    }
+  }
+  console.log("   Akun yang sudah ada tidak diubah kata sandinya.\n");
 
   return { success: true };
 }

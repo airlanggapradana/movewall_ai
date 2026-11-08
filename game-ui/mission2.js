@@ -320,6 +320,21 @@ const ui = {
   assessmentSuccessCloseBtn: document.getElementById("assessmentSuccessCloseBtn"),
   assessmentTherapistName:   document.getElementById("assessmentTherapistName"),
   musicToggleButton:         document.getElementById("musicToggleButton"),
+  // Player Lock & Calibration (Fitur 9 & Fitur 4)
+  btnPlayerLock:             document.getElementById("btnPlayerLock"),
+  btnCalibrate:              document.getElementById("btnCalibrate"),
+  playerOccludedOverlay:     document.getElementById("playerOccludedOverlay"),
+  occludedStatusText:        document.getElementById("occludedStatusText"),
+  btnRelockPlayer:           document.getElementById("btnRelockPlayer"),
+  btnUnlockPlayer:           document.getElementById("btnUnlockPlayer"),
+  calibrationOverlay:        document.getElementById("calibrationOverlay"),
+  calibrationCloseBtn:       document.getElementById("calibrationCloseBtn"),
+  calibDistanceStatus:       document.getElementById("calibDistanceStatus"),
+  calibShoulderStatus:       document.getElementById("calibShoulderStatus"),
+  calibZeroOffset:           document.getElementById("calibZeroOffset"),
+  calibrationFeedback:       document.getElementById("calibrationFeedback"),
+  btnSampleBaseline:         document.getElementById("btnSampleBaseline"),
+  btnApplyCalibration:       document.getElementById("btnApplyCalibration"),
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -358,7 +373,13 @@ function arcPotPos(romDeg) {
   };
 }
 
-function makePots() {
+let m2ActiveAdaptiveEngine = null;
+let m2ActiveKinematicRecorder = typeof MoveWallKinematics !== "undefined"
+  ? new MoveWallKinematics.KinematicRecorder()
+  : null;
+let m2ActivePatientData = null;
+
+function makePots(maxCeiling = null) {
   /**
    * requiredRom = ROM yang BENAR-BENAR dibutuhkan pasien saat tangan
    * berada di posisi y pot tersebut pada frame kamera.
@@ -389,14 +410,25 @@ function makePots() {
     { arcAngle: 135, requiredRom:  95 }, // y≈0.35  → butuh ≈95°
     { arcAngle: 150, requiredRom:  65 }, // y≈0.52  → butuh ≈65° (mirror pot1)
   ];
-  return potData.map(({ arcAngle, requiredRom }) => ({
-    ...arcPotPos(arcAngle),
-    requiredRom,
-    watered:       false,
-    waterProgress: 0,
-    growPct:       0,
-    waterParticles:[],
-  }));
+
+  const ceiling = maxCeiling || (m2ActiveAdaptiveEngine ? m2ActiveAdaptiveEngine.maxSafetyCeiling : 142);
+
+  return potData.map(({ arcAngle, requiredRom }) => {
+    let finalRom = requiredRom;
+    if (ceiling < 142) {
+      const minBase = 45;
+      const factor = (ceiling - minBase) / (142 - minBase);
+      finalRom = Math.round(minBase + (requiredRom - minBase) * factor);
+    }
+    return {
+      ...arcPotPos(arcAngle),
+      requiredRom: Math.min(finalRom, ceiling),
+      watered:       false,
+      waterProgress: 0,
+      growPct:       0,
+      waterParticles:[],
+    };
+  });
 }
 
 /* ── Clouds in sky (static, generated once) ──────────────────── */
@@ -479,6 +511,28 @@ const game = {
     text: "",
     subText: "",
     timer: 0,
+  },
+  /* Fitur 9: Player Lock State */
+  playerLock: {
+    locked: false,
+    centroid: null,
+    lostFrames: 0,
+    maxLostFrames: 30, // ~1s
+    isOccluded: false,
+  },
+  /* Fitur 4: Camera Calibration State */
+  calibration: {
+    zeroOffset: 0.0,
+    isCalibrating: false,
+    distanceStatus: "Menunggu kamera",
+    shoulderStatus: "—",
+  },
+  /* Fitur 5: Home Tele-Rehab State */
+  homeSession: {
+    active: false,
+    code: null,
+    patientName: null,
+    therapistName: null,
   },
 };
 
@@ -658,7 +712,7 @@ function createPoseLandmarker(vt, vision, delegate) {
   return vt.PoseLandmarker.createFromOptions(vision, {
     baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate },
     runningMode: "VIDEO",
-    numPoses: 1,
+    numPoses: 3,
     minPoseDetectionConfidence: 0.3,
     minPosePresenceConfidence:  0.3,
     minTrackingConfidence:      0.3,
@@ -825,7 +879,8 @@ function evaluateHandGesture(landmarks) {
    VISION TRACKING LOOP
    ═══════════════════════════════════════════════════════════════ */
 function updateCameraMotion() {
-  if (!game.running || game.painStop) return;
+  const trackWhilePaused = game.playerLock.isOccluded || game.calibration.isCalibrating;
+  if ((!game.running && !trackWhilePaused) || game.painStop) return;
   if (!ui.cameraPreview.videoWidth) return;
   if (!game.poseReady && !game.handReady) return;
   updateVisionTracking(performance.now());
@@ -866,10 +921,50 @@ function updateVisionTracking(now) {
     game.poseBusy = false;
   }
 
-  // 1. Process Pose for Shoulder ROM Flexion (Sesuai Apple Archery)
+  // 1. Process Pose for Shoulder ROM Abduction/Flexion & Player Lock (Fitur 9 & Fitur 4)
   let estimate = null;
-  const poseLandmarks = poseResult?.landmarks?.[0];
+  const allPoseLandmarks = poseResult?.landmarks || [];
+  game.debugLastAllLandmarks = allPoseLandmarks;
+  let poseLandmarks = null;
+  let matchInfo = null;
+
+  if (game.playerLock.locked && game.playerLock.centroid) {
+    matchInfo = typeof MoveWallPlayerTracker !== "undefined"
+      ? MoveWallPlayerTracker.matchLockedPlayer(allPoseLandmarks, game.playerLock.centroid)
+      : (allPoseLandmarks[0] ? { landmarks: allPoseLandmarks[0], centroid: null, distance: 0 } : null);
+
+    if (matchInfo) {
+      poseLandmarks = matchInfo.landmarks;
+      if (typeof MoveWallPlayerTracker !== "undefined" && matchInfo.centroid) {
+        game.playerLock.centroid = MoveWallPlayerTracker.smoothCentroid(game.playerLock.centroid, matchInfo.centroid);
+      }
+      game.playerLock.lostFrames = 0;
+      if (game.playerLock.isOccluded) {
+        resumeFromOcclusion();
+      }
+    } else {
+      game.playerLock.lostFrames++;
+      if (game.playerLock.lostFrames >= game.playerLock.maxLostFrames && game.running && !game.playerLock.isOccluded) {
+        triggerOcclusionPause("Pemain terkunci terhalang orang lain atau keluar dari bidang pandang kamera.");
+        return;
+      }
+    }
+  } else {
+    poseLandmarks = allPoseLandmarks[0] || null;
+    if (poseLandmarks && typeof MoveWallPlayerTracker !== "undefined") {
+      const c = MoveWallPlayerTracker.computeCentroid(poseLandmarks);
+      if (c) game.playerLock.centroid = c;
+    }
+  }
+
   if (poseLandmarks) {
+    game.debugLastLandmarks = poseLandmarks;
+    if (game.calibration.isCalibrating && typeof MoveWallPlayerTracker !== "undefined") {
+      updateLiveCalibration(poseLandmarks);
+    }
+
+    if (!game.running) return;
+
     estimate = estimateArmRaiseRom(poseLandmarks);
     if (estimate) {
       game.lostPoseFrames  = 0;
@@ -877,14 +972,42 @@ function updateVisionTracking(now) {
       game.rawAngle        = estimate.controlAngle;
       game.controlAngle    = stabilizeClinicalAngle(estimate.controlAngle, game.controlAngle);
       game.displayAngle    = game.controlAngle;
-      game.clinicalAngle   = stabilizeClinicalAngle(estimate.clinicalAngle, game.clinicalAngle);
+
+      const rawClinical = estimate.clinicalAngle;
+      const zeroCalibrated = typeof MoveWallPlayerTracker !== "undefined"
+        ? MoveWallPlayerTracker.applyZeroOffset(rawClinical, game.calibration.zeroOffset)
+        : rawClinical;
+
+      game.clinicalAngle   = stabilizeClinicalAngle(zeroCalibrated, game.clinicalAngle);
       game.cameraAngle     = game.controlAngle;
+
+      // Rekam metrik sesi (ROM maksimum, akurasi, kompensasi) untuk asesmen terapis (Fitur 3)
+      if (typeof MoveWallMetrics !== "undefined") {
+        MoveWallMetrics.sample({
+          angle: game.clinicalAngle,
+          targetRom: game.targetRom,
+          under: 12,
+          over: 12,
+          compensation: !!estimate.compensation,
+          now,
+        });
+      }
+
+      // Fitur 6: Rekam kerangka gerak kinematis (stick-figure 9 sendi tanpa video)
+      if (!m2ActiveKinematicRecorder && typeof MoveWallKinematics !== "undefined") {
+        m2ActiveKinematicRecorder = new MoveWallKinematics.KinematicRecorder();
+      }
+      if (m2ActiveKinematicRecorder && game.running) {
+        m2ActiveKinematicRecorder.sample(poseLandmarks, game.clinicalAngle, !!estimate.compensation, now);
+      }
 
       if (estimate.compensation) {
         setFeedback("warn", "Shoulder hike detected", "Turunkan sedikit bahu Anda");
       }
     }
   }
+
+  if (!game.running) return;
 
   // 2. Process Hand Landmarks for Pointer & Open/Closed Gesture
   const handLandmarks = handResult?.landmarks?.[0];
@@ -949,6 +1072,139 @@ function updateVisionTracking(now) {
       game.handFollow.visible = false;
       game.trackingQuality = "Arahkan tangan ke kamera";
     }
+  }
+}
+
+/* ── Fitur 9: Player Lock & Occlusion Helpers ────────────────────────── */
+
+function triggerOcclusionPause(reason = "") {
+  if (!game.running && game.playerLock.isOccluded) return;
+  game.playerLock.isOccluded = true;
+  game.running = false;
+  audio.stopWaterSound();
+  bgm.pause();
+  if (ui.playerOccludedOverlay) {
+    ui.playerOccludedOverlay.classList.remove("hidden");
+  }
+  if (ui.occludedStatusText && reason) {
+    ui.occludedStatusText.textContent = reason;
+  }
+  setFeedback("warn", "Pelacakan Terjeda", "Pemain terhalang orang lain");
+}
+
+function resumeFromOcclusion() {
+  if (!game.playerLock.isOccluded) return;
+  game.playerLock.isOccluded = false;
+  if (ui.playerOccludedOverlay) {
+    ui.playerOccludedOverlay.classList.add("hidden");
+  }
+  game.running = true;
+  bgm.play();
+  setFeedback("neutral", "Pemain Terdeteksi Kembali", "Latihan dilanjutkan otomatis");
+}
+
+function togglePlayerLock() {
+  if (game.playerLock.locked) {
+    const wasOccluded = game.playerLock.isOccluded;
+    game.playerLock.locked = false;
+    game.playerLock.isOccluded = false;
+    game.playerLock.lostFrames = 0;
+    if (ui.btnPlayerLock) {
+      ui.btnPlayerLock.classList.remove("active");
+      ui.btnPlayerLock.innerHTML = "🔒 Kunci Pemain";
+    }
+    if (ui.playerOccludedOverlay) {
+      ui.playerOccludedOverlay.classList.add("hidden");
+    }
+    if (wasOccluded && !game.painStop && !game.missionCompleted && !game.timeoutTriggered) {
+      game.running = true;
+      bgm.play();
+    }
+    setFeedback("neutral", "Kunci Dibuka", "Mode bebas: melacak siapa pun di depan kamera");
+  } else {
+    if (!game.cameraStream) {
+      setFeedback("warn", "Nyalakan Kamera Dulu", "Klik 'Start Camera' lalu berdiri di depan kamera untuk mengunci pemain");
+      return;
+    }
+    const wasOccluded = game.playerLock.isOccluded;
+    const candidateLandmarks =
+      (wasOccluded && game.debugLastAllLandmarks && game.debugLastAllLandmarks[0]) ||
+      game.debugLastLandmarks;
+    const c =
+      (candidateLandmarks && typeof MoveWallPlayerTracker !== "undefined"
+        ? MoveWallPlayerTracker.computeCentroid(candidateLandmarks)
+        : null) || game.playerLock.centroid;
+    if (!c) {
+      setFeedback("warn", "Gagal Mengunci", "Pastikan kedua bahu terlihat jelas di depan kamera");
+      return;
+    }
+    game.playerLock.locked = true;
+    game.playerLock.centroid = c;
+    game.playerLock.lostFrames = 0;
+    game.playerLock.isOccluded = false;
+    if (ui.btnPlayerLock) {
+      ui.btnPlayerLock.classList.add("active");
+      ui.btnPlayerLock.innerHTML = "🔓 Buka Kunci";
+    }
+    if (ui.playerOccludedOverlay) {
+      ui.playerOccludedOverlay.classList.add("hidden");
+    }
+    if (wasOccluded && !game.painStop && !game.missionCompleted && !game.timeoutTriggered) {
+      game.running = true;
+      bgm.play();
+    }
+    setFeedback("good", "Pemain Terkunci 🔒", "Sistem hanya melacak tubuh Anda walau ada orang lain lewat di sekitar");
+  }
+}
+
+/* ── Fitur 4: Camera Calibration & Neutral Zero-Offset Helpers ─────────── */
+
+function openCalibrationModal() {
+  game.calibration.isCalibrating = true;
+  if (ui.calibrationOverlay) {
+    ui.calibrationOverlay.classList.remove("hidden");
+  }
+  ensureCameraReady();
+}
+
+function closeCalibrationModal() {
+  game.calibration.isCalibrating = false;
+  if (ui.calibrationOverlay) {
+    ui.calibrationOverlay.classList.add("hidden");
+  }
+}
+
+function sampleZeroBaseline() {
+  const sampledAngle = Math.round(game.rawAngle * 10) / 10;
+  game.calibration.zeroOffset = sampledAngle;
+  try {
+    localStorage.setItem("mw_zero_offset", String(sampledAngle));
+  } catch (_) {}
+
+  if (ui.calibZeroOffset) {
+    ui.calibZeroOffset.textContent = `${sampledAngle.toFixed(1)}°`;
+  }
+  if (ui.calibrationFeedback) {
+    ui.calibrationFeedback.textContent = `✓ Titik nol berhasil dikalibrasi (${sampledAngle.toFixed(1)}°). Saat lengan rileks, elevasi terbaca 0°.`;
+    ui.calibrationFeedback.style.color = "#4ade80";
+  }
+}
+
+function updateLiveCalibration(landmarks) {
+  if (typeof MoveWallPlayerTracker === "undefined") return;
+  const report = MoveWallPlayerTracker.evaluateCameraCalibration(landmarks, game.calibration.zeroOffset);
+  if (!report.valid) return;
+
+  if (ui.calibDistanceStatus) {
+    ui.calibDistanceStatus.textContent = report.distanceLabel;
+    ui.calibDistanceStatus.style.color = report.distanceColor === "green" ? "#4ade80" : "#fbbf24";
+  }
+  if (ui.calibShoulderStatus) {
+    ui.calibShoulderStatus.textContent = report.shoulderLabel;
+    ui.calibShoulderStatus.style.color = report.shoulderColor === "green" ? "#4ade80" : "#fbbf24";
+  }
+  if (ui.calibZeroOffset) {
+    ui.calibZeroOffset.textContent = `${report.zeroOffset.toFixed(1)}°`;
   }
 }
 
@@ -2801,6 +3057,16 @@ function syncHud() {
    ═══════════════════════════════════════════════════════════════ */
 function resetGame() {
   game.running         = false;
+  if (typeof MoveWallMetrics !== "undefined") {
+    MoveWallMetrics.reset();
+  }
+  if (m2ActiveKinematicRecorder) {
+    m2ActiveKinematicRecorder.reset();
+  }
+  if (m2ActiveAdaptiveEngine) {
+    m2ActiveAdaptiveEngine.resetPainOverride();
+  }
+  updateM2PatientHudBadge();
   game.missionCompleted = false;
   game.timeoutTriggered = false;
   hideMissionCompletionModal();
@@ -2902,7 +3168,7 @@ function tick(now) {
    CONTROLS & INTERACTION
    ═══════════════════════════════════════════════════════════════ */
 ui.startButton.addEventListener("click", async () => {
-  if (!isM2SubscriptionActive) {
+  if (!game.homeSession?.active && !isM2SubscriptionActive) {
     const active = await verifyM2GameSubscription();
     if (!active) {
       showM2GamePaywallModal();
@@ -2929,11 +3195,50 @@ ui.resetButton.addEventListener("click", resetGame);
 ui.painButton.addEventListener("click", () => {
   game.painStop = true;
   game.running  = false;
-  game.targetRom = game.minTargetRom;
+  if (m2ActiveAdaptiveEngine) {
+    m2ActiveAdaptiveEngine.triggerPainOverride();
+    game.targetRom = m2ActiveAdaptiveEngine.targetRom;
+  } else {
+    game.targetRom = game.minTargetRom;
+  }
   audio.stopWaterSound();
   bgm.pause();
+  updateM2PatientHudBadge();
   setFeedback("bad", "Dihentikan (Pain/Stop)", "Silakan istirahat dan hubungi fisioterapis Anda");
 });
+
+if (ui.btnPlayerLock) {
+  ui.btnPlayerLock.addEventListener("click", togglePlayerLock);
+}
+
+if (ui.btnCalibrate) {
+  ui.btnCalibrate.addEventListener("click", openCalibrationModal);
+}
+
+if (ui.calibrationCloseBtn) {
+  ui.calibrationCloseBtn.addEventListener("click", closeCalibrationModal);
+}
+
+if (ui.btnApplyCalibration) {
+  ui.btnApplyCalibration.addEventListener("click", closeCalibrationModal);
+}
+
+if (ui.btnSampleBaseline) {
+  ui.btnSampleBaseline.addEventListener("click", sampleZeroBaseline);
+}
+
+if (ui.btnRelockPlayer) {
+  ui.btnRelockPlayer.addEventListener("click", () => {
+    game.playerLock.locked = false;
+    togglePlayerLock();
+  });
+}
+
+if (ui.btnUnlockPlayer) {
+  ui.btnUnlockPlayer.addEventListener("click", () => {
+    if (game.playerLock.locked) togglePlayerLock();
+  });
+}
 
 if (ui.musicToggleButton) {
   ui.musicToggleButton.addEventListener("click", () => {
@@ -2968,7 +3273,7 @@ if (ui.timeoutResetButton) {
 
 if (ui.modalReplayButton) {
   ui.modalReplayButton.addEventListener("click", async () => {
-    if (!isM2SubscriptionActive) {
+    if (!game.homeSession?.active && !isM2SubscriptionActive) {
       const active = await verifyM2GameSubscription();
       if (!active) {
         showM2GamePaywallModal();
@@ -3576,24 +3881,58 @@ function m2ShowAssessmentError(msg) {
 }
 
 async function m2SubmitAssessment(formData) {
+  const isHome = Boolean(game.homeSession && game.homeSession.active && game.homeSession.code);
   const token = m2GetAuthToken();
-  if (!token) {
+  if (!isHome && !token) {
     window.location.replace("./login.html");
     return;
   }
 
   // Count watered pots
   const wateredCount = game.pots ? game.pots.filter(p => p.watered).length : 0;
+  const metrics = typeof MoveWallMetrics !== "undefined" ? MoveWallMetrics.snapshot() : {};
+  const typedName = formData.get("patientName")?.trim() || (isHome ? game.homeSession.patientName : "");
+  const selectedId =
+    m2SelectedPatientData &&
+    !m2SelectedPatientData.isNew &&
+    m2SelectedPatientData.id &&
+    (!m2SelectedPatientData.name || m2SelectedPatientData.name.toLowerCase() === typedName.toLowerCase())
+      ? m2SelectedPatientData.id
+      : undefined;
+
+  const painFlexionScore = formData.get("painFlexionScore");
+  const painAbductionScore = formData.get("painAbductionScore");
+  const painExtRotScore = formData.get("painExternalRotationScore");
+  const painIntRotScore = formData.get("painInternalRotationScore");
+  const painExtensionScore = formData.get("painExtensionScore");
+
+  const painRegions = Array.from(document.querySelectorAll('input[name="painRegions"]:checked')).map(el => el.value);
+  const safeMaxRom =
+    metrics.maxRomDeg !== null && metrics.maxRomDeg !== undefined && Number.isFinite(Number(metrics.maxRomDeg))
+      ? Math.min(180, Math.max(0, Number(metrics.maxRomDeg)))
+      : null;
 
   const payload = {
-    patientName: formData.get("patientName"),
-    patientAge: formData.get("patientAge"),
+    patientId: selectedId,
+    patientName: typedName,
+    patientAge: formData.get("patientAge") || (isHome ? game.homeSession.patientAge : null),
+    consent: formData.has("consent") || isHome,
+    sessionMode: isHome ? "HOME" : "CLINIC",
     painFlexion: formData.has("painFlexion"),
     painAbduction: formData.has("painAbduction"),
     painExternalRotation: formData.has("painExternalRotation"),
     painInternalRotation: formData.has("painInternalRotation"),
     painExtension: formData.has("painExtension"),
-    notes: formData.get("notes") || null,
+    painFlexionScore: painFlexionScore !== null && painFlexionScore !== "" ? parseInt(painFlexionScore) : (formData.has("painFlexion") ? 4 : null),
+    painAbductionScore: painAbductionScore !== null && painAbductionScore !== "" ? parseInt(painAbductionScore) : (formData.has("painAbduction") ? 4 : null),
+    painExternalRotationScore: painExtRotScore !== null && painExtRotScore !== "" ? parseInt(painExtRotScore) : (formData.has("painExternalRotation") ? 4 : null),
+    painInternalRotationScore: painIntRotScore !== null && painIntRotScore !== "" ? parseInt(painIntRotScore) : (formData.has("painInternalRotation") ? 4 : null),
+    painExtensionScore: painExtensionScore !== null && painExtensionScore !== "" ? parseInt(painExtensionScore) : (formData.has("painExtension") ? 4 : null),
+    painRegions,
+    maxRomDeg: safeMaxRom,
+    accuracyPercent: metrics.accuracyPercent,
+    compensationEvents: metrics.compensationEvents,
+    notes: formData.get("notes") || (isHome ? "Latihan mandiri pasien di rumah via kode akses." : null),
     missionId: 2,
     sessionScore: game.score || 0,
     sessionHits: wateredCount,
@@ -3601,24 +3940,64 @@ async function m2SubmitAssessment(formData) {
     sessionTime: ui.time ? ui.time.textContent : null,
   };
 
-  const res = await fetch(`${M2_BACKEND_API}/assessment`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  // Fitur 6 & 8: ID Unik Idempotent & Replay Kerangka Gerak Kinematis
+  const clientSessionId = typeof MoveWallSyncQueue !== "undefined"
+    ? MoveWallSyncQueue.generateUUID()
+    : "sess_" + Date.now().toString(36) + "_" + Math.random().toString(36).substring(2, 9);
+  payload.clientSessionId = clientSessionId;
+  payload.kinematicReplayData = m2ActiveKinematicRecorder ? m2ActiveKinematicRecorder.exportJson() : null;
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    if (data.requiresSubscription) {
-      showM2GamePaywallModal(data);
+  const targetEndpoint = isHome
+    ? `${M2_BACKEND_API}/home-session/${encodeURIComponent(game.homeSession.code)}/assessment`
+    : `${M2_BACKEND_API}/assessment`;
+
+  try {
+    let res;
+    if (isHome) {
+      res = await fetch(targetEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      res = await fetch(targetEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
     }
-    throw new Error(data.error || "Gagal menyimpan assessment.");
-  }
 
-  return await res.json();
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data.requiresSubscription) {
+        showM2GamePaywallModal(data);
+      }
+      throw new Error(data.error || `Gagal menyimpan assessment (HTTP ${res.status}).`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    const isNetworkError = !navigator.onLine || err.message.includes("fetch") || err.message.includes("Network") || err.message.includes("Failed");
+    if (typeof MoveWallSyncQueue !== "undefined" && isNetworkError) {
+      MoveWallSyncQueue.enqueue({
+        clientSessionId,
+        endpoint: targetEndpoint,
+        token: isHome ? null : token,
+        payload,
+      });
+      return {
+        offlineQueued: true,
+        clientSessionId,
+        message: "Koneksi offline. Data asesmen tersimpan di antrean perangkat dan akan disinkron otomatis saat online kembali.",
+      };
+    }
+    throw err;
+  }
 }
 
 if (ui.modalAssessmentButton) {
@@ -3670,7 +4049,7 @@ if (ui.assessmentForm) {
     m2SetAssessmentLoading(true);
 
     try {
-      await m2SubmitAssessment(formData);
+      const saveRes = await m2SubmitAssessment(formData);
 
       // Update local patients cache so newly added patient appears in combobox
       const parsedAge = parseInt(patientAge);
@@ -3680,8 +4059,11 @@ if (ui.assessmentForm) {
       if (existingPatient) {
         existingPatient.age = parsedAge;
         existingPatient.sessionCount = (existingPatient.sessionCount || 1) + 1;
+        if (saveRes?.patient?.id) existingPatient.id = saveRes.patient.id;
       } else {
         m2PatientsCache.unshift({
+          id: saveRes?.patient?.id,
+          medicalRecordNo: saveRes?.patient?.medicalRecordNo,
           name: patientName,
           age: parsedAge,
           sessionCount: 1,
@@ -3689,8 +4071,16 @@ if (ui.assessmentForm) {
       }
 
       if (ui.assessmentForm) ui.assessmentForm.classList.add("hidden");
-      if (ui.assessmentSuccess) ui.assessmentSuccess.classList.remove("hidden");
-      console.info("[MoveWall] Assessment M2 berhasil disimpan.");
+      if (ui.assessmentSuccess) {
+        ui.assessmentSuccess.classList.remove("hidden");
+        const successTxt = ui.assessmentSuccess.querySelector(".assessment-success-text");
+        if (successTxt) {
+          successTxt.textContent = saveRes && saveRes.offlineQueued
+            ? "Tersimpan di antrean offline. Akan disinkron otomatis saat online kembali."
+            : "Assessment berhasil disimpan!";
+        }
+      }
+      console.info("[MoveWall] Assessment M2 berhasil diproses.", saveRes);
     } catch (err) {
       m2ShowAssessmentError(err.message || "Terjadi kesalahan. Pastikan server backend berjalan.");
     } finally {
@@ -3699,7 +4089,138 @@ if (ui.assessmentForm) {
   });
 }
 
-// Initialize patient combobox autocomplete
-m2InitPatientCombobox();
+// ─── Adaptive Difficulty Engine, Safety Ceiling & Home Tele-Rehab (Fitur 1, 4, 5) ──────────
 
-console.info("[MoveWall] Mission 2 — Auth guard, Assessment dialog & Combobox ready.");
+function m2InitAdaptiveEngine(prescription = null) {
+  const rx = prescription || {
+    initialTargetRom: 45.0,
+    maxSafetyCeiling: 135.0,
+    minFunctionalRom: 30.0,
+    adaptiveEnabled: true,
+  };
+  if (typeof MoveWallAdaptive !== "undefined" && MoveWallAdaptive.AdaptiveEngine) {
+    m2ActiveAdaptiveEngine = new MoveWallAdaptive.AdaptiveEngine({
+      exerciseType: "SHOULDER_ABDUCTION",
+      initialTargetRom: rx.initialTargetRom,
+      maxSafetyCeiling: rx.maxSafetyCeiling,
+      minFunctionalRom: rx.minFunctionalRom,
+      adaptiveEnabled: rx.adaptiveEnabled,
+    });
+  }
+  const ceiling = m2ActiveAdaptiveEngine ? m2ActiveAdaptiveEngine.maxSafetyCeiling : 142;
+  game.pots = makePots(ceiling);
+  game.minTargetRom = m2ActiveAdaptiveEngine ? m2ActiveAdaptiveEngine.minFunctionalRom : 30;
+  game.maxTargetRom = ceiling;
+  game.targetRom = game.pots[0] ? game.pots[0].requiredRom : 65;
+  if (ui.target) ui.target.textContent = `Target ${game.targetRom}`;
+  updateM2PatientHudBadge();
+}
+
+function updateM2PatientHudBadge() {
+  const nameEl = document.getElementById("hudPatientName");
+  const ceilingEl = document.getElementById("hudSafetyCeiling");
+  const pillEl = document.getElementById("hudAdaptivePill");
+  if (!nameEl || !ceilingEl || !pillEl) return;
+
+  if (game.homeSession && game.homeSession.active) {
+    nameEl.textContent = `🏠 Latihan Mandiri: ${game.homeSession.patientName}`;
+  } else if (m2ActivePatientData) {
+    nameEl.textContent = `Pasien: ${m2ActivePatientData.name}${m2ActivePatientData.medicalRecordNo ? ` (${m2ActivePatientData.medicalRecordNo})` : ""}`;
+  } else {
+    nameEl.textContent = "Pasien: Sesi Umum";
+  }
+
+  const ceiling = m2ActiveAdaptiveEngine ? m2ActiveAdaptiveEngine.maxSafetyCeiling : 142;
+  ceilingEl.textContent = `Batas Aman: ${Math.round(ceiling)}°`;
+
+  if (m2ActiveAdaptiveEngine && m2ActiveAdaptiveEngine._painOverrideActive) {
+    pillEl.className = "hud-adaptive-pill is-pain";
+    pillEl.textContent = "Nyeri: Turun Minimum";
+  } else if (m2ActiveAdaptiveEngine && !m2ActiveAdaptiveEngine.adaptiveEnabled) {
+    pillEl.className = "hud-adaptive-pill is-fixed";
+    pillEl.textContent = "Target Tetap";
+  } else {
+    pillEl.className = "hud-adaptive-pill";
+    pillEl.textContent = "Adaptif Aktif";
+  }
+}
+
+async function checkM2HomeSessionFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const homeCode = urlParams.get("code") || urlParams.get("homeCode");
+  if (!homeCode) return false;
+
+  try {
+    const res = await fetch(`${M2_BACKEND_API}/home-session/${encodeURIComponent(homeCode.trim())}`);
+    if (!res.ok) {
+      console.warn("[MoveWall Home M2] Kode sesi latihan mandiri tidak valid.");
+      return false;
+    }
+    const data = await res.json();
+    game.homeSession = {
+      active: true,
+      code: data.code,
+      patientName: data.patient.name,
+      patientAge: data.patient.age,
+      medicalRecordNo: data.patient.medicalRecordNo,
+      therapistName: data.patient.therapist?.fullName || "Fisioterapis",
+      prescription: data.patient.prescription,
+    };
+    m2ActivePatientData = {
+      id: data.patient.id,
+      name: data.patient.name,
+      age: data.patient.age,
+      medicalRecordNo: data.patient.medicalRecordNo,
+      prescription: data.patient.prescription,
+    };
+    m2InitAdaptiveEngine(data.patient.prescription);
+    updateM2PatientHudBadge();
+    console.info(`[MoveWall Home M2] Sesi mandiri aktif: ${data.patient.name} (${data.code})`);
+    return true;
+  } catch (err) {
+    console.warn("[MoveWall Home M2] Gagal memuat sesi mandiri:", err);
+    return false;
+  }
+}
+
+function checkM2InitialPatientFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const patientRef = urlParams.get("patient") || sessionStorage.getItem("mw_active_patient_ref");
+  if (!patientRef || !m2PatientsCache.length) return;
+
+  const refClean = decodeURIComponent(patientRef).trim().toLowerCase();
+  const found = m2PatientsCache.find(p => 
+    (p.medicalRecordNo && p.medicalRecordNo.toLowerCase() === refClean) ||
+    p.name.toLowerCase() === refClean ||
+    String(p.id) === refClean
+  );
+
+  if (found) {
+    m2ActivePatientData = found;
+    sessionStorage.setItem("mw_active_patient_ref", found.medicalRecordNo || found.name);
+    m2InitAdaptiveEngine(found.prescription);
+    m2SelectPatientItem(found.name, found.age);
+  }
+}
+
+// Restore saved calibration zero offset if available
+try {
+  const savedOffset = parseFloat(localStorage.getItem("mw_zero_offset"));
+  if (!isNaN(savedOffset) && savedOffset >= 0 && savedOffset <= 60) {
+    game.calibration.zeroOffset = savedOffset;
+    if (ui.calibZeroOffset) {
+      ui.calibZeroOffset.textContent = `${savedOffset.toFixed(1)}°`;
+    }
+  }
+} catch (_) {}
+
+// Initialize patient combobox autocomplete and adaptive engine
+m2InitPatientCombobox();
+m2InitAdaptiveEngine();
+checkM2HomeSessionFromUrl().then((isHome) => {
+  if (!isHome) {
+    m2FetchPatientsList().then(() => checkM2InitialPatientFromUrl());
+  }
+});
+
+console.info("[MoveWall] Mission 2 — Player Lock, Calibration, Home Tele-Rehab & Adaptive ready.");

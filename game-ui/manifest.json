@@ -1,0 +1,20 @@
+{
+  "name": "MoveWall AI — Clinical Telerehabilitation",
+  "short_name": "MoveWall AI",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "description": "Game rehabilitasi kinematis klinis dan tele-rehabilitasi mandiri berbasis AI.",
+  "icons": [
+    {
+      "src": "./assets/MoveWall_AI_Rehab_Logo__1_transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["medical", "health", "fitness", "games"]
+}
+

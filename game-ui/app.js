@@ -247,7 +247,12 @@ const MEDIAPIPE_SOURCES = [
 const POSE_MODEL_URL = "./assets/pose_landmarker.task";
 const ORCHARD_BACKGROUND_URL = "./assets/orchard-archery-reference.jpeg";
 const USE_ORCHARD_REFERENCE = true;
-const MISSION_TARGETS = [30, 45, 60, 75, 90, 105, 120, 135, 150, 165];
+let MISSION_TARGETS = [30, 45, 60, 75, 90, 105, 120, 135, 150, 165];
+let activeAdaptiveEngine = null;
+let activeKinematicRecorder = typeof MoveWallKinematics !== "undefined"
+  ? new MoveWallKinematics.KinematicRecorder()
+  : null;
+let activePatientData = null;
 const LEVEL_ONE_HITS = 5;
 const TARGET_HOLD_SECONDS = 2.0;
 const TARGET_HOLD_UNDER_TOLERANCE = 6;
@@ -309,6 +314,21 @@ const ui = {
   assessmentSuccessCloseBtn: document.getElementById("assessmentSuccessCloseBtn"),
   assessmentTherapistName: document.getElementById("assessmentTherapistName"),
   musicToggleButton: document.getElementById("musicToggleButton"),
+  // Player Lock & Calibration (Fitur 9 & Fitur 4)
+  btnPlayerLock: document.getElementById("btnPlayerLock"),
+  btnCalibrate: document.getElementById("btnCalibrate"),
+  playerOccludedOverlay: document.getElementById("playerOccludedOverlay"),
+  occludedStatusText: document.getElementById("occludedStatusText"),
+  btnRelockPlayer: document.getElementById("btnRelockPlayer"),
+  btnUnlockPlayer: document.getElementById("btnUnlockPlayer"),
+  calibrationOverlay: document.getElementById("calibrationOverlay"),
+  calibrationCloseBtn: document.getElementById("calibrationCloseBtn"),
+  calibDistanceStatus: document.getElementById("calibDistanceStatus"),
+  calibShoulderStatus: document.getElementById("calibShoulderStatus"),
+  calibZeroOffset: document.getElementById("calibZeroOffset"),
+  calibrationFeedback: document.getElementById("calibrationFeedback"),
+  btnSampleBaseline: document.getElementById("btnSampleBaseline"),
+  btnApplyCalibration: document.getElementById("btnApplyCalibration"),
 };
 
 /* ── apple tree data ───────────────────────────────── */
@@ -395,6 +415,28 @@ const game = {
   feedbackKind: "neutral",
   feedbackTitle: "Ready",
   feedbackText: "Start camera to draw the bow",
+  /* Fitur 9: Player Lock State */
+  playerLock: {
+    locked: false,
+    centroid: null,
+    lostFrames: 0,
+    maxLostFrames: 30, // ~1s
+    isOccluded: false,
+  },
+  /* Fitur 4: Camera Calibration State */
+  calibration: {
+    zeroOffset: 0.0,
+    isCalibrating: false,
+    distanceStatus: "Menunggu kamera",
+    shoulderStatus: "—",
+  },
+  /* Fitur 5: Home Tele-Rehab State */
+  homeSession: {
+    active: false,
+    code: null,
+    patientName: null,
+    therapistName: null,
+  },
   /* mission-specific */
   trees: makeTreeRow(),
   hangingApples: makeHangingApples(),
@@ -555,7 +597,7 @@ function createPoseLandmarker(visionTasks, vision, delegate) {
       delegate,
     },
     runningMode: "VIDEO",
-    numPoses: 1,
+    numPoses: 3,
     // Diturunkan dari 0.45 → 0.3 agar model tetap mendeteksi pose
     // meski pencahayaan atau sudut kurang ideal
     minPoseDetectionConfidence: 0.3,
@@ -631,7 +673,8 @@ function waitForVideoReady(video) {
 }
 
 function updateCameraMotion(dt) {
-  if (!game.running || game.mode !== "camera" || game.painStop) return;
+  const trackWhilePaused = game.playerLock.isOccluded || game.calibration.isCalibrating;
+  if ((!game.running && !trackWhilePaused) || game.mode !== "camera" || game.painStop) return;
   if (!ui.cameraPreview.videoWidth || !ui.cameraPreview.videoHeight) return;
 
   if (!game.poseReady || !game.poseLandmarker) {
@@ -678,7 +721,43 @@ function updatePoseTracking(now) {
     game.poseBusy = false;
   }
 
-  const landmarks = result?.landmarks?.[0];
+  const allLandmarks = result?.landmarks || [];
+  game.debugLastAllLandmarks = allLandmarks;
+  let landmarks = null;
+  let matchInfo = null;
+
+  // Fitur 9: Player Lock matching & Occlusion tracking
+  if (game.playerLock.locked && game.playerLock.centroid) {
+    matchInfo = typeof MoveWallPlayerTracker !== "undefined"
+      ? MoveWallPlayerTracker.matchLockedPlayer(allLandmarks, game.playerLock.centroid)
+      : (allLandmarks[0] ? { landmarks: allLandmarks[0], centroid: null, distance: 0 } : null);
+
+    if (matchInfo) {
+      landmarks = matchInfo.landmarks;
+      if (typeof MoveWallPlayerTracker !== "undefined" && matchInfo.centroid) {
+        game.playerLock.centroid = MoveWallPlayerTracker.smoothCentroid(game.playerLock.centroid, matchInfo.centroid);
+      }
+      game.playerLock.lostFrames = 0;
+      if (game.playerLock.isOccluded) {
+        resumeFromOcclusion();
+      }
+    } else {
+      // Pemain terkunci tidak ditemukan di frame ini
+      game.playerLock.lostFrames++;
+      if (game.playerLock.lostFrames >= game.playerLock.maxLostFrames && game.running && !game.playerLock.isOccluded) {
+        triggerOcclusionPause("Pemain terkunci terhalang orang lain atau keluar dari bidang pandang kamera.");
+        return;
+      }
+    }
+  } else {
+    // Mode Bebas (Unlocked): ambil orang pertama
+    landmarks = allLandmarks[0] || null;
+    if (landmarks && typeof MoveWallPlayerTracker !== "undefined") {
+      const c = MoveWallPlayerTracker.computeCentroid(landmarks);
+      if (c) game.playerLock.centroid = c;
+    }
+  }
+
   if (!landmarks) {
     handlePoseMiss("No full body detected", "Keep shoulder and hand visible");
     return;
@@ -687,6 +766,13 @@ function updatePoseTracking(now) {
   // Simpan raw confidence untuk debug overlay
   game.debugLandmarkCount = landmarks.length;
   game.debugLastLandmarks = landmarks;
+
+  // Fitur 4: Live Calibration Update jika dialog kalibrasi sedang terbuka
+  if (game.calibration.isCalibrating && typeof MoveWallPlayerTracker !== "undefined") {
+    updateLiveCalibration(landmarks);
+  }
+
+  if (!game.running) return;
 
   const estimate = estimateArmRaiseRom(landmarks);
   if (!estimate) {
@@ -697,7 +783,7 @@ function updatePoseTracking(now) {
   game.lostPoseFrames = 0;
   game.trackingQuality = estimate.compensation
     ? "Shoulder hike detected"
-    : `Tracking ${estimate.side} arm`;
+    : `Tracking ${estimate.side} arm${game.playerLock.locked ? " 🔒[LOCKED]" : ""}`;
   game.trackedSide = estimate.side;
   game.posePoints = estimate.points;
   game.debugConfidence = estimate.confidence;
@@ -708,11 +794,36 @@ function updatePoseTracking(now) {
     game.controlAngle,
   );
   game.displayAngle = game.controlAngle;
+
+  // Fitur 4: Terapkan Zero-Offset Baseline pada sudut klinis
+  const rawClinical = estimate.clinicalAngle;
+  const zeroCalibrated = typeof MoveWallPlayerTracker !== "undefined"
+    ? MoveWallPlayerTracker.applyZeroOffset(rawClinical, game.calibration.zeroOffset)
+    : rawClinical;
+
   game.clinicalAngle = stabilizeClinicalAngle(
-    estimate.clinicalAngle,
+    zeroCalibrated,
     game.clinicalAngle,
   );
   game.cameraAngle = game.controlAngle;
+
+  // Rekam metrik sesi (ROM maksimum, akurasi, kompensasi) untuk asesmen terapis.
+  MoveWallMetrics.sample({
+    angle: game.clinicalAngle,
+    targetRom: game.targetRom,
+    under: TARGET_HOLD_UNDER_TOLERANCE,
+    over: TARGET_HOLD_OVER_TOLERANCE,
+    compensation: !!estimate.compensation,
+    now,
+  });
+
+  // Fitur 6: Rekam kerangka gerak kinematis (stick-figure 9 sendi tanpa video)
+  if (!activeKinematicRecorder && typeof MoveWallKinematics !== "undefined") {
+    activeKinematicRecorder = new MoveWallKinematics.KinematicRecorder();
+  }
+  if (activeKinematicRecorder && game.running) {
+    activeKinematicRecorder.sample(landmarks, game.clinicalAngle, !!estimate.compensation, now);
+  }
 
   const payload = processTargetHold(game.controlAngle, now);
   if (estimate.compensation) {
@@ -737,6 +848,159 @@ function handlePoseMiss(title, text) {
   resetTargetHold();
   game.trackingQuality = title;
   setFeedback("warn", title, text);
+}
+
+/* ── Fitur 9: Player Lock & Occlusion Helpers ────────────────────────── */
+
+function triggerOcclusionPause(reason = "") {
+  if (!game.running && game.playerLock.isOccluded) return;
+  game.playerLock.isOccluded = true;
+  game.running = false;
+  bgm.pause();
+  if (ui.playerOccludedOverlay) {
+    ui.playerOccludedOverlay.classList.remove("hidden");
+  }
+  if (ui.occludedStatusText && reason) {
+    ui.occludedStatusText.textContent = reason;
+  }
+  setFeedback("warn", "Pelacakan Terjeda", "Pemain terhalang orang lain");
+}
+
+function resumeFromOcclusion() {
+  if (!game.playerLock.isOccluded) return;
+  game.playerLock.isOccluded = false;
+  if (ui.playerOccludedOverlay) {
+    ui.playerOccludedOverlay.classList.add("hidden");
+  }
+  game.running = true;
+  bgm.play();
+  setFeedback("neutral", "Pemain Terdeteksi Kembali", "Latihan dilanjutkan otomatis");
+}
+
+function togglePlayerLock() {
+  if (game.playerLock.locked) {
+    // Unlock player
+    const wasOccluded = game.playerLock.isOccluded;
+    game.playerLock.locked = false;
+    game.playerLock.isOccluded = false;
+    game.playerLock.lostFrames = 0;
+    if (ui.btnPlayerLock) {
+      ui.btnPlayerLock.classList.remove("active");
+      ui.btnPlayerLock.innerHTML = "🔒 Kunci Pemain";
+    }
+    if (ui.playerOccludedOverlay) {
+      ui.playerOccludedOverlay.classList.add("hidden");
+    }
+    if (wasOccluded && !game.painStop && !game.missionCompleted && !game.timeoutTriggered) {
+      game.running = true;
+      bgm.play();
+    }
+    setFeedback("neutral", "Kunci Dibuka", "Mode bebas: melacak siapa pun di depan kamera");
+  } else {
+    // Lock onto currently detected body centroid
+    if (!game.cameraStream) {
+      setFeedback("warn", "Nyalakan Kamera Dulu", "Klik 'Start Camera' lalu berdiri di depan kamera untuk mengunci pemain");
+      return;
+    }
+    const wasOccluded = game.playerLock.isOccluded;
+    const candidateLandmarks =
+      (wasOccluded && game.debugLastAllLandmarks && game.debugLastAllLandmarks[0]) ||
+      game.debugLastLandmarks;
+    if (!candidateLandmarks) {
+      setFeedback("warn", "Gagal Mengunci", "Pastikan bahu dan tubuh terlihat di depan kamera");
+      return;
+    }
+    const c = typeof MoveWallPlayerTracker !== "undefined"
+      ? MoveWallPlayerTracker.computeCentroid(candidateLandmarks)
+      : null;
+    if (!c) {
+      setFeedback("warn", "Gagal Mengunci", "Pastikan kedua bahu terlihat jelas di depan kamera");
+      return;
+    }
+    game.playerLock.locked = true;
+    game.playerLock.centroid = c;
+    game.playerLock.lostFrames = 0;
+    game.playerLock.isOccluded = false;
+    if (ui.btnPlayerLock) {
+      ui.btnPlayerLock.classList.add("active");
+      ui.btnPlayerLock.innerHTML = "🔓 Buka Kunci";
+    }
+    if (ui.playerOccludedOverlay) {
+      ui.playerOccludedOverlay.classList.add("hidden");
+    }
+    if (wasOccluded && !game.painStop && !game.missionCompleted && !game.timeoutTriggered) {
+      game.running = true;
+      bgm.play();
+    }
+    setFeedback("good", "Pemain Terkunci 🔒", "Sistem hanya melacak tubuh Anda walau ada orang lain lewat di sekitar");
+  }
+}
+
+/* ── Fitur 4: Camera Calibration & Neutral Zero-Offset Helpers ─────────── */
+
+function openCalibrationModal() {
+  game.calibration.isCalibrating = true;
+  if (ui.calibrationOverlay) {
+    ui.calibrationOverlay.classList.remove("hidden");
+  }
+  ensureCameraReady();
+}
+
+function closeCalibrationModal() {
+  game.calibration.isCalibrating = false;
+  if (ui.calibrationOverlay) {
+    ui.calibrationOverlay.classList.add("hidden");
+  }
+}
+
+function sampleZeroBaseline() {
+  if (!game.debugLastLandmarks) {
+    if (ui.calibrationFeedback) {
+      ui.calibrationFeedback.textContent = "Kamera belum mendeteksi tubuh. Harap berdiri tegak di depan kamera.";
+      ui.calibrationFeedback.style.color = "#f87171";
+    }
+    return;
+  }
+  const estimate = estimateArmRaiseRom(game.debugLastLandmarks);
+  if (!estimate) {
+    if (ui.calibrationFeedback) {
+      ui.calibrationFeedback.textContent = "Lengan belum terdeteksi. Posisikan tangan rileks di samping paha.";
+      ui.calibrationFeedback.style.color = "#f87171";
+    }
+    return;
+  }
+
+  const sampledAngle = Math.round(estimate.clinicalAngle * 10) / 10;
+  game.calibration.zeroOffset = sampledAngle;
+  try {
+    localStorage.setItem("mw_zero_offset", String(sampledAngle));
+  } catch (_) {}
+
+  if (ui.calibZeroOffset) {
+    ui.calibZeroOffset.textContent = `${sampledAngle.toFixed(1)}°`;
+  }
+  if (ui.calibrationFeedback) {
+    ui.calibrationFeedback.textContent = `✓ Titik nol berhasil dikalibrasi (${sampledAngle.toFixed(1)}°). Saat lengan rileks, elevasi terbaca 0°.`;
+    ui.calibrationFeedback.style.color = "#4ade80";
+  }
+}
+
+function updateLiveCalibration(landmarks) {
+  if (typeof MoveWallPlayerTracker === "undefined") return;
+  const report = MoveWallPlayerTracker.evaluateCameraCalibration(landmarks, game.calibration.zeroOffset);
+  if (!report.valid) return;
+
+  if (ui.calibDistanceStatus) {
+    ui.calibDistanceStatus.textContent = report.distanceLabel;
+    ui.calibDistanceStatus.style.color = report.distanceColor === "green" ? "#4ade80" : "#fbbf24";
+  }
+  if (ui.calibShoulderStatus) {
+    ui.calibShoulderStatus.textContent = report.shoulderLabel;
+    ui.calibShoulderStatus.style.color = report.shoulderColor === "green" ? "#4ade80" : "#fbbf24";
+  }
+  if (ui.calibZeroOffset) {
+    ui.calibZeroOffset.textContent = `${report.zeroOffset.toFixed(1)}°`;
+  }
 }
 
 function stabilizeClinicalAngle(rawAngle, previousAngle) {
@@ -1014,6 +1278,11 @@ function getTargetRomForHitCount(hits) {
 function completeRep(status, peakAngle) {
   if (status !== "VALID") return;
 
+  // Fitur 1: Rekam repetisi ke Adaptive Difficulty Engine (tanpa adaptasi mid-set)
+  if (activeAdaptiveEngine) {
+    activeAdaptiveEngine.recordRep("VALID", peakAngle, TARGET_HOLD_SECONDS);
+  }
+
   game.reps = Math.min(game.repsGoal, game.reps + 1);
   game.score += Math.round(
     100 + Math.max(0, peakAngle - game.targetRom) * 4 + game.level * 12,
@@ -1060,8 +1329,24 @@ function completeRep(status, peakAngle) {
   resetTargetHold();
 
   if (game.reps >= game.repsGoal) {
+    if (activeAdaptiveEngine) {
+      activeAdaptiveEngine.endSet();
+    }
     triggerMissionComplete();
   } else {
+    // PRD 6.3: Jalankan adaptasi per akhir set (setiap 5 hit)
+    if (activeAdaptiveEngine && game.reps % activeAdaptiveEngine.repsPerSet === 0) {
+      const summary = activeAdaptiveEngine.endSet();
+      if (summary.adaptation_applied !== 0) {
+        console.info("[MoveWall Adaptive] Target disesuaikan per set:", summary);
+        // Sesuaikan target sisa berbasis target baru hingga safety ceiling
+        const remaining = game.repsGoal - game.reps;
+        const newTargets = activeAdaptiveEngine.generateTargets(remaining + 1);
+        for (let i = 0; i < remaining; i++) {
+          MISSION_TARGETS[game.reps + i] = newTargets[i + 1] || newTargets[newTargets.length - 1];
+        }
+      }
+    }
     game.targetRom = getTargetRomForHitCount(game.reps);
     game.level = getMissionLevelForHitCount(game.reps);
     setFeedback("good", "Bullseye!", `Next apple at ${game.targetRom} deg`);
@@ -1146,9 +1431,15 @@ function getRomStatus() {
 function triggerPainStop() {
   game.painStop = true;
   game.running = false;
-  game.targetRom = game.minTargetRom;
+  if (activeAdaptiveEngine) {
+    activeAdaptiveEngine.triggerPainOverride();
+    game.targetRom = activeAdaptiveEngine.targetRom;
+  } else {
+    game.targetRom = game.minTargetRom;
+  }
   bgm.pause();
-  setFeedback("bad", "Stopped", "Rest and contact your therapist");
+  updatePatientHudBadge();
+  setFeedback("bad", "Sesi Dihentikan (Nyeri)", "Target diturunkan ke batas aman fungsional. Istirahat sejenak.");
 }
 
 function triggerMissionComplete() {
@@ -1260,6 +1551,14 @@ function restartLevel() {
 
 function resetGame() {
   game.running = false;
+  MoveWallMetrics.reset();
+  if (activeKinematicRecorder) {
+    activeKinematicRecorder.reset();
+  }
+  if (activeAdaptiveEngine) {
+    activeAdaptiveEngine.resetPainOverride();
+  }
+  updatePatientHudBadge();
   game.missionCompleted = false;
   game.timeoutTriggered = false;
   hideMissionCompletionModal();
@@ -3236,7 +3535,7 @@ function tick(now) {
 /* ── controls ──────────────────────────────────────── */
 
 ui.startButton.addEventListener("click", async () => {
-  if (!isSubscriptionActive) {
+  if (!game.homeSession?.active && !isSubscriptionActive) {
     const active = await verifyGameSubscription();
     if (!active) {
       showGamePaywallModal();
@@ -3260,6 +3559,39 @@ ui.pauseButton.addEventListener("click", () => {
 ui.resetButton.addEventListener("click", resetGame);
 ui.painButton.addEventListener("click", triggerPainStop);
 
+if (ui.btnPlayerLock) {
+  ui.btnPlayerLock.addEventListener("click", togglePlayerLock);
+}
+
+if (ui.btnCalibrate) {
+  ui.btnCalibrate.addEventListener("click", openCalibrationModal);
+}
+
+if (ui.calibrationCloseBtn) {
+  ui.calibrationCloseBtn.addEventListener("click", closeCalibrationModal);
+}
+
+if (ui.btnApplyCalibration) {
+  ui.btnApplyCalibration.addEventListener("click", closeCalibrationModal);
+}
+
+if (ui.btnSampleBaseline) {
+  ui.btnSampleBaseline.addEventListener("click", sampleZeroBaseline);
+}
+
+if (ui.btnRelockPlayer) {
+  ui.btnRelockPlayer.addEventListener("click", () => {
+    game.playerLock.locked = false;
+    togglePlayerLock();
+  });
+}
+
+if (ui.btnUnlockPlayer) {
+  ui.btnUnlockPlayer.addEventListener("click", () => {
+    if (game.playerLock.locked) togglePlayerLock();
+  });
+}
+
 if (ui.musicToggleButton) {
   ui.musicToggleButton.addEventListener("click", () => {
     bgm.toggleMute();
@@ -3268,7 +3600,7 @@ if (ui.musicToggleButton) {
 
 if (ui.modalReplayButton) {
   ui.modalReplayButton.addEventListener("click", async () => {
-    if (!isSubscriptionActive) {
+    if (!game.homeSession?.active && !isSubscriptionActive) {
       const active = await verifyGameSubscription();
       if (!active) {
         showGamePaywallModal();
@@ -3647,6 +3979,15 @@ function selectPatientItem(name, age) {
 
   const matched = patientsCache.find(p => p.name.toLowerCase() === name.toLowerCase());
   selectedPatientData = matched ? { ...matched, isNew: false } : { name, age, isNew: false };
+  activePatientData = selectedPatientData;
+
+  if (selectedPatientData && selectedPatientData.prescription) {
+    initAdaptiveEngine(selectedPatientData.prescription);
+  }
+  if (selectedPatientData && selectedPatientData.medicalRecordNo) {
+    sessionStorage.setItem("mw_active_patient_ref", selectedPatientData.medicalRecordNo);
+  }
+  updatePatientHudBadge();
 
   const sessionLabel = (matched && matched.sessionCount) ? `${matched.sessionCount}x sesi` : "Pasien Terdaftar";
   updatePatientStatusBadge("existing", `${age ? age + ' th · ' : ''}${sessionLabel}`);
@@ -3939,6 +4280,21 @@ function openAssessmentDialog() {
     ui.assessmentTherapistName.textContent = `Terapis: ${therapist.name} (${therapist.username})`;
   }
 
+  // Update Live Session Metrics (Fitur 3: ROM Maksimum, Akurasi, Kompensasi)
+  const metrics = typeof MoveWallMetrics !== "undefined" ? MoveWallMetrics.snapshot() : null;
+  const evalMaxRom = document.getElementById("evalMaxRom");
+  const evalAccuracy = document.getElementById("evalAccuracy");
+  const evalCompensation = document.getElementById("evalCompensation");
+  if (evalMaxRom) evalMaxRom.textContent = metrics?.maxRomDeg ? `${metrics.maxRomDeg}°` : "—°";
+  if (evalAccuracy) evalAccuracy.textContent = metrics?.accuracyPercent !== null && metrics?.accuracyPercent !== undefined ? `${metrics.accuracyPercent}%` : "—%";
+  if (evalCompensation) evalCompensation.textContent = metrics?.compensationEvents ?? 0;
+
+  // Reset pain toggles and sliders
+  document.querySelectorAll(".pain-score-slider-wrap").forEach(wrap => wrap.classList.add("hidden"));
+  document.querySelectorAll(".pain-range-slider").forEach(slider => slider.value = "0");
+  document.querySelectorAll(".pain-toggle").forEach(toggle => toggle.checked = false);
+  document.querySelectorAll('input[name="painRegions"]').forEach(cb => cb.checked = false);
+
   overlay.classList.remove("hidden");
   document.body.style.overflow = "hidden";
 }
@@ -3964,22 +4320,98 @@ function showAssessmentError(msg) {
   }
 }
 
+function getPainSeverityLabel(val) {
+  if (val == 0) return "0 (Bebas Nyeri)";
+  if (val <= 3) return `${val} (Nyeri Ringan)`;
+  if (val <= 6) return `${val} (Nyeri Sedang)`;
+  return `${val} (Nyeri Berat)`;
+}
+
+function initPainScoreControls() {
+  document.querySelectorAll(".pain-toggle").forEach((toggle) => {
+    toggle.addEventListener("change", () => {
+      const targetId = toggle.dataset.target;
+      const wrap = document.getElementById(`wrap${targetId.charAt(0).toUpperCase() + targetId.slice(1)}`);
+      const slider = document.getElementById(targetId);
+      const valDisplay = document.getElementById(`val${targetId.charAt(0).toUpperCase() + targetId.slice(1)}`);
+
+      if (toggle.checked) {
+        if (wrap) wrap.classList.remove("hidden");
+        if (slider) slider.value = "4";
+        if (valDisplay) valDisplay.textContent = getPainSeverityLabel(4);
+      } else {
+        if (wrap) wrap.classList.add("hidden");
+        if (slider) slider.value = "0";
+        if (valDisplay) valDisplay.textContent = getPainSeverityLabel(0);
+      }
+    });
+  });
+
+  document.querySelectorAll(".pain-range-slider").forEach((slider) => {
+    slider.addEventListener("input", () => {
+      const targetId = slider.id;
+      const valDisplay = document.getElementById(`val${targetId.charAt(0).toUpperCase() + targetId.slice(1)}`);
+      const val = parseInt(slider.value, 10);
+      if (valDisplay) valDisplay.textContent = getPainSeverityLabel(val);
+      const toggle = document.querySelector(`.pain-toggle[data-target="${targetId}"]`);
+      if (toggle) {
+        toggle.checked = val > 0;
+      }
+    });
+  });
+}
+
 async function submitAssessment(formData) {
+  const isHome = Boolean(game.homeSession && game.homeSession.active && game.homeSession.code);
   const token = getAuthToken();
-  if (!token) {
+  if (!isHome && !token) {
     window.location.replace("./login.html");
     return;
   }
 
+  const metrics = typeof MoveWallMetrics !== "undefined" ? MoveWallMetrics.snapshot() : {};
+  const typedName = formData.get("patientName")?.trim() || (isHome ? game.homeSession.patientName : "");
+  const selectedId =
+    selectedPatientData &&
+    !selectedPatientData.isNew &&
+    selectedPatientData.id &&
+    (!selectedPatientData.name || selectedPatientData.name.toLowerCase() === typedName.toLowerCase())
+      ? selectedPatientData.id
+      : undefined;
+
+  const painFlexionScore = formData.get("painFlexionScore");
+  const painAbductionScore = formData.get("painAbductionScore");
+  const painExtRotScore = formData.get("painExternalRotationScore");
+  const painIntRotScore = formData.get("painInternalRotationScore");
+  const painExtensionScore = formData.get("painExtensionScore");
+
+  const painRegions = Array.from(document.querySelectorAll('input[name="painRegions"]:checked')).map(el => el.value);
+  const safeMaxRom =
+    metrics.maxRomDeg !== null && metrics.maxRomDeg !== undefined && Number.isFinite(Number(metrics.maxRomDeg))
+      ? Math.min(180, Math.max(0, Number(metrics.maxRomDeg)))
+      : null;
+
   const payload = {
-    patientName: formData.get("patientName"),
-    patientAge: formData.get("patientAge"),
+    patientId: selectedId,
+    patientName: typedName,
+    patientAge: formData.get("patientAge") || (isHome ? game.homeSession.patientAge : null),
+    consent: formData.has("consent") || isHome,
+    sessionMode: isHome ? "HOME" : "CLINIC",
     painFlexion: formData.has("painFlexion"),
     painAbduction: formData.has("painAbduction"),
     painExternalRotation: formData.has("painExternalRotation"),
     painInternalRotation: formData.has("painInternalRotation"),
     painExtension: formData.has("painExtension"),
-    notes: formData.get("notes") || null,
+    painFlexionScore: painFlexionScore !== null && painFlexionScore !== "" ? parseInt(painFlexionScore) : (formData.has("painFlexion") ? 4 : null),
+    painAbductionScore: painAbductionScore !== null && painAbductionScore !== "" ? parseInt(painAbductionScore) : (formData.has("painAbduction") ? 4 : null),
+    painExternalRotationScore: painExtRotScore !== null && painExtRotScore !== "" ? parseInt(painExtRotScore) : (formData.has("painExternalRotation") ? 4 : null),
+    painInternalRotationScore: painIntRotScore !== null && painIntRotScore !== "" ? parseInt(painIntRotScore) : (formData.has("painInternalRotation") ? 4 : null),
+    painExtensionScore: painExtensionScore !== null && painExtensionScore !== "" ? parseInt(painExtensionScore) : (formData.has("painExtension") ? 4 : null),
+    painRegions,
+    maxRomDeg: safeMaxRom,
+    accuracyPercent: metrics.accuracyPercent,
+    compensationEvents: metrics.compensationEvents,
+    notes: formData.get("notes") || (isHome ? "Latihan mandiri pasien di rumah via kode akses." : null),
     missionId: 1,
     sessionScore: game.score || 0,
     sessionHits: game.reps || 0,
@@ -3987,24 +4419,64 @@ async function submitAssessment(formData) {
     sessionTime: ui.time ? ui.time.textContent : null,
   };
 
-  const res = await fetch(`${BACKEND_API}/assessment`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  // Fitur 6 & 8: ID Unik Idempotent & Replay Kerangka Gerak Kinematis
+  const clientSessionId = typeof MoveWallSyncQueue !== "undefined"
+    ? MoveWallSyncQueue.generateUUID()
+    : "sess_" + Date.now().toString(36) + "_" + Math.random().toString(36).substring(2, 9);
+  payload.clientSessionId = clientSessionId;
+  payload.kinematicReplayData = activeKinematicRecorder ? activeKinematicRecorder.exportJson() : null;
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    if (data.requiresSubscription) {
-      showGamePaywallModal(data);
+  const targetEndpoint = isHome
+    ? `${BACKEND_API}/home-session/${encodeURIComponent(game.homeSession.code)}/assessment`
+    : `${BACKEND_API}/assessment`;
+
+  try {
+    let res;
+    if (isHome) {
+      res = await fetch(targetEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      res = await fetch(targetEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
     }
-    throw new Error(data.error || "Gagal menyimpan assessment.");
-  }
 
-  return await res.json();
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data.requiresSubscription) {
+        showGamePaywallModal(data);
+      }
+      throw new Error(data.error || `Gagal menyimpan assessment (HTTP ${res.status}).`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    const isNetworkError = !navigator.onLine || err.message.includes("fetch") || err.message.includes("Network") || err.message.includes("Failed");
+    if (typeof MoveWallSyncQueue !== "undefined" && isNetworkError) {
+      MoveWallSyncQueue.enqueue({
+        clientSessionId,
+        endpoint: targetEndpoint,
+        token: isHome ? null : token,
+        payload,
+      });
+      return {
+        offlineQueued: true,
+        clientSessionId,
+        message: "Koneksi offline. Data asesmen tersimpan di antrean perangkat dan akan disinkron otomatis saat online kembali.",
+      };
+    }
+    throw err;
+  }
 }
 
 // Wire up assessment buttons (from mission complete overlay and timeout overlay)
@@ -4067,7 +4539,7 @@ if (ui.assessmentForm) {
     setAssessmentLoading(true);
 
     try {
-      await submitAssessment(formData);
+      const saveRes = await submitAssessment(formData);
 
       // Update local patients cache so newly added patient appears in combobox
       const parsedAge = parseInt(patientAge);
@@ -4077,8 +4549,11 @@ if (ui.assessmentForm) {
       if (existingPatient) {
         existingPatient.age = parsedAge;
         existingPatient.sessionCount = (existingPatient.sessionCount || 1) + 1;
+        if (saveRes?.patient?.id) existingPatient.id = saveRes.patient.id;
       } else {
         patientsCache.unshift({
+          id: saveRes?.patient?.id,
+          medicalRecordNo: saveRes?.patient?.medicalRecordNo,
           name: patientName,
           age: parsedAge,
           sessionCount: 1,
@@ -4087,8 +4562,16 @@ if (ui.assessmentForm) {
 
       // Show success state
       if (ui.assessmentForm) ui.assessmentForm.classList.add("hidden");
-      if (ui.assessmentSuccess) ui.assessmentSuccess.classList.remove("hidden");
-      console.info("[MoveWall] Assessment berhasil disimpan.");
+      if (ui.assessmentSuccess) {
+        ui.assessmentSuccess.classList.remove("hidden");
+        const successTxt = ui.assessmentSuccess.querySelector(".assessment-success-text");
+        if (successTxt) {
+          successTxt.textContent = saveRes && saveRes.offlineQueued
+            ? "Tersimpan di antrean offline. Akan disinkron otomatis saat online kembali."
+            : "Assessment berhasil disimpan!";
+        }
+      }
+      console.info("[MoveWall] Assessment berhasil diproses.", saveRes);
     } catch (err) {
       showAssessmentError(err.message || "Terjadi kesalahan. Pastikan server backend berjalan.");
     } finally {
@@ -4097,7 +4580,143 @@ if (ui.assessmentForm) {
   });
 }
 
-// Initialize patient combobox autocomplete
-initPatientCombobox();
+// ─── Adaptive Difficulty Engine & Safety Ceiling Integration (Fitur 1) ──────────
 
-console.info("[MoveWall] Mission 1 — Auth guard, Assessment dialog & Combobox ready.");
+function initAdaptiveEngine(prescription = null) {
+  const rx = prescription || {
+    initialTargetRom: 45.0,
+    maxSafetyCeiling: 135.0,
+    minFunctionalRom: 30.0,
+    adaptiveEnabled: true,
+  };
+  if (typeof MoveWallAdaptive !== "undefined" && MoveWallAdaptive.AdaptiveEngine) {
+    activeAdaptiveEngine = new MoveWallAdaptive.AdaptiveEngine({
+      exerciseType: "SHOULDER_FLEXION",
+      initialTargetRom: rx.initialTargetRom,
+      maxSafetyCeiling: rx.maxSafetyCeiling,
+      minFunctionalRom: rx.minFunctionalRom,
+      adaptiveEnabled: rx.adaptiveEnabled,
+    });
+    MISSION_TARGETS = activeAdaptiveEngine.generateTargets(10);
+  } else {
+    MISSION_TARGETS = [30, 45, 60, 75, 90, 105, 120, 135, 150, 165];
+  }
+  game.repsGoal = MISSION_TARGETS.length;
+  game.minTargetRom = activeAdaptiveEngine ? activeAdaptiveEngine.minFunctionalRom : MISSION_TARGETS[0];
+  game.maxTargetRom = activeAdaptiveEngine ? activeAdaptiveEngine.maxSafetyCeiling : MISSION_TARGETS[MISSION_TARGETS.length - 1];
+  game.targetRom = MISSION_TARGETS[0];
+  if (ui.target) ui.target.textContent = `Target ${game.targetRom}`;
+  updatePatientHudBadge();
+}
+
+function updatePatientHudBadge() {
+  const nameEl = document.getElementById("hudPatientName");
+  const ceilingEl = document.getElementById("hudSafetyCeiling");
+  const pillEl = document.getElementById("hudAdaptivePill");
+  if (!nameEl || !ceilingEl || !pillEl) return;
+
+  if (game.homeSession && game.homeSession.active) {
+    nameEl.textContent = `🏠 Latihan Mandiri: ${game.homeSession.patientName}`;
+  } else if (activePatientData) {
+    nameEl.textContent = `Pasien: ${activePatientData.name}${activePatientData.medicalRecordNo ? ` (${activePatientData.medicalRecordNo})` : ""}`;
+  } else {
+    nameEl.textContent = "Pasien: Sesi Umum";
+  }
+
+  const ceiling = activeAdaptiveEngine
+    ? activeAdaptiveEngine.maxSafetyCeiling
+    : (MISSION_TARGETS[MISSION_TARGETS.length - 1] || 135);
+  ceilingEl.textContent = `Batas Aman: ${Math.round(ceiling)}°`;
+
+  if (activeAdaptiveEngine && activeAdaptiveEngine._painOverrideActive) {
+    pillEl.className = "hud-adaptive-pill is-pain";
+    pillEl.textContent = "Nyeri: Turun Minimum";
+  } else if (activeAdaptiveEngine && !activeAdaptiveEngine.adaptiveEnabled) {
+    pillEl.className = "hud-adaptive-pill is-fixed";
+    pillEl.textContent = "Target Tetap";
+  } else {
+    pillEl.className = "hud-adaptive-pill";
+    pillEl.textContent = "Adaptif Aktif";
+  }
+}
+
+async function checkHomeSessionFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const homeCode = urlParams.get("code") || urlParams.get("homeCode");
+  if (!homeCode) return false;
+
+  try {
+    const res = await fetch(`${BACKEND_API}/home-session/${encodeURIComponent(homeCode.trim())}`);
+    if (!res.ok) {
+      console.warn("[MoveWall Home] Kode sesi latihan mandiri tidak valid.");
+      return false;
+    }
+    const data = await res.json();
+    game.homeSession = {
+      active: true,
+      code: data.code,
+      patientName: data.patient.name,
+      patientAge: data.patient.age,
+      medicalRecordNo: data.patient.medicalRecordNo,
+      therapistName: data.patient.therapist?.fullName || "Fisioterapis",
+      prescription: data.patient.prescription,
+    };
+    activePatientData = {
+      id: data.patient.id,
+      name: data.patient.name,
+      age: data.patient.age,
+      medicalRecordNo: data.patient.medicalRecordNo,
+      prescription: data.patient.prescription,
+    };
+    initAdaptiveEngine(data.patient.prescription);
+    updatePatientHudBadge();
+    console.info(`[MoveWall Home] Sesi latihan mandiri di rumah aktif: ${data.patient.name} (${data.code})`);
+    return true;
+  } catch (err) {
+    console.warn("[MoveWall Home] Gagal memuat sesi latihan di rumah:", err);
+    return false;
+  }
+}
+
+function checkInitialPatientFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const patientRef = urlParams.get("patient") || sessionStorage.getItem("mw_active_patient_ref");
+  if (!patientRef || !patientsCache.length) return;
+
+  const refClean = decodeURIComponent(patientRef).trim().toLowerCase();
+  const found = patientsCache.find(p => 
+    (p.medicalRecordNo && p.medicalRecordNo.toLowerCase() === refClean) ||
+    p.name.toLowerCase() === refClean ||
+    String(p.id) === refClean
+  );
+
+  if (found) {
+    activePatientData = found;
+    sessionStorage.setItem("mw_active_patient_ref", found.medicalRecordNo || found.name);
+    initAdaptiveEngine(found.prescription);
+    selectPatientItem(found.name, found.age);
+  }
+}
+
+// Restore saved calibration zero offset if available
+try {
+  const savedOffset = parseFloat(localStorage.getItem("mw_zero_offset"));
+  if (!isNaN(savedOffset) && savedOffset >= 0 && savedOffset <= 60) {
+    game.calibration.zeroOffset = savedOffset;
+    if (ui.calibZeroOffset) {
+      ui.calibZeroOffset.textContent = `${savedOffset.toFixed(1)}°`;
+    }
+  }
+} catch (_) {}
+
+// Initialize patient combobox autocomplete, pain controls, and adaptive engine
+initPatientCombobox();
+initPainScoreControls();
+initAdaptiveEngine();
+checkHomeSessionFromUrl().then((isHome) => {
+  if (!isHome) {
+    fetchPatientsList().then(() => checkInitialPatientFromUrl());
+  }
+});
+
+console.info("[MoveWall] Mission 1 — Player Lock, Calibration, Home Tele-Rehab & Adaptive ready.");

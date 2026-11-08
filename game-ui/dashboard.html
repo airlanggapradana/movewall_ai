@@ -34,6 +34,8 @@
       type="image/png"
       href="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png"
     />
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#0f172a" />
     <!-- Local html2pdf with fallback -->
     <script src="./assets/html2pdf.bundle.min.js"></script>
     <script>
@@ -559,7 +561,9 @@
                   <div>
                     <div class="dash-patient-heading">
                       <h2 id="pName" class="dash-patient-name">—</h2>
+                      <span id="pMedRecord" class="dash-badge-medrec">MW-000000</span>
                       <span id="pAgeBadge" class="dash-badge-age">— tahun</span>
+                      <span id="pConsentBadge" class="dash-badge-consent">PDP</span>
                     </div>
                     <div class="dash-patient-subline">
                       <span id="pSessionCount">0 Sesi Selesai</span>
@@ -627,7 +631,7 @@
                 </div>
               </div>
 
-              <!-- Patient Quick Stats Cards -->
+              <!-- Patient Quick Stats Cards (6 Cards) -->
               <div class="dash-p-stats-row">
                 <div class="dash-p-stat-card">
                   <span class="dash-p-stat-label">Rata-rata Skor Sesi</span>
@@ -638,6 +642,16 @@
                   <span class="dash-p-stat-label">Rata-rata Target Hits</span>
                   <strong class="dash-p-stat-val" id="pAvgHits">—</strong>
                   <span class="dash-p-stat-sub">dari 10 target per sesi</span>
+                </div>
+                <div class="dash-p-stat-card">
+                  <span class="dash-p-stat-label">ROM Max Terbaik</span>
+                  <strong class="dash-p-stat-val" id="pBestRom">—°</strong>
+                  <span class="dash-p-stat-sub">Estimasi kamera</span>
+                </div>
+                <div class="dash-p-stat-card">
+                  <span class="dash-p-stat-label">Akurasi Target</span>
+                  <strong class="dash-p-stat-val" id="pAvgAccuracy">—%</strong>
+                  <span class="dash-p-stat-sub">Jendela target</span>
                 </div>
                 <div class="dash-p-stat-card">
                   <span class="dash-p-stat-label">Level Tertinggi Adaptif</span>
@@ -655,6 +669,190 @@
                 </div>
               </div>
 
+              <!-- Clinical Exercise Prescription & Safety Ceiling (Fitur 1) -->
+              <div class="dash-prescription-card">
+                <div class="dash-prescription-header">
+                  <div class="dash-prescription-title-group">
+                    <div class="dash-prescription-icon">🛡️</div>
+                    <div>
+                      <h3 class="dash-prescription-title">Resep Latihan &amp; Batas Aman Gerak (Safety Ceiling)</h3>
+                      <p class="dash-prescription-desc">
+                        Terapis menetapkan batas elevasi aman (ceiling) dan target awal. Gim MoveWall AI menyesuaikan kesulitan secara adaptif per set (5 repetisi) dan langsung turun ke batas minimum bila terjadi nyeri.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="dash-prescription-actions">
+                    <a id="btnPlayMission1" href="./index.html" class="dash-btn-play-game" title="Buka Apple Archer dengan pasien ini">
+                      <span>🎯 Mulai Apple Archer (Misi 1)</span>
+                    </a>
+                    <a id="btnPlayMission2" href="./mission2.html" class="dash-btn-play-game secondary" title="Buka Garden Keeper dengan pasien ini">
+                      <span>🌻 Mulai Garden Keeper (Misi 2)</span>
+                    </a>
+                  </div>
+                </div>
+
+                <form id="rxForm" class="dash-rx-form" novalidate>
+                  <div class="dash-rx-grid">
+                    <!-- 1. Max Safety Ceiling -->
+                    <div class="dash-rx-field highlight-ceiling">
+                      <div class="dash-rx-field-header">
+                        <label for="rxSafetyCeiling">Batas Aman Maksimum (Safety Ceiling)</label>
+                        <span class="dash-rx-badge-val" id="rxSafetyCeilingVal">135°</span>
+                      </div>
+                      <p class="dash-rx-helper">Target gim TIDAK PERNAH melebihi batas ini demi mencegah cedera/nyeri.</p>
+                      <div class="dash-rx-slider-wrap">
+                        <input type="range" id="rxSafetyCeiling" min="45" max="180" step="5" value="135" class="dash-rx-slider" />
+                        <div class="dash-rx-ticks">
+                          <span>45° (Frozen/Akut)</span>
+                          <span>90° (Impingement)</span>
+                          <span>135° (Moderat)</span>
+                          <span>180° (Penuh)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 2. Initial Target ROM -->
+                    <div class="dash-rx-field">
+                      <div class="dash-rx-field-header">
+                        <label for="rxInitialTarget">Target ROM Awal</label>
+                        <span class="dash-rx-badge-val" id="rxInitialTargetVal">45°</span>
+                      </div>
+                      <p class="dash-rx-helper">Target gerak repetisi pertama saat sesi baru dimulai.</p>
+                      <div class="dash-rx-slider-wrap">
+                        <input type="range" id="rxInitialTarget" min="20" max="120" step="5" value="45" class="dash-rx-slider" />
+                        <div class="dash-rx-ticks">
+                          <span>20°</span>
+                          <span>45°</span>
+                          <span>90°</span>
+                          <span>120°</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 3. Min Functional ROM -->
+                    <div class="dash-rx-field">
+                      <div class="dash-rx-field-header">
+                        <label for="rxMinFunctional">Batas Minimum Fungsional (Fallback Nyeri)</label>
+                        <span class="dash-rx-badge-val" id="rxMinFunctionalVal">30°</span>
+                      </div>
+                      <p class="dash-rx-helper">Batas target turun instan saat tombol Stop/Nyeri ditekan.</p>
+                      <div class="dash-rx-slider-wrap">
+                        <input type="range" id="rxMinFunctional" min="15" max="60" step="5" value="30" class="dash-rx-slider" />
+                        <div class="dash-rx-ticks">
+                          <span>15°</span>
+                          <span>30°</span>
+                          <span>45°</span>
+                          <span>60°</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 4. Toggle Adaptive -->
+                    <div class="dash-rx-field toggle-field">
+                      <div class="dash-rx-field-header">
+                        <label for="rxAdaptiveToggle">Mode Kesulitan Adaptif</label>
+                      </div>
+                      <p class="dash-rx-helper">Naikkan +5% saat performa optimal (SR≥90%, ARAR≥1.05); turun -7.5% jika SR&lt;70%.</p>
+                      <label class="dash-switch-label">
+                        <input type="checkbox" id="rxAdaptiveToggle" checked />
+                        <span class="dash-switch-slider"></span>
+                        <span id="rxAdaptiveToggleText" class="dash-switch-text">Adaptif Otomatis Aktif</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="dash-rx-footer">
+                    <div id="rxSaveFeedback" class="dash-rx-feedback hidden"></div>
+                    <button type="submit" id="btnSaveRx" class="dash-btn-save-rx">
+                      <span id="btnSaveRxText">Simpan Resep &amp; Batas Aman</span>
+                      <span id="btnSaveRxLoader" class="dash-rx-loader hidden" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Clinical AI Summary Draft (SOAP Note Review & Approval - Fitur 7) -->
+              <div class="dash-ai-card">
+                <div class="dash-ai-header">
+                  <div class="dash-ai-title-group">
+                    <div class="dash-ai-icon">🤖</div>
+                    <div>
+                      <h3 class="dash-ai-title">Draf Ringkasan Klinis AI (SOAP Note)</h3>
+                      <p class="dash-ai-desc">
+                        Sintesis terstruktur format SOAP (Subjective, Objective, Assessment, Plan) berbasis capaian ROM, akurasi target, kejadian kompensasi, dan skor nyeri NRS. Fisioterapis dapat mengedit teks sebelum menyetujui agar resmi tercantum pada Laporan PDF.
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <span id="aiSummaryStatusBadge" class="dash-ai-status-badge">Belum Disetujui</span>
+                  </div>
+                </div>
+
+                <textarea
+                  id="aiSummaryDraftText"
+                  class="dash-ai-textarea"
+                  placeholder="Klik 'Generate Draf Ringkasan AI' untuk mensintesis catatan SOAP dari riwayat latihan pasien..."
+                ></textarea>
+
+                <div class="dash-ai-actions">
+                  <div id="aiSummaryFeedback" class="dash-ai-feedback"></div>
+                  <div class="dash-ai-btns">
+                    <button type="button" id="btnGenerateAiSummary" class="dash-btn-ai">
+                      <span>🤖 Buat / Perbarui Draf AI</span>
+                    </button>
+                    <button type="button" id="btnApproveAiSummary" class="dash-btn-approve-ai">
+                      <span>✅ Setujui &amp; Gunakan di Laporan PDF</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Home Tele-Rehabilitation Practice Access (Fitur 5) -->
+              <div class="dash-home-rehab-card">
+                <div class="dash-home-header">
+                  <div class="dash-home-title-group">
+                    <div class="dash-home-icon">🏠</div>
+                    <div>
+                      <h3 class="dash-home-title">Akses Latihan Mandiri di Rumah (Tele-Rehabilitasi)</h3>
+                      <p class="dash-home-desc">
+                        Pasien dapat berlatih mandiri di rumah tanpa perlu login akun terapis. Batas aman gerak dan target adaptif tetap terkunci sesuai resep klinik, dan hasil latihan otomatis tersinkron ke dashboard ini.
+                      </p>
+                    </div>
+                  </div>
+                  <button type="button" id="btnGenerateHomeCode" class="dash-btn-home-code">
+                    <span>🔑 Buat / Perbarui Kode Akses Mandiri</span>
+                  </button>
+                </div>
+
+                <div class="dash-home-box">
+                  <div class="dash-home-code-row">
+                    <span>Kode Akses Pasien:</span>
+                    <strong id="homeCodeDisplay" class="dash-home-code-display">—</strong>
+                    <div id="homeCodeFeedback" class="dash-home-feedback"></div>
+                  </div>
+                  <div class="dash-home-links-grid">
+                    <div class="dash-home-link-item">
+                      <div>
+                        <div class="dash-home-link-name">🎯 Apple Archer (Misi 1)</div>
+                        <small style="color:var(--text-secondary)">Elevasi Lengan / Shoulder Flexion</small>
+                      </div>
+                      <button type="button" id="btnCopyLinkM1" class="dash-btn-copy-link" title="Salin tautan latihan Misi 1">
+                        Salin Tautan
+                      </button>
+                    </div>
+                    <div class="dash-home-link-item">
+                      <div>
+                        <div class="dash-home-link-name">🌻 Garden Keeper (Misi 2)</div>
+                        <small style="color:var(--text-secondary)">Abduksi Bahu &amp; Hand Tracking</small>
+                      </div>
+                      <button type="button" id="btnCopyLinkM2" class="dash-btn-copy-link" title="Salin tautan latihan Misi 2">
+                        Salin Tautan
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Two-Panel: Pain Matrix & Score Progress -->
               <div class="dash-analytics-row">
                 <!-- Pain Matrix per Movement -->
@@ -663,15 +861,22 @@
                     <h3 class="dash-card-title">
                       Checklist Nyeri per Gerakan ROM
                     </h3>
-                    <span class="dash-card-badge">Biomekanika Bahu</span>
+                    <span class="dash-card-badge">Skala 0–10 NRS</span>
                   </div>
                   <p class="dash-card-desc">
-                    Frekuensi rasa nyeri yang dilaporkan saat melakukan gerakan
-                    sendi bahu:
+                    Frekuensi dan rata-rata skor nyeri (0 = bebas nyeri, 10 = nyeri maksimal):
                   </p>
 
                   <div class="dash-pain-matrix" id="painMatrixContainer">
                     <!-- Populated dynamically in JS -->
+                  </div>
+
+                  <!-- Nordic Body Map Light Summary -->
+                  <div class="dash-nordic-summary-box">
+                    <h4 class="dash-nordic-title">Peta Lokasi Nyeri Bahu (Nordic Body Map)</h4>
+                    <div id="painNordicSummaryContainer" class="dash-nordic-chips-wrap">
+                      <span class="dash-empty-note">Belum ada titik nyeri yang terlapor.</span>
+                    </div>
                   </div>
                 </div>
 
@@ -752,16 +957,19 @@
                     <thead>
                       <tr>
                         <th style="width: 5%">Sesi</th>
-                        <th style="width: 14%">Tanggal & Waktu</th>
-                        <th style="width: 13%">Misi</th>
-                        <th style="width: 8%">Level</th>
-                        <th style="width: 8%">Durasi</th>
-                        <th style="width: 7%">Hits</th>
-                        <th style="width: 8%">Skor</th>
-                        <th style="width: 15%">Keluhan Nyeri ROM</th>
-                        <th style="width: 22%">
-                          Catatan Terapis vs Data Otomatis
+                        <th style="width: 11%">Tanggal & Waktu</th>
+                        <th style="width: 7%">Mode</th>
+                        <th style="width: 8%">Misi</th>
+                        <th style="width: 5%">Level</th>
+                        <th style="width: 6%">Durasi</th>
+                        <th style="width: 5%">Hits</th>
+                        <th style="width: 6%">Skor</th>
+                        <th style="width: 13%">ROM Max & Akurasi</th>
+                        <th style="width: 13%">Keluhan & Skala Nyeri</th>
+                        <th style="width: 13%">
+                          Catatan Terapis
                         </th>
+                        <th style="width: 8%">Aksi</th>
                       </tr>
                     </thead>
                     <tbody id="sessionTableBody">
@@ -1062,6 +1270,72 @@
     </main>
 
     <!-- ═══════════════════════════════════════════════════════════
+         KINEMATIC SKELETON REPLAY MODAL (Fitur 6)
+         Stick-figure replay 9 sendi tanpa video untuk privasi PDP
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="skeletonReplayModal" class="dash-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="replayModalTitle">
+      <div class="dash-modal-backdrop" id="replayModalBackdrop"></div>
+      <div class="dash-modal-card replay-modal-card">
+        <div class="dash-modal-header">
+          <div class="replay-header-info">
+            <div class="replay-header-badge">🎬 Biomekanika Replay</div>
+            <h2 id="replayModalTitle" class="dash-modal-title">Replay Kerangka Gerak Kinematis</h2>
+            <p id="replayModalSubtitle" class="dash-modal-desc">
+              Visualisasi stick-figure 9 sendi tubuh tanpa rekaman video (privasi penuh UU PDP No. 27/2022).
+            </p>
+          </div>
+          <button type="button" id="btnReplayClose" class="dash-modal-btn-close" aria-label="Tutup replay">&times;</button>
+        </div>
+
+        <div class="replay-body">
+          <!-- Canvas Display with overlay badges -->
+          <div class="replay-canvas-wrapper">
+            <canvas id="replayCanvas" width="640" height="420"></canvas>
+            <div class="replay-overlay-hud">
+              <span id="replayAngleBadge" class="replay-hud-pill">Sudut: 0°</span>
+              <span id="replayCompBadge" class="replay-hud-pill comp hidden">⚠️ Kompensasi Tubuh</span>
+              <span id="replayModeBadge" class="replay-hud-pill mode">🏥 Klinik</span>
+            </div>
+          </div>
+
+          <!-- Timeline Slider & Time Info -->
+          <div class="replay-timeline-bar">
+            <input type="range" id="replaySeek" min="0" max="1000" value="0" step="1" class="replay-slider" />
+            <div class="replay-timeline-meta">
+              <span id="replayTimeCurrent">00:00</span>
+              <span id="replaySessionMeta">Pasien: — · Sesi #—</span>
+              <span id="replayTimeTotal">00:00</span>
+            </div>
+          </div>
+
+          <!-- Playback Controls -->
+          <div class="replay-controls-row">
+            <div class="replay-btn-group">
+              <button type="button" id="btnReplayPlayPause" class="btn-replay-control play" aria-label="Putar / Jeda">
+                <span id="replayPlayIcon">▶</span> <span id="replayPlayText">Putar</span>
+              </button>
+              <button type="button" id="btnReplayRestart" class="btn-replay-control secondary" aria-label="Ulang dari awal">
+                ⏮ Ulang
+              </button>
+            </div>
+
+            <div class="replay-speed-selector">
+              <span class="replay-speed-label">Kecepatan:</span>
+              <button type="button" class="btn-replay-speed" data-speed="0.5">0.5x</button>
+              <button type="button" class="btn-replay-speed active" data-speed="1.0">1.0x</button>
+              <button type="button" class="btn-replay-speed" data-speed="1.5">1.5x</button>
+              <button type="button" class="btn-replay-speed" data-speed="2.0">2.0x</button>
+            </div>
+          </div>
+
+          <div class="replay-privacy-notice">
+            🛡️ <strong>Privasi Medis Terjamin:</strong> Data kinematis diekspor dalam format ringkas (~35 KB/menit) hanya berisi koordinat sendi & kompensasi postural untuk evaluasi biomekanika terapis, tanpa menyimpan rekaman video wajah atau kamera pasien.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
          HIDDEN PDF REPORT TEMPLATE CONTAINER
          Layout khusus untuk konversi ke format cetak PDF medis A4
          ═══════════════════════════════════════════════════════════ -->
@@ -1106,6 +1380,10 @@
             <h3 class="pdf-box-title">Identitas Pasien</h3>
             <table class="pdf-meta-table">
               <tr>
+                <td>No. Rekam Medis</td>
+                <td>: <strong id="pdfMedRecord">—</strong></td>
+              </tr>
+              <tr>
                 <td>Nama Pasien</td>
                 <td>: <strong id="pdfPatientName">—</strong></td>
               </tr>
@@ -1114,8 +1392,16 @@
                 <td>: <span id="pdfPatientAge">— tahun</span></td>
               </tr>
               <tr>
+                <td>Persetujuan PDP</td>
+                <td>: <span id="pdfConsent">Tercatat (UU PDP)</span></td>
+              </tr>
+              <tr>
                 <td>Total Sesi</td>
                 <td>: <span id="pdfTotalSessions">— sesi</span></td>
+              </tr>
+              <tr>
+                <td>Batas Aman Gerak</td>
+                <td>: <span id="pdfSafetyCeiling">—° (Safety Ceiling)</span></td>
               </tr>
               <tr>
                 <td>Periode Latihan</td>
@@ -1162,8 +1448,12 @@
               <strong class="pdf-kpi-num" id="pdfMaxScore">0</strong>
             </div>
             <div class="pdf-kpi-col">
-              <span class="pdf-kpi-lbl">Akurasi Rata-rata Hits</span>
-              <strong class="pdf-kpi-num" id="pdfAvgHits">0 / 10</strong>
+              <span class="pdf-kpi-lbl">ROM Max Terbaik</span>
+              <strong class="pdf-kpi-num" id="pdfBestRom">0°</strong>
+            </div>
+            <div class="pdf-kpi-col">
+              <span class="pdf-kpi-lbl">Akurasi Target</span>
+              <strong class="pdf-kpi-num" id="pdfAvgAccuracy">0%</strong>
             </div>
             <div class="pdf-kpi-col">
               <span class="pdf-kpi-lbl">Prevalensi Nyeri</span>
@@ -1224,15 +1514,16 @@
           <table class="pdf-table pdf-table-sessions">
             <thead>
               <tr>
-                <th style="width: 5%">#</th>
-                <th style="width: 14%">Tanggal</th>
-                <th style="width: 18%">Misi Rehabilitasi</th>
-                <th style="width: 7%">Level</th>
-                <th style="width: 8%">Durasi</th>
-                <th style="width: 7%">Hits</th>
-                <th style="width: 9%">Skor</th>
-                <th style="width: 14%">Nyeri Terdeteksi</th>
-                <th style="width: 18%">Catatan Terapis</th>
+                <th style="width: 4%">#</th>
+                <th style="width: 13%">Tanggal</th>
+                <th style="width: 14%">Misi</th>
+                <th style="width: 6%">Level</th>
+                <th style="width: 6%">Durasi</th>
+                <th style="width: 6%">Hits</th>
+                <th style="width: 7%">Skor</th>
+                <th style="width: 13%">ROM / Akurasi</th>
+                <th style="width: 14%">Nyeri & Wilayah</th>
+                <th style="width: 17%">Catatan Terapis</th>
               </tr>
             </thead>
             <tbody id="pdfSessionHistoryTbody">
@@ -1244,10 +1535,13 @@
         <!-- Therapist Recommendation & Signature Block -->
         <div class="pdf-section pdf-signature-section">
           <div class="pdf-recommendation-box">
-            <h4 class="pdf-rec-title">Rekomendasi Terapi Lanjutan:</h4>
-            <p id="pdfRecommendationText" class="pdf-rec-text">
+            <div class="pdf-rec-header">
+              <h4 class="pdf-rec-title">Rekomendasi Terapi Lanjutan</h4>
+              <span id="pdfRecommendationBadge" class="pdf-rec-badge">Evaluasi Telemetri Klinis</span>
+            </div>
+            <div id="pdfRecommendationText" class="pdf-rec-text">
               Memuat rekomendasi klinis dinamis...
-            </p>
+            </div>
           </div>
 
           <div class="pdf-sig-block">
@@ -1262,15 +1556,27 @@
         <!-- Footer -->
         <div class="pdf-doc-footer">
           <span
-            >MoveWall AI &bull; Tele-Rehabilitation Telemetry & Clinical System
+            >MoveWall AI &bull; Tele-Rehabilitation Telemetry &amp; Clinical System
             &bull; Dokumen Rahasia Medis</span
           >
-          <span>Halaman 1 / 1</span>
+          <span id="pdfFooterMeta">Rekam Medis Elektronik</span>
         </div>
       </div>
     </div>
 
     <!-- Script Logic -->
+    <script src="./kinematic-replay.js"></script>
+    <script src="./sync-queue.js"></script>
     <script src="./dashboard.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(console.warn);
+        });
+      }
+      if (typeof MoveWallSyncQueue !== "undefined") {
+        MoveWallSyncQueue.initAutoSync();
+      }
+    </script>
   </body>
 </html>

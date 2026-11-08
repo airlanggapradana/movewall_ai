@@ -179,11 +179,11 @@ Sistem production telah live dan dapat diuji langsung melalui browser tanpa inst
 | **Misi 2: Garden Keeper** | [https://movewall-ai.vercel.app/mission2](https://movewall-ai.vercel.app/mission2) |
 | **Backend API Health** | [https://movewallai-production.up.railway.app/api/health](https://movewallai-production.up.railway.app/api/health) |
 
-### Akun Uji Coba Terapis (Pre-seeded):
+### Akun Uji Coba Terapis (Pre-seeded Sandbox/Dev):
 - **Username**: `therapist01`
-- **Password**: `movewall2026`
+- **Password**: `movewall2026` *(atau nilai dari `SEED_PASSWORD` jika dikonfigurasi saat inisialisasi lingkungan)*
 - **Nama Dokter**: *Dr. Rina Setiawati, Sp.KFR* (Spesialis Kedokteran Fisik & Rehabilitasi)
-*(Tersedia tombol autofill "Demo Login" pada halaman login)*
+*(Tersedia tombol autofill cepat pada localhost/sandbox environment)*
 
 ---
 
@@ -287,11 +287,15 @@ movewall/
 ├── game-ui/                                   # ── FRONTEND EDGE WEB APP ──
 │   ├── login.html                             # Portal autentikasi terapis glassmorphism
 │   ├── dashboard.html                         # Portal dashboard analitik klinis terapis
-│   ├── dashboard.js                           # Logika dashboard, KPI agregat & ekspor PDF
+│   ├── dashboard.js                           # Logika dashboard, KPI agregat, resep ROM & ekspor PDF
 │   ├── index.html                             # Misi 1: Apple Archer (Shoulder Flexion)
 │   ├── app.js                                 # Engine visual pemanah, MediaPipe pose, FSM
 │   ├── mission2.html                          # Misi 2: Garden Keeper (Shoulder Reaching)
 │   ├── mission2.js                            # Engine penyiram bunga, MediaPipe hand, Mode Acak
+│   ├── adaptive-engine.js                     # Adaptive Difficulty Engine JS (PRD §6.3, Safety Ceiling)
+│   ├── adaptive-engine.test.js                # Suite unit test Adaptive Engine (10 passing tests)
+│   ├── session-metrics.js                     # Perekam metrik klinis (ROM max, akurasi, kompensasi)
+│   ├── session-metrics.test.js                # Suite unit test Session Metrics (6 passing tests)
 │   ├── styles.css                             # Central Clinical Glassmorphism Design System v2.0
 │   ├── vercel.json                            # Konfigurasi header & routing frontend Vercel
 │   ├── assets/                                # Aset gambar, audio BGM, model .task MediaPipe
@@ -301,9 +305,13 @@ movewall/
 │       ├── server.js                          # Express.js REST API, Auth JWT, Midtrans, Stats
 │       ├── package.json                       # Konfigurasi dependensi Node 22 & Prisma 7
 │       ├── railway.json                       # Deployment config untuk Railway cloud
+│       ├── lib/
+│       │   ├── clinical.js                    # Validasi klinis murni (NRS 0–10, Nordic map, resep ROM)
+│       │   └── clinical.test.js               # Suite unit test modul validasi klinis (7 passing tests)
 │       ├── prisma/
-│       │   ├── schema.prisma                  # Skema database (Therapist, Assessment, Sub)
-│       │   └── seed.js                        # Seeder dummy therapist & 12 rekam sesi pasien
+│       │   ├── schema.prisma                  # Skema database (Therapist, Patient, Assessment, Audit)
+│       │   ├── seed.js                        # Seeder dummy therapist & 12 rekam sesi pasien
+│       │   └── migrations/                    # SQL migrations PostgreSQL
 │       └── prisma.config.ts                   # Konfigurasi Prisma 7 datasource connection
 │
 ├── edge_pipeline.py                           # ── CORE PYTHON CV & BIOMECHANICS ──
@@ -325,17 +333,18 @@ Layanan backend MoveWall AI menyediakan endpoints REST API terstruktur untuk int
 |:---:|---|:---:|---|
 | `GET` | `/api/health` | Publik | Status kesehatan server dan timestamp UTC |
 | `POST` | `/api/auth/login` | Publik | Autentikasi terapis; mengembalikan JWT token |
-| `POST` | `/api/auth/register` | Publik | Registrasi akun fisioterapis baru |
+| `POST` | `/api/auth/register` | Kode Undangan | Registrasi akun terapis baru (wajib `inviteCode` valid) |
 | `GET` | `/api/auth/me` | JWT Token | Mendapatkan profil terapis yang sedang login |
-| `POST` | `/api/assessment` | JWT Token | Menyimpan data hasil sesi latihan & evaluasi nyeri ROM |
+| `POST` | `/api/assessment` | JWT Token | Menyimpan data hasil sesi latihan, metrik ROM/akurasi/kompensasi, evaluasi nyeri 0–10 NRS, dan persetujuan UU PDP |
 | `GET` | `/api/assessments` | JWT Token | Mengambil daftar riwayat asesmen yang dibuat terapis |
-| `GET` | `/api/dashboard/stats` | JWT Token | Agregasi KPI klinik: total pasien, total sesi, rata-rata skor, prevalensi nyeri |
-| `GET` | `/api/patients` | JWT Token | Daftar pasien unik beserta usia dan jumlah sesi selesai |
-| `GET` | `/api/patients/:name/summary` | JWT Token | Analisis mendalam per pasien: metrik, histori sesi, matriks nyeri |
-| `GET` | `/api/patients/:name/report` | JWT Token | Payload data lengkap untuk perakitan dokumen rekam medis PDF |
+| `GET` | `/api/dashboard/stats` | JWT Token | Agregasi KPI klinik: total pasien, total sesi, rata-rata skor, ROM max, prevalensi nyeri |
+| `GET` | `/api/patients` | JWT Token | Daftar entitas pasien terdaftar (No. Rekam Medis `MW-XXXXXX`, status persetujuan data PDP) |
+| `GET` | `/api/patients/:ref/summary` | JWT Token | Analisis mendalam per pasien: metrik ROM max, akurasi, insidensi nyeri 0–10 & Nordic Map |
+| `PUT` | `/api/patients/:ref/prescription` | JWT Token | Memperbarui resep batas aman (*Safety Ceiling*), target awal, dan mode adaptif pasien |
+| `GET` | `/api/patients/:ref/report` | JWT Token | Payload data lengkap untuk perakitan dokumen rekam medis PDF klinis |
 | `POST` | `/api/subscription/create-transaction` | JWT Token | Meminta Snap Token Midtrans untuk perpanjangan langganan klinik |
 | `POST` | `/api/subscription/notification` | Publik | Webhook penerima status pembayaran otomatis dari Midtrans |
-| `POST` | `/api/dev/seed` | Publik (Dev) | Mengisi data dummy terapis dan rekam medis pasien |
+| `POST` | `/api/dev/seed` | JWT Token (Dev) | Mengisi data dummy terapis dan rekam medis pasien (hanya diizinkan di non-produksi) |
 
 ---
 
@@ -363,6 +372,13 @@ Sistem menyertakan koreksi aspek rasio kamera horizontal:vertikal (4:3 atau 16:9
 - **`HOLD`**: Pasien mempertahankan lengan di zona toleransi target ($\pm 8^\circ$) selama durasi target (3 detik).
 - **`ECCENTRIC`**: Pasien menurunkan kembali lengan ke baseline secara terkontrol.
 - **`COMPLETED`**: Repetisi sah tercatat; poin dan akurasi diperbarui.
+
+### 3. Closed-Loop Adaptive Difficulty Engine (PRD §6.3)
+Kesulitan latihan beradaptasi secara otomatis pada akhir tiap set (5 repetisi) berbasis rolling window performa:
+- **Kenaikan Progresif (+5%)**: Jika *Success Rate* (SR) $\ge 90\%$ dan *Actual-to-Required Angle Ratio* (ARAR) $\ge 1.05$, target ROM dinaikkan $+5\%$, dibatasi ketat oleh **Safety Ceiling** resep terapis.
+- **Penurunan Regresif (-7.5%)**: Jika $\text{SR} < 70\%$, target ROM diturunkan $-7.5\%$, dibatasi bawah oleh batas fungsional minimum.
+- **Zona Aliran (*Flow Zone*)**: Jika $70\% \le \text{SR} < 90\%$, target ROM dipertahankan stabil.
+- **Tombol Darurat Nyeri (*Pain Override*)**: Jika tombol Stop/Nyeri ditekan, target ROM seketika diturunkan ke batas minimum fungsional demi keamanan klinis pasien.
 
 ---
 

@@ -361,7 +361,13 @@
       /* ── Auto-focus username ─────────────────────────────── */
       usernameInput.focus();
 
-      /* ── Demo credentials quick-fill ────────────────────── */
+      /* ── Demo credentials quick-fill (R6: disembunyikan di produksi) ── */
+      const isLocalDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const demoFooter = document.querySelector(".login-card-footer");
+      if (demoFooter && !isLocalDev) {
+        demoFooter.style.display = "none";
+      }
+
       const demoFillBtn = document.getElementById("demoFillBtn");
       if (demoFillBtn) {
         demoFillBtn.addEventListener("click", () => {

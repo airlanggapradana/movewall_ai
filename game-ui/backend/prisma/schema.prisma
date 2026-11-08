@@ -35,10 +35,63 @@ model Therapist {
 
   // Relations
   assessments     Assessment[]
+  patients        Patient[]
+  auditLogs       AuditLog[]
   subscription    Subscription?
   payments        Payment[]
 
   @@map("therapists")
+}
+
+// ─── Patient Table ───────────────────────────────────────────────────────────
+// Entitas pasien dengan ID rekam medis sendiri (menggantikan identifikasi via nama).
+// Nama kembar tidak dibatasi unik: pasien dibedakan oleh id dan medicalRecordNo.
+
+model Patient {
+  id              Int          @id @default(autoincrement())
+  medicalRecordNo String       @unique // contoh: MW-000012
+  name            String
+  age             Int          // usia terakhir yang dicatat
+  therapistId     Int
+  therapist       Therapist    @relation(fields: [therapistId], references: [id])
+
+  // Persetujuan pengolahan data kesehatan (UU PDP). Null = belum tercatat.
+  consentGivenAt  DateTime?
+  consentVersion  String?
+
+  // Resep latihan & batas aman gerak (Fitur 1: Safety Ceiling & Adaptive Target)
+  initialTargetRom Float    @default(45.0)  // Target ROM awal (derajat)
+  maxSafetyCeiling Float    @default(135.0) // Batas aman maksimum dari terapis (derajat)
+  minFunctionalRom Float    @default(30.0)  // Batas fungsional minimum / fallback nyeri
+  adaptiveEnabled  Boolean  @default(true)  // Kesulitan adaptif otomatis aktif/non-aktif
+
+  // Mode latihan mandiri di rumah (Fitur 5: Tele-Rehabilitasi)
+  homeAccessCode   String?  @unique         // Kode akses mandiri pasien (misal: MW-HOME-8291)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @default(now()) @updatedAt
+
+  assessments     Assessment[]
+
+  @@index([therapistId, name])
+  @@map("patients")
+}
+
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+// Jejak akses data pasien (siapa membuka apa dan kapan).
+
+model AuditLog {
+  id          Int       @id @default(autoincrement())
+  therapistId Int
+  therapist   Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  action      String    // contoh: PATIENT_VIEW, PATIENT_REPORT, CONSENT_RECORDED
+  entity      String    // contoh: Patient
+  entityId    Int?
+  createdAt   DateTime  @default(now())
+
+  @@index([therapistId, createdAt])
+  @@index([entity, entityId])
+  @@map("audit_logs")
 }
 
 // ─── Subscription Table ──────────────────────────────────────────────────────
@@ -89,15 +142,34 @@ model Assessment {
   id            Int       @id @default(autoincrement())
 
   // Patient info
-  patientName   String
-  patientAge    Int
+  patientId     Int
+  patient       Patient   @relation(fields: [patientId], references: [id])
+  patientName   String    // salinan nama saat sesi (snapshot)
+  patientAge    Int       // usia saat sesi (snapshot)
 
-  // Pain checklist per ROM movement
+  // Pain flag per ROM movement. Diturunkan dari skor 0–10 (> 0 = nyeri) agar
+  // statistik lama tetap berjalan; baris lama hanya memiliki flag ini.
   painAbduction          Boolean @default(false)  // Nyeri pada Abduksi
   painFlexion            Boolean @default(false)  // Nyeri pada Fleksi
   painExternalRotation   Boolean @default(false)  // Nyeri pada Rotasi Eksternal
   painInternalRotation   Boolean @default(false)  // Nyeri pada Rotasi Internal
   painExtension          Boolean @default(false)  // Nyeri pada Ekstensi
+
+  // Skala nyeri numerik 0–10 per gerakan (NRS). Null = tidak dicatat (data lama).
+  painAbductionScore          Int?
+  painFlexionScore            Int?
+  painExternalRotationScore   Int?
+  painInternalRotationScore   Int?
+  painExtensionScore          Int?
+
+  // Peta nyeri bahu: kode wilayah, contoh "R_ANTERIOR", "L_SCAPULA".
+  painRegions   String[]  @default([])
+
+  // Metrik sesi dari kamera (estimasi, bukan pengukuran klinis tervalidasi).
+  // Null = tidak direkam (data lama atau kamera tidak melacak lengan).
+  maxRomDeg           Float?  // ROM maksimum yang tercapai selama sesi (derajat)
+  accuracyPercent     Int?    // % frame di jendela target dari seluruh frame dekat target (±14°)
+  compensationEvents  Int?    // jumlah episode kompensasi (bahu terangkat)
 
   // Optional notes from therapist
   notes         String?
@@ -108,6 +180,17 @@ model Assessment {
   sessionHits   Int       @default(0)
   sessionLevel  Int       @default(1)
   sessionTime   String?   // e.g. "01:15" (remaining time)
+  sessionMode   String    @default("CLINIC") // CLINIC atau HOME (Tele-Rehab)
+
+  // Draf ringkasan klinis terstruktur oleh AI (Fitur 7)
+  aiSummaryDraft    String?   // Draf SOAP klinis berbasis metrik terstruktur
+  aiSummaryApproved Boolean   @default(false) // Persetujuan terapis
+
+  // Replay kerangka gerak kinematis (Fitur 6)
+  kinematicReplayData String?   // JSON deret waktu koordinat sendi & kompensasi
+
+  // Idempoten untuk sinkronisasi offline PWA (Fitur 8)
+  clientSessionId     String?   @unique // UUID dari klien untuk deduplikasi sinkronisasi offline
 
   // Relation to therapist
   therapistId   Int
@@ -115,5 +198,6 @@ model Assessment {
 
   createdAt     DateTime  @default(now())
 
+  @@index([patientId, createdAt])
   @@map("assessments")
 }

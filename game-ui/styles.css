@@ -8534,6 +8534,80 @@ body[data-mission] .control-band button:not(.btn-start-camera):not(.music-switch
   font-size: 14px !important;
 }
 
+/* ── Quick Navigation Buttons (Pojok Kanan Bawah) ────────────────────────── */
+.quick-nav-band {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-left: 14px !important;
+  padding-left: 14px !important;
+  border-left: 1px solid #E2E8F0 !important;
+}
+
+.btn-quick-nav {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 38px !important;
+  padding: 0 14px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease-in-out !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* Button ke Misi 2 (Garden Keeper) */
+.btn-quick-m2 {
+  background: #F0FDF4 !important;
+  border: 1px solid #BBF7D0 !important;
+  color: #15803D !important;
+}
+.btn-quick-m2:hover {
+  background: #DCFCE7 !important;
+  border-color: #86EFAC !important;
+  color: #166534 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(22, 101, 52, 0.15) !important;
+}
+
+/* Button ke Misi 1 (Apple Archer) */
+.btn-quick-m1 {
+  background: #EEF2FF !important;
+  border: 1px solid #C7D2FE !important;
+  color: #4338CA !important;
+}
+.btn-quick-m1:hover {
+  background: #E0E7FF !important;
+  border-color: #A5B4FC !important;
+  color: #3730A3 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(67, 56, 202, 0.15) !important;
+}
+
+/* Button ke Dashboard */
+.btn-quick-dash {
+  background: #F8FAFC !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #334155 !important;
+}
+.btn-quick-dash:hover {
+  background: #0F172A !important;
+  border-color: #0F172A !important;
+  color: #FFFFFF !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.2) !important;
+}
+
+.btn-quick-nav-icon {
+  font-size: 15px !important;
+  line-height: 1 !important;
+}
+
 /* Hidden legacy compatibility elements */
 body[data-mission] .rom-status { display: none !important; }
 body[data-mission] .mission-switcher.hidden-nav { display: none !important; }
@@ -8551,14 +8625,23 @@ body[data-mission] .pain-button.visually-hidden {
 body[data-mission] .control-group { display: none !important; }
 
 /* ── Responsive Scaling ──────────────────────────────────────────────────── */
-@media (max-width: 1100px) {
+@media (max-width: 1280px) {
   .control-right.stats-bar {
-    gap: 18px !important;
+    gap: 16px !important;
+  }
+  .quick-nav-band {
+    margin-left: 8px !important;
+    padding-left: 8px !important;
+    gap: 6px !important;
+  }
+  .btn-quick-nav {
+    padding: 0 10px !important;
+    font-size: 12px !important;
   }
 }
 
 @media (max-width: 900px) {
   .game-session-pill { display: none !important; }
   .game-gesture-pill .game-gesture-label { display: none !important; }
-  .control-right.stats-bar { gap: 14px !important; }
+  .control-right.stats-bar { gap: 10px !important; }
 }

@@ -33,9 +33,9 @@ console.log(`${colors.cyan}${colors.bold}=======================================
 console.log(`${colors.cyan}${colors.bold}        🏃 MoveWall AI — Multi-Service Dev Runner             ${colors.reset}`);
 console.log(`${colors.cyan}${colors.bold}==============================================================${colors.reset}`);
 console.log(` ${colors.bold}Frontend :${colors.reset} ${colors.green}http://localhost:3000${colors.reset}`);
-console.log(`   - Game UI   : http://localhost:3000/index.html`);
-console.log(`   - Dashboard : http://localhost:3000/dashboard.html`);
-console.log(`   - Login     : http://localhost:3000/login.html`);
+console.log(`   - Login     : http://localhost:3000/login`);
+console.log(`   - Dashboard : http://localhost:3000/dashboard`);
+console.log(`   - Game UI   : http://localhost:3000`);
 console.log(` ${colors.bold}Backend  :${colors.reset} ${colors.cyan}http://localhost:3001${colors.reset}`);
 console.log(`   - API Health: http://localhost:3001/api/health`);
 console.log(`\n ${colors.yellow}${colors.bold}[INFO] Tekan Ctrl + C untuk menghentikan kedua service.${colors.reset}\n`);

@@ -74,6 +74,16 @@ const pTableCountBadge     = document.getElementById("pTableCountBadge");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function formatDate(isoStr) {
   if (!isoStr) return "—";
   const d = new Date(isoStr);
@@ -713,9 +723,10 @@ function renderSessionTable(sessions) {
   const reversed = [...sessions].reverse();
 
   reversed.forEach((s) => {
-    const tr = document.createElement("tr");
+    try {
+      const tr = document.createElement("tr");
 
-    // Mode Badge (Fitur 5: Klinik vs Mandiri di Rumah)
+      // Mode Badge (Fitur 5: Klinik vs Mandiri di Rumah)
     const modeBadge = (s.sessionMode === "HOME")
       ? `<span class="dash-badge-mode home" title="Sesi Latihan Mandiri di Rumah">🏠 Mandiri</span>`
       : `<span class="dash-badge-mode clinic" title="Sesi Terawasi di Klinik">🏥 Klinik</span>`;
@@ -766,8 +777,9 @@ function renderSessionTable(sessions) {
          </div>`;
 
     // Action Cell (Fitur 6: Replay Kerangka Gerak Kinematis)
+    const patientNameStr = s.patientName || activePatientRef || "";
     const replayActionHtml = s.hasReplay
-      ? `<button type="button" class="btn-replay-action" data-session-id="${s.id}" data-patient-name="${escapeHtml(s.patientName || "")}" data-session-num="${s.sessionNumber}" data-session-mode="${s.sessionMode || "CLINIC"}" title="Putar visualisasi stick-figure 9 sendi">🎬 Replay</button>`
+      ? `<button type="button" class="btn-replay-action" data-session-id="${s.id}" data-patient-name="${escapeHtml(patientNameStr)}" data-session-num="${s.sessionNumber}" data-session-mode="${s.sessionMode || "CLINIC"}" title="Putar visualisasi stick-figure 9 sendi">🎬 Replay</button>`
       : `<span class="replay-na" title="Data rekaman kinematis tidak tersedia pada sesi ini">—</span>`;
 
     tr.innerHTML = `
@@ -786,18 +798,16 @@ function renderSessionTable(sessions) {
     `;
 
     sessionTableBody.appendChild(tr);
+    } catch (rowErr) {
+      console.error("[Session Table Row Render Error]", rowErr, s);
+    }
   });
 }
 
 // ── PDF Export Engine & Report Population ─────────────────────────────────────
 
 function escapePdfHtml(str) {
-  return String(str ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  return escapeHtml(str);
 }
 
 function normalizeAiDraftText(raw) {

@@ -1,6 +1,8 @@
 {
   "scripts": {
-    "dev": "npx serve ."
+    "dev": "node dev-server.js",
+    "serve": "npx serve .",
+    "test": "node --test *.test.js"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1"

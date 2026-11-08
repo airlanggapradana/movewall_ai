@@ -1,0 +1,25 @@
+{
+  "name": "movewall",
+  "version": "1.0.0",
+  "description": "MoveWall AI — Gamified Physical Therapy Platform",
+  "scripts": {
+    "dev": "node run-dev.js",
+    "dev:backend": "npm --prefix game-ui/backend run dev",
+    "dev:frontend": "npm --prefix game-ui run dev",
+    "start": "node run-dev.js",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "npm --prefix game-ui test",
+    "test:backend": "npm --prefix game-ui/backend test",
+    "install:all": "npm --prefix game-ui install && npm --prefix game-ui/backend install"
+  },
+  "keywords": [
+    "movewall",
+    "rehabilitation",
+    "ai",
+    "mediapipe",
+    "physiotherapy"
+  ],
+  "author": "",
+  "license": "ISC"
+}
+

@@ -7873,7 +7873,7 @@ body[data-mission] {
 body[data-mission] {
   display: flex !important;
   flex-direction: column !important;
-  gap: 10px !important;
+  gap: 12px !important;
 }
 
 /* ── Top Header Navbar ───────────────────────────────────────────────────── */
@@ -8050,7 +8050,7 @@ body[data-mission] .shell {
   height: auto !important;
   padding: 0 !important;
   margin: 0 !important;
-  gap: 0 !important;
+  gap: 12px !important;
   overflow: hidden !important;
 }
 

@@ -14,7 +14,7 @@
 })();
 
 // ─── API Base URL & Subscription Paywall Guard ──────────────────────────────
-const _M2_DEFAULT_CLOUD_BACKEND = "https://movewallai-production.up.railway.app";
+const _M2_DEFAULT_CLOUD_BACKEND = "https://movewall-backend-production.up.railway.app";
 const _M2_BACKEND_ORIGIN =
   sessionStorage.getItem("mw_backend_url") ||
   window.MOVEWALL_BACKEND_URL ||

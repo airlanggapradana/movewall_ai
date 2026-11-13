@@ -26,6 +26,7 @@ const {
   validatePrescription,
 } = require("./lib/clinical");
 const { generateClinicalSummaryDraft } = require("./lib/ai-summary");
+const { createRegistrationHandler } = require("./lib/registration");
 
 // ─── Midtrans Configuration ──────────────────────────────────────────────────
 const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY || "";
@@ -295,80 +296,9 @@ app.post("/api/auth/login", async (req, res) => {
 
 // ── Auth: Register (hanya dengan kode undangan) ───────────────────────────────
 
-app.post("/api/auth/register", async (req, res) => {
-  try {
-    if (!REGISTRATION_INVITE_CODE) {
-      return res
-        .status(403)
-        .json({ error: "Registrasi akun ditutup. Hubungi administrator." });
-    }
-
-    const {
-      name,
-      username,
-      password,
-      email,
-      specialization,
-      licenseNumber,
-      phoneNumber,
-      inviteCode,
-    } = req.body;
-
-    if (!inviteCode || !safeEqual(inviteCode, REGISTRATION_INVITE_CODE)) {
-      return res.status(403).json({ error: "Kode undangan tidak valid" });
-    }
-
-    if (!name || !username || !password) {
-      return res
-        .status(400)
-        .json({ error: "Name, username, and password are required" });
-    }
-
-    if (String(password).length < 10) {
-      return res
-        .status(400)
-        .json({ error: "Password minimal 10 karakter" });
-    }
-
-    // Check if username already exists
-    const existing = await prisma.therapist.findUnique({ where: { username } });
-    if (existing) {
-      return res.status(409).json({ error: "Username already taken" });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const therapist = await prisma.therapist.create({
-      data: {
-        name,
-        username,
-        password: hashedPassword,
-        email,
-        specialization,
-        licenseNumber,
-        phoneNumber,
-        role: "THERAPIST",
-      },
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        email: true,
-        specialization: true,
-        role: true,
-        createdAt: true,
-      },
-    });
-
-    res
-      .status(201)
-      .json({ message: "Therapist registered successfully", therapist });
-  } catch (err) {
-    console.error("[Register Error]", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+app.post("/api/auth/register", createRegistrationHandler({
+  prisma, bcrypt, inviteCode: REGISTRATION_INVITE_CODE, safeEqual,
+}));
 
 // ── Auth: Get current therapist (verify token) ────────────────────────────────
 

@@ -346,6 +346,22 @@ Layanan backend MoveWall AI menyediakan endpoints REST API terstruktur untuk int
 | `POST` | `/api/subscription/notification` | Publik | Webhook penerima status pembayaran otomatis dari Midtrans |
 | `POST` | `/api/dev/seed` | JWT Token (Dev) | Mengisi data dummy terapis dan rekam medis pasien (hanya diizinkan di non-produksi) |
 
+### Pendaftaran terapis
+
+Halaman `game-ui/register.html` mengirim JSON ke `POST /api/auth/register`; server menyimpan akun melalui model Prisma `Therapist`.
+
+| Field | Aturan |
+|---|---|
+| `name`, `username`, `password` | Wajib; password minimal 10 karakter dan maksimal 72 byte sebelum di-hash dengan bcrypt |
+| `email` | Opsional dan unik; spasi tepi dihapus, huruf dijadikan kecil, kosong disimpan sebagai `null` |
+| `specialization`, `licenseNumber`, `phoneNumber` | Opsional; spasi tepi dihapus, kosong disimpan sebagai `null` |
+| `inviteCode` | Wajib cocok dengan environment backend `REGISTRATION_INVITE_CODE`; tidak disimpan di database |
+| `passwordConfirm` | Validasi kesamaan di browser; tidak dikirim atau disimpan |
+
+Server menetapkan `role: THERAPIST`; ID, status aktif, dan waktu pembuatan mengikuti default schema. Pendaftaran tidak membuat langganan atau pembayaran. Respons sukses `201` berisi profil tanpa password, lalu pengguna melanjutkan ke login. Validasi gagal mengembalikan `400`, undangan salah atau registrasi ditutup `403`, dan username/email duplikat `409`, dengan kesalahan per field bila tersedia.
+
+Frontend dan backend dideploy terpisah. Masing-masing memiliki modul `registration-validation.js`; tes kontrak membandingkan perilaku keduanya saat checkout lengkap tersedia. Perubahan ini memakai schema yang ada dan tidak membutuhkan migrasi.
+
 ---
 
 ## 📐 Formula Biomekanika & Logika Repetisi

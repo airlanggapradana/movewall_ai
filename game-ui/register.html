@@ -4,481 +4,127 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MoveWall AI — Daftar Akun Terapis</title>
-    <meta name="description" content="Formulir pendaftaran akun terapis MoveWall AI. Diperlukan kode undangan dari administrator." />
+    <meta name="description" content="Buat akun terapis MoveWall AI dengan kode undangan administrator." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Atkinson+Hyperlegible+Next:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./register.css" />
     <link rel="icon" type="image/png" href="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" />
-    <style>
-      /* ── Register-specific overrides ── */
-      .reg-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0 16px;
-      }
-      .reg-grid .login-field { margin-bottom: 0; }
-      .reg-divider {
-        grid-column: 1 / -1;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 4px 0;
-        color: var(--text-500);
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-      }
-      .reg-divider::before,
-      .reg-divider::after {
-        content: '';
-        flex: 1;
-        height: 1px;
-        background: var(--border-subtle);
-      }
-      .reg-invite-box {
-        grid-column: 1 / -1;
-        background: var(--accent-50);
-        border: 1.5px solid var(--accent-100);
-        border-radius: var(--r-md);
-        padding: 10px 14px;
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        margin-bottom: 2px;
-      }
-      .reg-invite-box svg { flex-shrink: 0; color: var(--accent-700); margin-top: 1px; }
-      .reg-invite-box p  { margin: 0; font-size: 12.5px; color: var(--text-700); line-height: 1.5; }
-      .reg-invite-box strong { color: var(--accent-700); }
-      .login-link-row {
-        text-align: center;
-        margin-top: 10px;
-        font-size: 13px;
-        color: var(--text-500);
-      }
-      .login-link-row a { color: var(--accent-700); font-weight: 600; text-decoration: none; }
-      .login-link-row a:hover { text-decoration: underline; }
-      /* full-width inside grid */
-      .reg-full { grid-column: 1 / -1; }
-    </style>
+    <script src="./registration-validation.js" defer></script>
+    <script src="./register.js" defer></script>
   </head>
-  <body class="login-page" data-surface="studio">
-    <!-- Background sama dengan login.html -->
-    <div class="login-bg" aria-hidden="true">
-      <svg class="login-bg-goniometer-watermark" viewBox="0 0 1000 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="150" cy="850" r="700" stroke="#CFC6B3" stroke-width="1" stroke-dasharray="4 8" opacity="0.5"/>
-        <circle cx="150" cy="850" r="540" stroke="#E3DCCD" stroke-width="1.2" opacity="0.6"/>
-        <circle cx="150" cy="850" r="380" stroke="#CFC6B3" stroke-width="1" stroke-dasharray="2 6" opacity="0.5"/>
-        <circle cx="150" cy="850" r="220" stroke="#E3DCCD" stroke-width="1.5" opacity="0.7"/>
-        <line x1="150" y1="850" x2="850" y2="850" stroke="#CFC6B3" stroke-width="1.2" opacity="0.5"/>
-        <line x1="150" y1="850" x2="644" y2="356" stroke="#CFC6B3" stroke-width="1" stroke-dasharray="6 6" opacity="0.45"/>
-        <line x1="150" y1="850" x2="150" y2="150" stroke="#CFC6B3" stroke-width="1.2" opacity="0.5"/>
-        <circle cx="644" cy="356" r="3" fill="#C2410C" opacity="0.6"/>
-        <circle cx="150" cy="310" r="4" fill="#17594F" opacity="0.4"/>
-      </svg>
-      <div class="login-bg-grid"></div>
-    </div>
-
+  <body class="login-page register-page" data-surface="studio">
+    <div class="login-bg" aria-hidden="true"><div class="login-bg-grid"></div></div>
     <main class="login-shell">
-      <!-- LEFT: Brand Panel (sama dengan login) -->
-      <section class="login-brand-panel" aria-label="Informasi MoveWall AI">
-        <div class="login-brand-inner">
-          <div class="login-brand-header">
-            <div class="login-logo-lockup">
-              <img src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" alt="MoveWall AI — Move Better. Recover Stronger." class="login-brand-logo-img" />
-            </div>
-          </div>
-          <div class="login-hero-block">
-            <h1 class="login-hero-title">Bergabunglah sebagai Mitra Terapis Klinis.</h1>
-            <p class="login-hero-tagline">
-              Daftarkan akun terapis Anda untuk mulai memantau sesi rehabilitasi, menganalisis ROM bahu pasien, dan mengunduh laporan klinis tervalidasi.
-            </p>
-          </div>
-          <div class="login-features">
-            <div class="login-feature-item">
-              <div class="login-feature-icon" aria-hidden="true">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                </svg>
-              </div>
-              <div class="login-feature-text">
-                <strong>Profil Terapis Terverifikasi</strong>
-                <span>Daftarkan nama, spesialisasi, nomor SIP, dan kontak profesional dalam satu akun klinis terproteksi JWT.</span>
-              </div>
-            </div>
-            <div class="login-feature-item">
-              <div class="login-feature-icon" aria-hidden="true">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-              </div>
-              <div class="login-feature-text">
-                <strong>Keamanan Kode Undangan</strong>
-                <span>Registrasi hanya tersedia untuk mitra klinis yang memegang kode undangan resmi dari administrator MoveWall AI.</span>
-              </div>
-            </div>
-            <div class="login-feature-item">
-              <div class="login-feature-icon" aria-hidden="true">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                </svg>
-              </div>
-              <div class="login-feature-text">
-                <strong>Akses Dashboard Klinis Penuh</strong>
-                <span>Setelah terdaftar, pantau KPI klinik, riwayat sesi longitudinal, dan kelola resep latihan adaptif pasien Anda.</span>
-              </div>
-            </div>
-          </div>
-          <div class="login-brand-footer-text">
-            <span class="clinical-dot" aria-hidden="true">●</span>
-            <span>Sesuai Pedoman Aksesibilitas Klinis &middot; WCAG 2.1 AAA</span>
-          </div>
+      <aside class="login-brand-panel" aria-label="Tentang akun terapis MoveWall AI">
+        <a class="reg-brand" href="./login.html" aria-label="MoveWall AI, halaman masuk">
+          <img src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" alt="MoveWall AI — Move Better. Recover Stronger." />
+        </a>
+        <div class="reg-brand-content">
+          <span class="reg-eyebrow">RUANG KERJA TERAPIS</span>
+          <h2>Langkah awal untuk<br />pemulihan yang<br /><em>lebih terarah.</em></h2>
+          <p>Satukan pemantauan latihan, perkembangan pasien, dan catatan rehabilitasi dalam satu ruang kerja.</p>
+          <ol class="reg-benefits">
+            <li><span class="reg-benefit-icon" aria-hidden="true">01</span><div><strong>Lengkapi identitas Anda</strong><p>Gunakan nama profesional dan username untuk masuk.</p></div></li>
+            <li><span class="reg-benefit-icon" aria-hidden="true">02</span><div><strong>Tambahkan profil klinis</strong><p>Isi spesialisasi, nomor SIP, dan kontak jika tersedia.</p></div></li>
+            <li><span class="reg-benefit-icon" aria-hidden="true">03</span><div><strong>Daftar dengan kode undangan</strong><p>Dapatkan kode dari administrator MoveWall AI.</p></div></li>
+          </ol>
         </div>
-      </section>
+        <div class="reg-brand-note"><span aria-hidden="true">●</span> Dirancang untuk mendampingi praktik rehabilitasi Anda.</div>
+      </aside>
 
-      <!-- RIGHT: Registration Form -->
-      <section class="login-form-panel" aria-label="Formulir Pendaftaran Terapis">
-        <div class="login-card" role="main" style="max-height: 95vh; overflow-y: auto;">
-          <div class="login-card-header">
-            <div class="login-card-brand">
-              <img src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" alt="MoveWall AI" class="login-card-logo-img" />
-            </div>
-            <div class="login-card-badge">
-              <span class="badge-dot" aria-hidden="true">●</span>
-              <span>Pendaftaran Terapis Baru</span>
-            </div>
-            <h2 class="login-title">Buat Akun Terapis</h2>
-            <p class="login-subtitle">Isi formulir di bawah menggunakan data profesional klinis Anda.</p>
-          </div>
+      <section class="login-form-panel" aria-labelledby="regTitle">
+        <div class="login-card">
+          <a class="reg-mobile-brand reg-brand" href="./login.html"><img src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" alt="MoveWall AI" /></a>
+          <header class="login-card-header">
+            <div class="login-card-badge"><span class="badge-dot" aria-hidden="true">●</span> PENDAFTARAN TERAPIS</div>
+            <h1 id="regTitle" class="login-title">Buat akun terapis</h1>
+            <p class="login-subtitle">Mulai kelola perjalanan pemulihan pasien Anda.</p>
+            <p class="reg-required-note">Tanda <span class="reg-required">*</span> wajib diisi. Profil klinis bersifat opsional.</p>
+          </header>
 
-          <!-- Error Alert -->
-          <div id="regError" class="login-alert login-alert-error hidden" role="alert" aria-live="polite">
-            <span class="login-alert-icon" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="12 2 2 22 22 22 12 2"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="1" fill="currentColor"/>
-              </svg>
-            </span>
-            <span id="regErrorText">Terjadi kesalahan. Silakan periksa kembali.</span>
-          </div>
+          <div id="regError" class="login-alert login-alert-error hidden" role="alert" tabindex="-1"><span id="regErrorText"></span></div>
+          <div id="regSuccess" class="login-alert login-alert-success hidden" role="status" tabindex="-1"><span id="regSuccessText"></span></div>
 
-          <!-- Success Alert -->
-          <div id="regSuccess" class="login-alert login-alert-success hidden" role="alert" aria-live="polite">
-            <span class="login-alert-icon" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>
-              </svg>
-            </span>
-            <span id="regSuccessText">Akun berhasil dibuat! Mengalihkan ke halaman login...</span>
-          </div>
-
-          <!-- Registration Form -->
           <form id="regForm" class="login-form" novalidate>
-            <div class="reg-grid">
-
-              <!-- SECTION: Identitas Pribadi -->
-              <div class="reg-divider">Identitas Pribadi</div>
-
-              <!-- Nama Lengkap -->
-              <div class="login-field reg-full">
-                <label for="regName" class="login-label"><span>Nama Lengkap &amp; Gelar <span style="color:var(--ember-600)">*</span></span></label>
-                <div class="login-input-wrap">
-                  <span class="login-input-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                    </svg>
-                  </span>
-                  <input id="regName" name="name" type="text" class="login-input" placeholder="Contoh: Dr. Rina Setiawati, Sp.KFR" autocomplete="name" required />
+            <fieldset class="reg-section">
+              <legend><span class="reg-section-number" aria-hidden="true">01</span> Identitas akun</legend>
+              <div class="reg-grid">
+                <div class="login-field reg-full">
+                  <label for="regName" class="login-label">Nama lengkap &amp; gelar <span class="reg-required">*</span></label>
+                  <input id="regName" name="name" type="text" class="login-input" placeholder="Dr. Rina Setiawati, Sp.KFR" autocomplete="name" required />
+                </div>
+                <div class="login-field">
+                  <label for="regUsername" class="login-label">Username <span class="reg-required">*</span></label>
+                  <input id="regUsername" name="username" type="text" class="login-input" placeholder="rina.setiawati" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="regUsernameHint" required />
+                  <p id="regUsernameHint" class="reg-hint">Digunakan saat masuk ke akun.</p>
+                </div>
+                <div class="login-field">
+                  <label for="regEmail" class="login-label">Email profesional <span class="reg-optional">Opsional</span></label>
+                  <input id="regEmail" name="email" type="email" class="login-input" placeholder="rina@klinik.id" autocomplete="email" autocapitalize="none" spellcheck="false" />
                 </div>
               </div>
+            </fieldset>
 
-              <!-- Username -->
-              <div class="login-field">
-                <label for="regUsername" class="login-label"><span>Username <span style="color:var(--ember-600)">*</span></span></label>
-                <div class="login-input-wrap">
-                  <span class="login-input-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                    </svg>
-                  </span>
-                  <input id="regUsername" name="username" type="text" class="login-input" placeholder="Contoh: therapist03" autocomplete="username" required />
+            <details class="reg-profile">
+              <summary><span class="reg-section-heading"><span class="reg-section-number" aria-hidden="true">02</span> Profil klinis <span class="reg-optional">Opsional</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
+              <div class="reg-profile-content">
+                <p class="reg-hint">Tambahkan informasi profesional yang tersedia.</p>
+                <div class="reg-grid">
+                  <div class="login-field reg-full">
+                    <label for="regSpecialization" class="login-label">Spesialisasi / bidang keahlian</label>
+                    <input id="regSpecialization" name="specialization" type="text" class="login-input" placeholder="Rehabilitasi bahu, fisioterapi olahraga" />
+                  </div>
+                  <div class="login-field">
+                    <label for="regLicense" class="login-label">Nomor SIP / lisensi</label>
+                    <input id="regLicense" name="licenseNumber" type="text" class="login-input" placeholder="SIP-2026-003" />
+                  </div>
+                  <div class="login-field">
+                    <label for="regPhone" class="login-label">Nomor telepon</label>
+                    <input id="regPhone" name="phoneNumber" type="tel" class="login-input" placeholder="+62 812 3456 7890" autocomplete="tel" />
+                  </div>
                 </div>
               </div>
+            </details>
 
-              <!-- Email -->
-              <div class="login-field">
-                <label for="regEmail" class="login-label"><span>Email Profesional</span></label>
-                <div class="login-input-wrap">
-                  <span class="login-input-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
-                    </svg>
-                  </span>
-                  <input id="regEmail" name="email" type="email" class="login-input" placeholder="Contoh: dr.rina@klinik.id" autocomplete="email" />
+            <fieldset class="reg-section">
+              <legend><span class="reg-section-number" aria-hidden="true">03</span> Keamanan &amp; akses</legend>
+              <div class="reg-grid">
+                <div class="login-field">
+                  <label for="regPassword" class="login-label">Kata sandi <span class="reg-required">*</span></label>
+                  <div class="login-input-wrap">
+                    <input id="regPassword" name="password" type="password" class="login-input reg-password" placeholder="Buat kata sandi" autocomplete="new-password" minlength="10" aria-describedby="regPasswordHint" required />
+                    <button type="button" class="login-toggle-pw" data-password-target="regPassword" aria-label="Tampilkan kata sandi" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg></button>
+                  </div>
+                  <p id="regPasswordHint" class="reg-hint">Gunakan minimal 10 karakter.</p>
+                </div>
+                <div class="login-field">
+                  <label for="regPasswordConfirm" class="login-label">Konfirmasi kata sandi <span class="reg-required">*</span></label>
+                  <div class="login-input-wrap">
+                    <input id="regPasswordConfirm" name="passwordConfirm" type="password" class="login-input reg-password" placeholder="Ulangi kata sandi" autocomplete="new-password" required />
+                    <button type="button" class="login-toggle-pw" data-password-target="regPasswordConfirm" aria-label="Tampilkan konfirmasi kata sandi" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg></button>
+                  </div>
+                </div>
+                <div class="login-field reg-full reg-invite">
+                  <label for="regInviteCode" class="login-label">Kode undangan administrator <span class="reg-required">*</span></label>
+                  <input id="regInviteCode" name="inviteCode" type="text" class="login-input" placeholder="Masukkan kode undangan Anda" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="regInviteHint" required />
+                  <p id="regInviteHint" class="reg-hint">Belum punya kode? Hubungi administrator MoveWall AI untuk mendapatkan undangan.</p>
                 </div>
               </div>
+            </fieldset>
 
-              <!-- SECTION: Profil Klinis -->
-              <div class="reg-divider">Profil Klinis</div>
-
-              <!-- Spesialisasi -->
-              <div class="login-field reg-full">
-                <label for="regSpecialization" class="login-label"><span>Spesialisasi / Bidang Keahlian</span></label>
-                <div class="login-input-wrap">
-                  <span class="login-input-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                    </svg>
-                  </span>
-                  <input id="regSpecialization" name="specialization" type="text" class="login-input" placeholder="Contoh: Shoulder Rehabilitation &amp; Sports Medicine" />
-                </div>
-              </div>
-
-              <!-- Nomor SIP / Lisensi -->
-              <div class="login-field">
-                <label for="regLicense" class="login-label"><span>Nomor SIP / Lisensi</span></label>
-                <div class="login-input-wrap">
-                  <span class="login-input-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-                    </svg>
-                  </span>
-                  <input id="regLicense" name="licenseNumber" type="text" class="login-input" placeholder="Contoh: SIP-2026-003" />
-                </div>
-              </div>
-
-              <!-- Nomor HP -->
-              <div class="login-field">
-                <label for="regPhone" class="login-label"><span>Nomor Telepon</span></label>
-                <div class="login-input-wrap">
-                  <span class="login-input-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.71 3.21 2 2 0 0 1 3.7 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 7 7l.86-.86a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 17z"/>
-                    </svg>
-                  </span>
-                  <input id="regPhone" name="phoneNumber" type="tel" class="login-input" placeholder="Contoh: +62812345678" autocomplete="tel" />
-                </div>
-              </div>
-
-              <!-- SECTION: Keamanan Akun -->
-              <div class="reg-divider">Keamanan Akun</div>
-
-              <!-- Password -->
-              <div class="login-field">
-                <label for="regPassword" class="login-label"><span>Kata Sandi <span style="color:var(--ember-600)">*</span></span></label>
-                <div class="login-input-wrap">
-                  <span class="login-input-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
-                  </span>
-                  <input id="regPassword" name="password" type="password" class="login-input" placeholder="Minimal 10 karakter" autocomplete="new-password" required />
-                  <button type="button" id="toggleRegPassword" class="login-toggle-pw" aria-label="Lihat atau sembunyikan kata sandi">
-                    <svg id="regEyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Konfirmasi Password -->
-              <div class="login-field">
-                <label for="regPasswordConfirm" class="login-label"><span>Konfirmasi Kata Sandi <span style="color:var(--ember-600)">*</span></span></label>
-                <div class="login-input-wrap">
-                  <span class="login-input-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
-                  </span>
-                  <input id="regPasswordConfirm" name="passwordConfirm" type="password" class="login-input" placeholder="Ulangi kata sandi" autocomplete="new-password" required />
-                </div>
-              </div>
-
-              <!-- Kode Undangan -->
-              <div class="login-field reg-full">
-                <label for="regInviteCode" class="login-label"><span>Kode Undangan Administrator <span style="color:var(--ember-600)">*</span></span></label>
-                <div class="reg-invite-box">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
-                  <p>Kode undangan diperoleh dari <strong>administrator MoveWall AI</strong>. Tanpa kode ini, pendaftaran tidak dapat diproses.</p>
-                </div>
-                <div class="login-input-wrap">
-                  <span class="login-input-icon" aria-hidden="true">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
-                    </svg>
-                  </span>
-                  <input id="regInviteCode" name="inviteCode" type="text" class="login-input" placeholder="Masukkan kode undangan" autocomplete="off" required />
-                </div>
-              </div>
-
-            </div><!-- /reg-grid -->
-
-            <!-- Submit -->
-            <button id="regSubmitBtn" type="submit" class="login-btn" style="margin-top: 8px;">
-              <span id="regBtnText">Daftarkan Akun Terapis</span>
+            <button id="regSubmitBtn" type="submit" class="login-btn">
               <span id="regBtnLoader" class="login-btn-loader hidden" aria-hidden="true"></span>
-              <svg class="login-btn-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-              </svg>
+              <span id="regBtnText">Buat akun terapis</span>
+              <svg class="login-btn-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>
             </button>
           </form>
-
-          <!-- Link ke Login -->
-          <div class="login-link-row">
-            Sudah punya akun? <a href="./login.html">Masuk di sini</a>
-          </div>
+          <p class="login-link-row">Sudah punya akun? <a href="./login.html">Masuk di sini</a></p>
+          <a id="regSuccessLogin" class="reg-success-login hidden" href="./login.html">Lanjut ke halaman masuk →</a>
         </div>
-
-        <!-- Footer -->
-        <footer class="login-footer">
-          <span>MoveWall AI &copy; 2026</span>
-          <span class="login-footer-dot" aria-hidden="true">&middot;</span>
-          <span>Sistem Tele-Rehabilitasi Klinis</span>
-          <span class="login-footer-dot" aria-hidden="true">&middot;</span>
-          <span>Bahasa Indonesia</span>
-        </footer>
+        <footer class="login-footer"><span>MoveWall AI &copy; 2026</span><span aria-hidden="true">·</span><span>Portal Terapis</span></footer>
       </section>
     </main>
-
-    <script>
-      /* ── Config ── */
-      const _DEFAULT_CLOUD_BACKEND = "https://movewall-backend-production.up.railway.app";
-      const _REG_BACKEND_ORIGIN =
-        sessionStorage.getItem("mw_backend_url") ||
-        window.MOVEWALL_BACKEND_URL ||
-        (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-          ? (sessionStorage.getItem("mw_use_local_backend") === "false" ? _DEFAULT_CLOUD_BACKEND : "http://localhost:3001")
-          : _DEFAULT_CLOUD_BACKEND);
-
-      const API_BASE = `${_REG_BACKEND_ORIGIN}/api`;
-
-      /* ── Guard: jika sudah login, redirect ke dashboard ── */
-      (function checkExistingSession() {
-        const token = sessionStorage.getItem("mw_token");
-        if (token) window.location.replace("./dashboard.html");
-      })();
-
-      /* ── DOM refs ── */
-      const form              = document.getElementById("regForm");
-      const nameInput         = document.getElementById("regName");
-      const usernameInput     = document.getElementById("regUsername");
-      const emailInput        = document.getElementById("regEmail");
-      const specializationInput = document.getElementById("regSpecialization");
-      const licenseInput      = document.getElementById("regLicense");
-      const phoneInput        = document.getElementById("regPhone");
-      const passwordInput     = document.getElementById("regPassword");
-      const passwordConfirm   = document.getElementById("regPasswordConfirm");
-      const inviteCodeInput   = document.getElementById("regInviteCode");
-      const togglePw          = document.getElementById("toggleRegPassword");
-      const eyeIcon           = document.getElementById("regEyeIcon");
-      const submitBtn         = document.getElementById("regSubmitBtn");
-      const btnText           = document.getElementById("regBtnText");
-      const btnLoader         = document.getElementById("regBtnLoader");
-      const errorBox          = document.getElementById("regError");
-      const errorText         = document.getElementById("regErrorText");
-      const successBox        = document.getElementById("regSuccess");
-      const successText       = document.getElementById("regSuccessText");
-
-      /* ── Toggle password visibility ── */
-      togglePw.addEventListener("click", () => {
-        const isHidden = passwordInput.type === "password";
-        passwordInput.type = isHidden ? "text" : "password";
-        eyeIcon.innerHTML = isHidden
-          ? `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`
-          : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
-      });
-
-      /* ── UI helpers ── */
-      function setLoading(isLoading) {
-        submitBtn.disabled = isLoading;
-        btnText.classList.toggle("hidden", isLoading);
-        btnLoader.classList.toggle("hidden", !isLoading);
-        const arrow = submitBtn.querySelector(".login-btn-arrow");
-        if (arrow) arrow.classList.toggle("hidden", isLoading);
-      }
-
-      function showError(msg) {
-        errorText.textContent = msg;
-        errorBox.classList.remove("hidden");
-        successBox.classList.add("hidden");
-        errorBox.classList.add("shake");
-        setTimeout(() => errorBox.classList.remove("shake"), 500);
-      }
-
-      function showSuccess(msg) {
-        successText.textContent = msg;
-        successBox.classList.remove("hidden");
-        errorBox.classList.add("hidden");
-      }
-
-      /* ── Form submit ── */
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const name        = nameInput.value.trim();
-        const username    = usernameInput.value.trim();
-        const email       = emailInput.value.trim() || undefined;
-        const specialization = specializationInput.value.trim() || undefined;
-        const licenseNumber  = licenseInput.value.trim() || undefined;
-        const phoneNumber    = phoneInput.value.trim() || undefined;
-        const password    = passwordInput.value;
-        const passwordC   = passwordConfirm.value;
-        const inviteCode  = inviteCodeInput.value.trim();
-
-        /* Validasi frontend */
-        if (!name || !username || !password || !inviteCode) {
-          showError("Nama lengkap, username, kata sandi, dan kode undangan wajib diisi.");
-          return;
-        }
-        if (password.length < 10) {
-          showError("Kata sandi minimal 10 karakter.");
-          return;
-        }
-        if (password !== passwordC) {
-          showError("Konfirmasi kata sandi tidak cocok.");
-          return;
-        }
-
-        setLoading(true);
-        errorBox.classList.add("hidden");
-
-        try {
-          const res = await fetch(`${API_BASE}/auth/register`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name,
-              username,
-              password,
-              email,
-              specialization,
-              licenseNumber,
-              phoneNumber,
-              inviteCode,
-            }),
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
-            throw new Error(data.error || "Pendaftaran gagal. Coba lagi.");
-          }
-
-          showSuccess(`Akun "${data.therapist.name}" berhasil dibuat! Mengalihkan ke halaman login...`);
-          setTimeout(() => {
-            window.location.replace("./login.html");
-          }, 2000);
-
-        } catch (err) {
-          showError(err.message || "Terjadi kesalahan koneksi server backend.");
-          setLoading(false);
-        }
-      });
-
-      /* ── Auto-focus ── */
-      nameInput.focus();
-    </script>
   </body>
 </html>

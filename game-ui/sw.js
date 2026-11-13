@@ -5,7 +5,7 @@
  * allowing full local game execution even when internet connection is lost.
  */
 
-const CACHE_NAME = "movewall-v9";
+const CACHE_NAME = "movewall-v10";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -14,6 +14,7 @@ const STATIC_ASSETS = [
   "./styles.css",
   "./app.js",
   "./mission2.js",
+  "./hand-pointer.js",
   "./dashboard.js",
   "./session-metrics.js",
   "./adaptive-engine.js",

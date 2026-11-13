@@ -441,6 +441,7 @@ const CLOUD_SEEDS = [
 
 const LEVEL_ONE_POTS = 6;
 const TOTAL_POTS = 12;
+const handPointer = new MoveWallHandPointer.HandPointer();
 
 /* ═══════════════════════════════════════════════════════════════
    GAME STATE
@@ -475,6 +476,7 @@ const game = {
   isWatering:      false,       // true if pouring water onto pot
   potInRange:      false,       // true if pointer is within range of target pot
   canTiltAngle:    0,           // current smooth tilt angle of watering can
+  canFacingLeft:  true,
   canTipPos:       { x: 0, y: 0 },
   splashParticles: [],
   floatingPopups:  [],
@@ -1027,11 +1029,7 @@ function updateVisionTracking(now) {
     const normX = clamp(1 - palmX, 0.05, 0.95);
     const normY = clamp(palmY, 0.06, 0.94);
 
-    // Smooth movement (EMA) — weight diseimbangkan: 0.78 → cukup responsif
-    // tapi meredam jitter noise dari deteksi palm MediaPipe.
-    // Sebelumnya 0.92 terlalu sensitif menyebabkan pointer bergetar.
-    game.handFollow.x = game.handFollow.x * 0.22 + normX * 0.78;
-    game.handFollow.y = game.handFollow.y * 0.22 + normY * 0.78;
+    handPointer.sample(normX, normY, now);
     game.handFollow.visible = true;
 
     // Evaluate gesture strictly from 21 MediaPipe hand points
@@ -1073,8 +1071,8 @@ function updateVisionTracking(now) {
       game.isHandOpen = false;
 
       // Fallback pointer movement to wrist from PoseLandmarker so user can still aim
-      if (game.posePoints?.wrist) {
-        updateHandFollow(game.posePoints.wrist);
+      if (estimate?.points?.wrist) {
+        updateHandFollow(estimate.points.wrist, now);
         game.trackingQuality = "Membidik dengan pergelangan tangan (Tangan ✊)";
       } else if (game.lostHandFrames > 12) {
         game.handFollow.visible = false;
@@ -1355,12 +1353,10 @@ function angleBetween(a, b) {
   return Math.acos(clamp((a.x * b.x + a.y * b.y) / (mA * mB), -1, 1)) * 180 / Math.PI;
 }
 
-function updateHandFollow(wrist) {
-  const mx = clamp(1 - wrist.x, 0.08, 0.92);
-  const my = clamp(wrist.y, 0.12, 0.88);
-  // Lerp weight diseimbangkan: 0.78 → responsif tapi meredam jitter landmark
-  game.handFollow.x = game.handFollow.x * 0.22 + mx * 0.78;
-  game.handFollow.y = game.handFollow.y * 0.22 + my * 0.78;
+function updateHandFollow(wrist, now) {
+  const mx = clamp(1 - wrist.x, 0.05, 0.95);
+  const my = clamp(wrist.y, 0.06, 0.94);
+  handPointer.sample(mx, my, now);
   game.handFollow.visible = true;
 }
 
@@ -1497,12 +1493,6 @@ function updateWateringLogic(dt) {
   const ROM_OVER_TOLERANCE  = 14;
   const isRomMatched = (currentRom >= targetRom - ROM_UNDER_TOLERANCE) && (currentRom <= targetRom + ROM_OVER_TOLERANCE);
   game.isRomMatched = isRomMatched;
-
-  // Damping magnetik halus saat berada di sekitar pot sasaran agar pointer tidak bergetar
-  if (inRange && (isRomMatched || game.isHandOpen)) {
-    game.handFollow.x += (pot.x - game.handFollow.x) * 0.12;
-    game.handFollow.y += (potY - game.handFollow.y) * 0.12;
-  }
 
   // Single Active Target Locking in Level 2:
   // If user is attempting to water a dormant/locked pot
@@ -2641,19 +2631,19 @@ function drawWateringCan(W, H) {
   if (!game.handFollow.visible) return;
   const hx = game.handFollow.x * W;
   const hy = game.handFollow.y * H;
-  const now = performance.now();
   const pot = getTargetPot();
 
   // Determine spout direction: points toward the active pot
   const potX = pot ? pot.x * W : hx - 100;
-  const isFacingLeft = potX <= hx;
+  const isFacingLeft = MoveWallHandPointer.facingLeft(hx, potX, game.canFacingLeft);
+  game.canFacingLeft = isFacingLeft;
 
   // Tilt animation:
   // When watering: tilt forward towards pot (-32° / -0.55 rad)
-  // When aiming (closed hand): upright with subtle breathing
+  // Keep the aiming pointer upright; tracking already provides its motion.
   const targetTilt = game.isWatering
     ? (isFacingLeft ? -0.58 : 0.58)
-    : Math.sin(now / 380) * 0.035;
+    : 0;
   game.canTiltAngle += (targetTilt - game.canTiltAngle) * 0.18;
 
   ctx.save();
@@ -3165,6 +3155,7 @@ function resetGame() {
   game.lastPoseAt      = 0;
   game.poseBusy        = false;
   game.handFollow      = { x: 0.5, y: 0.55, visible: false };
+  handPointer.reset();
   game.handDetected    = false;
   game.isHandOpen      = false;
   game.consecutiveOpenFrames = 0;
@@ -3172,6 +3163,7 @@ function resetGame() {
   game.isWatering      = false;
   game.potInRange      = false;
   game.canTiltAngle    = 0;
+  game.canFacingLeft   = true;
   game.splashParticles = [];
   game.floatingPopups  = [];
   game.pots            = makePots();
@@ -3227,6 +3219,13 @@ function tick(now) {
   game.floatingPopups = game.floatingPopups.filter((p) => p.life > 0);
 
   updateCameraMotion();
+  if (game.running && !game.painStop && game.handFollow.visible) {
+    const position = handPointer.advance(dt);
+    if (position) {
+      game.handFollow.x = position.x;
+      game.handFollow.y = position.y;
+    }
+  }
   updateWateringLogic(dt);
   draw();
   syncHud();

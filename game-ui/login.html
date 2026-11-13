@@ -10,6 +10,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Atkinson+Hyperlegible+Next:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
     <link rel="icon" type="image/png" href="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" />
+    <style>
+      .login-quick-btn {
+        background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%) !important;
+        border: 1.5px solid #0d9488 !important;
+        color: #fff !important;
+        transition: all 0.18s ease;
+      }
+      .login-quick-btn:hover {
+        background: linear-gradient(135deg, #0f766e 0%, #115e59 100%) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(13,148,136,0.3);
+      }
+      .login-quick-btn .login-demo-label { color: rgba(255,255,255,0.8) !important; }
+      .login-quick-btn .login-demo-val   { color: #fff !important; font-weight: 700; }
+      .login-quick-btn .login-demo-action { color: #a7f3d0 !important; font-weight: 600; }
+      .login-quick-btn .login-demo-icon svg { stroke: #fff; }
+    </style>
   </head>
   <body class="login-page" data-surface="studio">
     <!-- Studio Ambient Calibrated Background with Goniometer Motif Watermark -->
@@ -218,20 +235,19 @@
             </button>
           </form>
 
-          <!-- Quick Fill Demo Card -->
+          <!-- Quick Login Button -->
           <div class="login-card-footer">
-            <button type="button" class="login-demo-box" id="demoFillBtn" title="Klik untuk mengisi data akun demo otomatis">
+            <button type="button" class="login-demo-box login-quick-btn" id="demoFillBtn" title="Klik untuk langsung masuk sebagai therapist01">
               <div class="login-demo-icon" aria-hidden="true">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 2l-2 2m-1.5 1.5L16 7l-1.5-1.5M7.5 14.5l-3 3a2.121 2.121 0 0 0 3 3l3-3m-3-3l6-6m2 2l-6 6"/>
-                  <circle cx="18" cy="6" r="3"/>
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
                 </svg>
               </div>
               <div class="login-demo-content">
-                <span class="login-demo-label">Kredensial Akun Percobaan:</span>
+                <span class="login-demo-label">Quick Login Demo:</span>
                 <span class="login-demo-val">therapist01 &middot; movewall2026</span>
               </div>
-              <span class="login-demo-action">Gunakan &rarr;</span>
+              <span class="login-demo-action">Masuk Langsung &#9654;</span>
             </button>
           </div>
         </div>
@@ -361,19 +377,16 @@
       /* ── Auto-focus username ─────────────────────────────── */
       usernameInput.focus();
 
-      /* ── Demo credentials quick-fill (R6: disembunyikan di produksi) ── */
+      /* ── Demo credentials quick-login (selalu tampil) ── */
       const isLocalDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const demoFooter = document.querySelector(".login-card-footer");
-      if (demoFooter && !isLocalDev) {
-        demoFooter.style.display = "none";
-      }
 
       const demoFillBtn = document.getElementById("demoFillBtn");
       if (demoFillBtn) {
-        demoFillBtn.addEventListener("click", () => {
+        demoFillBtn.addEventListener("click", async () => {
           usernameInput.value = "therapist01";
           passwordInput.value = "movewall2026";
-          passwordInput.focus();
+          // Langsung submit — trigger form submit event agar handler berjalan
+          form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
         });
       }
     </script>

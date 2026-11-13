@@ -970,16 +970,17 @@ function updateVisionTracking(now) {
       game.lostPoseFrames  = 0;
       game.posePoints      = estimate.points;
       game.rawAngle        = estimate.controlAngle;
-      game.controlAngle    = stabilizeClinicalAngle(estimate.controlAngle, game.controlAngle);
-      game.displayAngle    = game.controlAngle;
-
       const rawClinical = estimate.clinicalAngle;
       const zeroCalibrated = typeof MoveWallPlayerTracker !== "undefined"
         ? MoveWallPlayerTracker.applyZeroOffset(rawClinical, game.calibration.zeroOffset)
         : rawClinical;
 
-      game.clinicalAngle   = stabilizeClinicalAngle(zeroCalibrated, game.clinicalAngle);
-      game.cameraAngle     = game.controlAngle;
+      // Stabilisasi dieksekusi TEPAT 1 KALI per frame agar ring-buffer tidak terkorupsi
+      const stabilizedM2Angle = stabilizeClinicalAngle(zeroCalibrated, game.clinicalAngle);
+      game.clinicalAngle   = stabilizedM2Angle;
+      game.controlAngle    = stabilizedM2Angle;
+      game.displayAngle    = stabilizedM2Angle;
+      game.cameraAngle     = stabilizedM2Angle;
 
       // Rekam metrik sesi (ROM maksimum, akurasi, kompensasi) untuk asesmen terapis (Fitur 3)
       if (typeof MoveWallMetrics !== "undefined") {
@@ -1026,9 +1027,11 @@ function updateVisionTracking(now) {
     const normX = clamp(1 - palmX, 0.05, 0.95);
     const normY = clamp(palmY, 0.06, 0.94);
 
-    // Smooth movement (EMA) — weight dinaikkan 0.78→0.92 agar respons lebih cepat
-    game.handFollow.x = game.handFollow.x * 0.08 + normX * 0.92;
-    game.handFollow.y = game.handFollow.y * 0.08 + normY * 0.92;
+    // Smooth movement (EMA) — weight diseimbangkan: 0.78 → cukup responsif
+    // tapi meredam jitter noise dari deteksi palm MediaPipe.
+    // Sebelumnya 0.92 terlalu sensitif menyebabkan pointer bergetar.
+    game.handFollow.x = game.handFollow.x * 0.22 + normX * 0.78;
+    game.handFollow.y = game.handFollow.y * 0.22 + normY * 0.78;
     game.handFollow.visible = true;
 
     // Evaluate gesture strictly from 21 MediaPipe hand points
@@ -1054,23 +1057,29 @@ function updateVisionTracking(now) {
         175
       );
       game.rawAngle      = handElevationAngle;
-      game.controlAngle  = stabilizeClinicalAngle(handElevationAngle, game.controlAngle);
-      game.displayAngle  = game.controlAngle;
-      game.clinicalAngle = stabilizeClinicalAngle(handElevationAngle, game.clinicalAngle);
-      game.cameraAngle   = game.controlAngle;
+      const stableFallback = stabilizeClinicalAngle(handElevationAngle, game.clinicalAngle);
+      game.controlAngle  = stableFallback;
+      game.displayAngle  = stableFallback;
+      game.clinicalAngle = stableFallback;
+      game.cameraAngle   = stableFallback;
     }
   } else {
     game.lostHandFrames = (game.lostHandFrames || 0) + 1;
-    game.consecutiveOpenFrames = 0;
-    game.isHandOpen = false;
 
-    // Fallback pointer movement to wrist from PoseLandmarker so user can still aim
-    if (game.posePoints?.wrist) {
-      updateHandFollow(game.posePoints.wrist);
-      game.trackingQuality = "Membidik dengan pergelangan tangan (Tangan ✊)";
-    } else if (game.lostHandFrames > 12) {
-      game.handFollow.visible = false;
-      game.trackingQuality = "Arahkan tangan ke kamera";
+    // Grace window 4 frame (~130ms) sebelum reset gestur atau fallback ke pose wrist
+    // Mencegah pointer gembor bergetar dan animasi semprotan air terputus-putus saat tangan berkedip 1-2 frame
+    if (game.lostHandFrames > 4) {
+      game.consecutiveOpenFrames = 0;
+      game.isHandOpen = false;
+
+      // Fallback pointer movement to wrist from PoseLandmarker so user can still aim
+      if (game.posePoints?.wrist) {
+        updateHandFollow(game.posePoints.wrist);
+        game.trackingQuality = "Membidik dengan pergelangan tangan (Tangan ✊)";
+      } else if (game.lostHandFrames > 12) {
+        game.handFollow.visible = false;
+        game.trackingQuality = "Arahkan tangan ke kamera";
+      }
     }
   }
 }
@@ -1223,12 +1232,52 @@ function angleBetweenVectors(a, b) {
   return (Math.acos(cosine) * 180) / Math.PI;
 }
 
+/**
+ * Stabilisasi sudut klinis dengan multi-layer noise filtering.
+ * Ring-buffer 5 sampel + adaptive deadzone + hysteresis snap-to-target.
+ *
+ * Perbaikan utama:
+ * 1. Ring-buffer → rata-rata bergerak menghilangkan jitter MediaPipe
+ * 2. Deadzone adaptif: 1.5° dekat target / 0.8° bergerak
+ * 3. Snap-to-target hysteresis: masuk ≤3°, keluar >5°
+ * 4. Alpha bertingkat halus untuk gerakan kecil (0.35)
+ */
+const _m2RomSampleBuffer = [];
+const _M2_ROM_BUFFER_SIZE = 5;
+let _m2IsSnappedToTarget = false;
+
 function stabilizeClinicalAngle(raw, prev) {
-  const diff = raw - prev, abs = Math.abs(diff);
-  if (abs < 0.2) return prev; // deadzone diturunkan 0.6→0.2 agar lebih responsif
-  if (Math.abs(raw - game.targetRom) <= 1.8 && Math.abs(prev - game.targetRom) <= 4) return game.targetRom;
-  // Alpha dinaikkan agar sudut mengikuti gerakan lebih responsif (kurang lag)
-  const alpha = abs > 18 ? 0.88 : abs > 7 ? 0.72 : 0.55;
+  // 1. Ring-buffer: simpan 5 sampel terakhir, ambil rata-rata
+  _m2RomSampleBuffer.push(raw);
+  if (_m2RomSampleBuffer.length > _M2_ROM_BUFFER_SIZE) _m2RomSampleBuffer.shift();
+  const avgRaw = _m2RomSampleBuffer.reduce((s, v) => s + v, 0) / _m2RomSampleBuffer.length;
+
+  const diff = avgRaw - prev, abs = Math.abs(diff);
+
+  // 2. Adaptive deadzone — lebih besar saat dekat target
+  const nearTarget = Math.abs(avgRaw - game.targetRom) <= 10;
+  const deadzone = nearTarget ? 1.5 : 0.8;
+  if (abs < deadzone) return prev;
+
+  // 3. Hysteresis snap-to-target
+  const distToTarget = Math.abs(avgRaw - game.targetRom);
+  const prevDistToTarget = Math.abs(prev - game.targetRom);
+
+  if (_m2IsSnappedToTarget) {
+    if (distToTarget > 6.5 || abs > 9) {
+      _m2IsSnappedToTarget = false;
+    } else {
+      return game.targetRom;
+    }
+  } else {
+    if (distToTarget <= 4.5 && prevDistToTarget <= 7) {
+      _m2IsSnappedToTarget = true;
+      return game.targetRom;
+    }
+  }
+
+  // 4. Alpha EMA bertingkat — halus untuk gerakan kecil
+  const alpha = abs > 18 ? 0.82 : abs > 7 ? 0.58 : 0.35;
   return prev + diff * alpha;
 }
 
@@ -1238,6 +1287,12 @@ function estimateArmRaiseRom(landmarks) {
   const left  = estimateSideRom(landmarks, { side: "left",  shoulder: 11, elbow: 13, wrist: 15, hip: 23, oppositeShoulder: 12, pinky: 17, index: 19, thumb: 21 });
   const candidates = [right, left].filter(Boolean);
   if (!candidates.length) return null;
+  // Hysteresis: beri bobot +25 pada sisi yang sedang aktif dilacak agar tidak melompat-lompat antar sisi saat tangan digerakkan
+  candidates.forEach((c) => {
+    if (game.trackedSide && c.side === game.trackedSide) {
+      c.score += 25;
+    }
+  });
   candidates.sort((a, b) => b.score - a.score);
   return candidates[0];
 }
@@ -1268,9 +1323,11 @@ function estimateSideRom(landmarks, ids) {
 
   const aspect = getPoseAspectRatio();
 
-  // Jika hip tidak tersedia di frame (misal posisi duduk di depan laptop),
-  // perkirakan posisi hip dari shoulder
-  const effectiveHip = hip ?? { x: shoulder.x, y: shoulder.y + 0.4 };
+  // Jika hip tidak tersedia atau visibility rendah (<0.35, misal posisi duduk di depan laptop),
+  // perkirakan posisi hip tegak lurus dari shoulder agar vektor torso stabil dan tidak bergetar
+  const effectiveHip = (hip && hipVis >= 0.35)
+    ? hip
+    : { x: shoulder.x, y: shoulder.y + 0.4 };
 
   const torsoUp = {
     x: (shoulder.x - effectiveHip.x) * aspect,
@@ -1301,9 +1358,9 @@ function angleBetween(a, b) {
 function updateHandFollow(wrist) {
   const mx = clamp(1 - wrist.x, 0.08, 0.92);
   const my = clamp(wrist.y, 0.12, 0.88);
-  // Lerp weight dinaikkan 0.82→0.93 agar posisi fallback wrist lebih responsif
-  game.handFollow.x = game.handFollow.x * 0.07 + mx * 0.93;
-  game.handFollow.y = game.handFollow.y * 0.07 + my * 0.93;
+  // Lerp weight diseimbangkan: 0.78 → responsif tapi meredam jitter landmark
+  game.handFollow.x = game.handFollow.x * 0.22 + mx * 0.78;
+  game.handFollow.y = game.handFollow.y * 0.22 + my * 0.78;
   game.handFollow.visible = true;
 }
 
@@ -1422,10 +1479,30 @@ function updateWateringLogic(dt) {
   const dyTipPx = game.canTipPos.y - potY * H;
   const distTip = Math.hypot(dxTipPx, dyTipPx);
 
-  const distPx = Math.min(distCan, distTip);
-  const POT_RANGE_PX = 85; // Natural circular reach radius (~85px)
-  const inRange = distPx < POT_RANGE_PX;
+  // Hysteresis range check:
+  // Masuk range: distCan < 115 atau distTip < 100
+  // Keluar range: distCan > 140 dan distTip > 125
+  // Ini mencegah gembor bergetar masuk-keluar range saat canTiltAngle bergoyang
+  const inRange = game.potInRange
+    ? (distCan < 140 || distTip < 125)
+    : (distCan < 115 || distTip < 100);
   game.potInRange = inRange;
+
+  // Evaluasi kesesuaian ROM tangan dengan ROM Target pot
+  const currentRom = Math.round(game.clinicalAngle);
+  const targetRom  = pot.requiredRom;
+
+  // Toleransi terapeutik klinis — rentang valid: [targetRom - 14°, targetRom + 14°]
+  const ROM_UNDER_TOLERANCE = 14;
+  const ROM_OVER_TOLERANCE  = 14;
+  const isRomMatched = (currentRom >= targetRom - ROM_UNDER_TOLERANCE) && (currentRom <= targetRom + ROM_OVER_TOLERANCE);
+  game.isRomMatched = isRomMatched;
+
+  // Damping magnetik halus saat berada di sekitar pot sasaran agar pointer tidak bergetar
+  if (inRange && (isRomMatched || game.isHandOpen)) {
+    game.handFollow.x += (pot.x - game.handFollow.x) * 0.12;
+    game.handFollow.y += (potY - game.handFollow.y) * 0.12;
+  }
 
   // Single Active Target Locking in Level 2:
   // If user is attempting to water a dormant/locked pot
@@ -1445,16 +1522,6 @@ function updateWateringLogic(dt) {
       }
     }
   }
-
-  // Evaluasi kesesuaian ROM tangan dengan ROM Target pot
-  const currentRom = Math.round(game.clinicalAngle);
-  const targetRom  = pot.requiredRom;
-
-  // Toleransi terapeutik klinis — rentang valid: [targetRom - 12°, targetRom + 12°]
-  const ROM_UNDER_TOLERANCE = 12;
-  const ROM_OVER_TOLERANCE  = 12;
-  const isRomMatched = (currentRom >= targetRom - ROM_UNDER_TOLERANCE) && (currentRom <= targetRom + ROM_OVER_TOLERANCE);
-  game.isRomMatched = isRomMatched;
 
   /* ── Evaluasi Ketentuan Task.md & Penyesuaian ROM Target ──
      1. Posisi gembor harus dalam jangkauan pot (inRange)
@@ -3088,6 +3155,8 @@ function resetGame() {
   game.peakAngle       = 0;
   game.targetHitFlash  = 0;
   game.targetCooldown  = 0;
+  _m2RomSampleBuffer.length = 0; // Reset ring-buffer stabilisasi ROM
+  _m2IsSnappedToTarget = false;  // Reset hysteresis snap state
   game.painStop        = false;
   game.lastRepFrameId  = null;
   game.posePoints      = null;

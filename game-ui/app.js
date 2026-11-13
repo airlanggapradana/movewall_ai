@@ -255,8 +255,8 @@ let activeKinematicRecorder = typeof MoveWallKinematics !== "undefined"
 let activePatientData = null;
 const LEVEL_ONE_HITS = 5;
 const TARGET_HOLD_SECONDS = 2.0;
-const TARGET_HOLD_UNDER_TOLERANCE = 6;
-const TARGET_HOLD_OVER_TOLERANCE = 7;
+const TARGET_HOLD_UNDER_TOLERANCE = 8;
+const TARGET_HOLD_OVER_TOLERANCE = 9;
 const POSE_TARGET_FPS = 30;
 const POSE_FRAME_INTERVAL = 1000 / POSE_TARGET_FPS;
 
@@ -789,11 +789,6 @@ function updatePoseTracking(now) {
   game.debugConfidence = estimate.confidence;
   updateHandFollow(estimate.points.wrist);
   game.rawAngle = estimate.controlAngle;
-  game.controlAngle = stabilizeClinicalAngle(
-    estimate.controlAngle,
-    game.controlAngle,
-  );
-  game.displayAngle = game.controlAngle;
 
   // Fitur 4: Terapkan Zero-Offset Baseline pada sudut klinis
   const rawClinical = estimate.clinicalAngle;
@@ -801,11 +796,15 @@ function updatePoseTracking(now) {
     ? MoveWallPlayerTracker.applyZeroOffset(rawClinical, game.calibration.zeroOffset)
     : rawClinical;
 
-  game.clinicalAngle = stabilizeClinicalAngle(
+  // Stabilisasi dieksekusi TEPAT 1 KALI per frame agar ring-buffer tidak terkorupsi
+  const stabilizedAngle = stabilizeClinicalAngle(
     zeroCalibrated,
     game.clinicalAngle,
   );
-  game.cameraAngle = game.controlAngle;
+  game.clinicalAngle = stabilizedAngle;
+  game.controlAngle = stabilizedAngle;
+  game.displayAngle = stabilizedAngle;
+  game.cameraAngle = stabilizedAngle;
 
   // Rekam metrik sesi (ROM maksimum, akurasi, kompensasi) untuk asesmen terapis.
   MoveWallMetrics.sample({
@@ -1003,24 +1002,61 @@ function updateLiveCalibration(landmarks) {
   }
 }
 
+/**
+ * Stabilisasi sudut klinis dengan multi-layer noise filtering.
+ * Menggunakan ring-buffer untuk rata-rata bergerak (moving average),
+ * adaptive deadzone, dan hysteresis snap-to-target yang halus.
+ *
+ * Perbaikan utama vs versi sebelumnya:
+ * 1. Ring-buffer 5 sampel → rata-rata bergerak menghilangkan jitter tinggi
+ * 2. Deadzone adaptif: 1.5° (dekat target) / 0.8° (bergerak) → cegah pointer bergetar
+ * 3. Snap-to-target dengan hysteresis: masuk di ≤3°, keluar di >5° → cegah
+ *    osilasi di batas zona target
+ * 4. Alpha bertingkat lebih halus untuk gerakan kecil (0.35) → stabilitas
+ */
+const _romSampleBuffer = [];
+const _ROM_BUFFER_SIZE = 5;
+let _isSnappedToTarget = false;
+
 function stabilizeClinicalAngle(rawAngle, previousAngle) {
-  const diff = rawAngle - previousAngle;
+  // 1. Ring-buffer: simpan 5 sampel terakhir, ambil rata-rata
+  _romSampleBuffer.push(rawAngle);
+  if (_romSampleBuffer.length > _ROM_BUFFER_SIZE) _romSampleBuffer.shift();
+  const avgRaw = _romSampleBuffer.reduce((s, v) => s + v, 0) / _romSampleBuffer.length;
+
+  const diff = avgRaw - previousAngle;
   const absDiff = Math.abs(diff);
 
-  if (absDiff < 0.2) return previousAngle; // deadzone diturunkan 0.8→0.2 agar lebih responsif
+  // 2. Adaptive deadzone — lebih besar saat dekat target untuk stabilitas
+  const nearTarget = Math.abs(avgRaw - game.targetRom) <= 10;
+  const deadzone = nearTarget ? 1.5 : 0.8;
+  if (absDiff < deadzone) return previousAngle;
 
-  if (
-    Math.abs(rawAngle - game.targetRom) <= 1.8 &&
-    Math.abs(previousAngle - game.targetRom) <= 4
-  ) {
-    return game.targetRom;
+  // 3. Hysteresis snap-to-target — masuk mudah, keluar harus gerakan jelas
+  //    Ini menghilangkan osilasi di batas zona saat tangan sedikit bergetar
+  const distToTarget = Math.abs(avgRaw - game.targetRom);
+  const prevDistToTarget = Math.abs(previousAngle - game.targetRom);
+
+  if (_isSnappedToTarget) {
+    // Sudah ter-snap: lepas hanya jika gerakan cukup jauh dari target
+    if (distToTarget > 6.5 || absDiff > 9) {
+      _isSnappedToTarget = false;
+    } else {
+      return game.targetRom;
+    }
+  } else {
+    // Belum ter-snap: snap jika berada di zona target
+    if (distToTarget <= 4.5 && prevDistToTarget <= 7) {
+      _isSnappedToTarget = true;
+      return game.targetRom;
+    }
   }
 
-  // Alpha dinaikkan agar sudut merespons gerakan lebih cepat (kurang lag)
-  // - Gerakan besar (>18°): 0.62 → 0.88
-  // - Gerakan sedang (>7°): 0.48 → 0.72
-  // - Gerakan kecil:         0.32 → 0.55
-  const alpha = absDiff > 18 ? 0.88 : absDiff > 7 ? 0.72 : 0.55;
+  // 4. Alpha EMA bertingkat — lebih halus untuk gerakan kecil
+  //    Gerakan besar  (>18°): 0.82 → respons cepat (intentional movement)
+  //    Gerakan sedang (>7°):  0.58 → respons moderat
+  //    Gerakan kecil  (≤7°):  0.35 → halus, cegah jitter dari noise MediaPipe
+  const alpha = absDiff > 18 ? 0.82 : absDiff > 7 ? 0.58 : 0.35;
   return previousAngle + diff * alpha;
 }
 
@@ -1084,10 +1120,10 @@ function updateHandFollow(wrist) {
   const targetX = clamp(mirroredX, 0.08, 0.92);
   const targetY = clamp(wrist.y, 0.12, 0.88);
 
-  // Lerp lebih responsif: weight dinaikkan 0.88→0.93 agar
-  // posisi tangan mengikuti gerakan nyata lebih cepat (lag berkurang)
-  game.handFollow.x = game.handFollow.x * 0.07 + targetX * 0.93;
-  game.handFollow.y = game.handFollow.y * 0.07 + targetY * 0.93;
+  // Lerp weight diseimbangkan: 0.78 → cukup responsif tapi meredam jitter
+  // dari noise landmark MediaPipe. Sebelumnya 0.93 terlalu sensitif.
+  game.handFollow.x = game.handFollow.x * 0.22 + targetX * 0.78;
+  game.handFollow.y = game.handFollow.y * 0.22 + targetY * 0.78;
   game.handFollow.visible = true;
 }
 
@@ -1111,6 +1147,12 @@ function estimateArmRaiseRom(landmarks) {
 
   const candidates = [right, left].filter(Boolean);
   if (!candidates.length) return null;
+  // Hysteresis: beri bobot +25 pada sisi yang sedang aktif dilacak agar tidak melompat-lompat antar sisi saat tangan digerakkan
+  candidates.forEach((c) => {
+    if (game.trackedSide && c.side === game.trackedSide) {
+      c.score += 25;
+    }
+  });
   candidates.sort((a, b) => b.score - a.score);
   return candidates[0];
 }
@@ -1140,9 +1182,11 @@ function estimateSideRom(landmarks, ids) {
 
   const aspect = getPoseAspectRatio();
 
-  // Jika hip tidak tersedia, perkirakan posisi hip dari shoulder
-  // (asumsikan torso sepanjang 0.4 dalam normalized space)
-  const effectiveHip = hip ?? { x: shoulder.x, y: shoulder.y + 0.4 };
+  // Jika hip tidak tersedia atau visibility rendah (<0.35, mis. duduk di depan laptop),
+  // perkirakan posisi hip tegak lurus dari shoulder agar vektor torso stabil dan tidak bergetar
+  const effectiveHip = (hip && hipVis >= 0.35)
+    ? hip
+    : { x: shoulder.x, y: shoulder.y + 0.4 };
 
   const torsoUp = {
     x: (shoulder.x - effectiveHip.x) * aspect,
@@ -1221,7 +1265,13 @@ function processTargetHold(angle, now) {
     // Graceful decay: jangan langsung reset ke 0 jika tangan sedikit bergetar (0.1-0.2 detik)
     const lastHoldTimestamp = game.lastHoldTimestamp ?? now;
     const holdDelta = Math.max(0, (now - lastHoldTimestamp) / 1000);
-    game.holdTimer = Math.max(0, game.holdTimer - holdDelta * 1.5);
+    if (!game.outOfWindowStart) {
+      game.outOfWindowStart = now;
+    }
+    // Beri grace window 250ms sebelum decay agar tremor motorik tidak langsung menghapus waktu tahan
+    if (now - game.outOfWindowStart > 250) {
+      game.holdTimer = Math.max(0, game.holdTimer - holdDelta * 1.0);
+    }
     game.lastHoldTimestamp = now;
     if (game.holdTimer <= 0) {
       game.targetAcquired = false;
@@ -1229,6 +1279,7 @@ function processTargetHold(angle, now) {
     return buildPayload(angle, repJustCompleted, repStatus, completedPeakAngle);
   }
 
+  game.outOfWindowStart = null;
   const lastHoldTimestamp = game.lastHoldTimestamp ?? now;
   const holdDelta = Math.max(0, (now - lastHoldTimestamp) / 1000);
   game.holdTimer = clamp(game.holdTimer + holdDelta, 0, TARGET_HOLD_SECONDS);
@@ -1265,6 +1316,7 @@ function getAimState(angle) {
 function resetTargetHold() {
   game.holdTimer = 0;
   game.lastHoldTimestamp = null;
+  game.outOfWindowStart = null;
 }
 
 function getMissionLevelForHitCount(hits) {
@@ -1536,6 +1588,9 @@ function restartLevel() {
   game.level = getMissionLevelForHitCount(game.reps);
 
   resetTargetHold();
+  _romSampleBuffer.length = 0; // Reset ring-buffer stabilisasi ROM
+  _isSnappedToTarget = false;  // Reset hysteresis snap state
+  game.smoothReticleY = null;
   game.targetHitFlash = 0;
   game.targetCooldown = 0;
   game.painStop = false;
@@ -1573,6 +1628,9 @@ function resetGame() {
   game.repState = "RESTING";
   game.peakAngle = 0;
   resetTargetHold();
+  _romSampleBuffer.length = 0; // Reset ring-buffer stabilisasi ROM
+  _isSnappedToTarget = false;  // Reset hysteresis snap state
+  game.smoothReticleY = null;
   game.targetHitFlash = 0;
   game.targetCooldown = 0;
   game.painStop = false;
@@ -3154,7 +3212,18 @@ function drawArcher(width, height) {
   /* ── 13. AIM POINTER & RETICLE GUIDES ─────────────────────────────── */
   const aimPoint = getAimPoint(width, height);
   const reticleX = target.x;
-  const reticleY = aimPoint.y;
+
+  // Screen-space pointer stabilization:
+  // Ketika terkunci di zona target (isLocked/targetAcquired), reticle secara halus mengunci ke tengah target
+  // Ketika bergerak bebas, gunakan peredaman EMA agar reticle tidak bergetar karena jitter video
+  const destReticleY = (isLocked || game.targetAcquired) ? target.y : aimPoint.y;
+  if (game.smoothReticleY === undefined || game.smoothReticleY === null) {
+    game.smoothReticleY = destReticleY;
+  } else {
+    const smoothing = (isLocked || game.targetAcquired) ? 0.35 : 0.25;
+    game.smoothReticleY += (destReticleY - game.smoothReticleY) * smoothing;
+  }
+  const reticleY = game.smoothReticleY;
   const reticleR = 24 + (isLocked ? Math.sin(performance.now() * 0.04) * 3 : 0);
 
   // Connecting dashed line between aim reticle and target apple

@@ -25,7 +25,7 @@ const colors = {
   red: "\x1b[31m",
 };
 
-const ROOT_DIR = __dirname;
+const ROOT_DIR = path.resolve(__dirname, "..");
 const BACKEND_DIR = path.join(ROOT_DIR, "game-ui", "backend");
 const FRONTEND_DIR = path.join(ROOT_DIR, "game-ui");
 

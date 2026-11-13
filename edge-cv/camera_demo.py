@@ -1,4 +1,4 @@
-﻿"""
+"""
 camera_demo.py  v2.0
 Versi API baru MediaPipe 1.0.0 (mp.tasks.vision.PoseLandmarker)
 """
@@ -13,7 +13,18 @@ except ImportError:
 from edge_pipeline import EdgeTrackingPipeline
 from landmark_filter import RawLandmark
 
-MODEL_PATH = str(pathlib.Path(__file__).parent / "pose_landmarker.task")
+def find_model_path():
+    candidates = [
+        pathlib.Path(__file__).parent / "pose_landmarker.task",
+        pathlib.Path(__file__).parent.parent / "game-ui" / "assets" / "pose_landmarker.task",
+        pathlib.Path(__file__).parent.parent / "assets" / "pose_landmarker.task",
+    ]
+    for c in candidates:
+        if c.is_file():
+            return str(c.resolve())
+    return str(candidates[0])
+
+MODEL_PATH = find_model_path()
 
 def main():
     pipeline = EdgeTrackingPipeline()

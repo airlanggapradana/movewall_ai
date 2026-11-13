@@ -7,6 +7,6 @@ echo    MoveWall AI - Unified Dev Runner
 echo ====================================================
 echo.
 
-node run-dev.js
+node scripts/run-dev.js
 pause
 

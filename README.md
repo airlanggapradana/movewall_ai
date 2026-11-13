@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./MoveWall_AI_Rehab_Logo__1_transparent.png" alt="MoveWall AI Logo" width="220" />
+<img src="./assets/MoveWall_AI_Rehab_Logo__1_transparent.png" alt="MoveWall AI Logo" width="220" />
 
 # MoveWall AI
 
@@ -192,7 +192,23 @@ Sistem production telah live dan dapat diuji langsung melalui browser tanpa inst
 ### Prasyarat Sistem
 - **Node.js**: Versi `>= 22.12.0` (diperlukan untuk kompatibilitas runtime Prisma 7)
 - **Git** & **Web Browser Modern** (Google Chrome, Microsoft Edge, atau Firefox dengan dukungan WebAssembly & Webcam)
-- **Python** (Opsional untuk modul pipeline riset di root): Python 3.10 s.d. 3.12
+- **Python** (Opsional untuk modul pipeline riset di `edge-cv/`): Python 3.10 s.d. 3.12
+
+---
+
+### ⚡ Cara Cepat Menjalankan (Unified Dev Runner)
+
+Jalankan seluruh service (Frontend Port 3000 & Backend Port 3001) secara bersamaan dari root repositori:
+
+```bash
+# 1. Pasang dependensi frontend & backend
+npm run install:all
+
+# 2. Jalankan kedua service secara paralel
+npm run dev
+```
+
+*Pengguna Windows juga dapat langsung mengeklik ganda file [`start-dev.bat`](file:///d:/Informatika/Projekan/movewall/start-dev.bat).*
 
 ---
 
@@ -261,11 +277,17 @@ npm start
 
 ### 3. Pipeline Python Edge CV (Riset & Demo Lokal)
 
-Untuk bereksperimen dengan pipeline biomekanika Python murni yang ada pada root repositori:
+Untuk bereksperimen dengan pipeline biomekanika Python murni pada folder [`edge-cv/`](file:///d:/Informatika/Projekan/movewall/edge-cv/):
 
 ```bash
+# Masuk ke direktori edge-cv
+cd edge-cv
+
 # Pasang dependensi computer vision Python
-pip install opencv-python mediapipe numpy
+pip install -r requirements.txt
+
+# Jalankan pengujian otomatis seluruh modul
+python test_pipeline.py
 
 # Jalankan demo interaktif CLI (simulasi sudut, rep state machine, adaptive engine)
 python interactive_demo.py
@@ -280,47 +302,66 @@ python camera_demo.py
 
 ```
 movewall/
-├── MoveWall_AI_Rehab_Logo__1_transparent.png  # Logo resmi MoveWall AI (transparent)
-├── vercel.json                                # Konfigurasi routing & header Vercel root
-├── walkthrough.md                             # Dokumentasi komprehensif seluruh task & sistem
+├── assets/                                    # Identitas & visual resmi MoveWall AI
+│   └── MoveWall_AI_Rehab_Logo__1_transparent.png
+│
+├── docs/                                      # Pusat Dokumentasi Lengkap
+│   ├── README.md                              # Indeks navigasi seluruh dokumentasi
+│   ├── architecture/                          # PRD, TADD, & spesifikasi arsitektur
+│   │   ├── PRD.md
+│   │   ├── PRD_MoveWall_AI_v1.0.md
+│   │   ├── TADD_MoveWall_AI_v1.0.md
+│   │   ├── MOVEWALL-AI.md
+│   │   └── MoveWall_AI_Unique_Selling_Points.md
+│   ├── design-system/                         # Spesifikasi Design System & token CSS
+│   │   ├── MoveWall_AI_Design_System_v2_0.md
+│   │   ├── MoveWall_AI_Design_System_v1.1.md
+│   │   └── MoveWall_AI_Design_System_v1.0.md
+│   └── tasks/                                 # Catatan implementasi Task 1 s.d. 6 & Walkthrough
+│       ├── Task_1.md ... Task_6.md
+│       └── walkthrough.md
+│
+├── edge-cv/                                   # ── PIPELINE PYTHON EDGE CV (Riset & Demo) ──
+│   ├── README.md                              # Panduan lengkap modul Python Edge CV
+│   ├── requirements.txt                       # Dependensi opencv, mediapipe, numpy
+│   ├── test_pipeline.py                       # Automated test suite untuk seluruh modul CV
+│   ├── edge_pipeline.py                       # Orchestrator pelacakan 33 landmark
+│   ├── landmark_filter.py                     # One-Euro & EMA filter + 15 frame occlusion grace
+│   ├── angle_calculator.py                    # Kalkulator sudut sendi anatomis berbasis vektor
+│   ├── rep_state_machine.py                   # Finite State Machine siklus repetisi terapi
+│   ├── adaptive_engine.py                     # Closed-loop Adaptive Difficulty & ROM Adjustment
+│   ├── camera_demo.py                         # Demo kamera real-time dengan MediaPipe Tasks
+│   └── interactive_demo.py                    # Demo interaktif CLI untuk pengujian FSM
 │
 ├── game-ui/                                   # ── FRONTEND EDGE WEB APP ──
 │   ├── login.html                             # Portal autentikasi terapis glassmorphism
 │   ├── dashboard.html                         # Portal dashboard analitik klinis terapis
-│   ├── dashboard.js                           # Logika dashboard, KPI agregat, resep ROM & ekspor PDF
+│   ├── dashboard.js                           # Logika dashboard, KPI agregat, resep ROM & PDF
 │   ├── index.html                             # Misi 1: Apple Archer (Shoulder Flexion)
 │   ├── app.js                                 # Engine visual pemanah, MediaPipe pose, FSM
 │   ├── mission2.html                          # Misi 2: Garden Keeper (Shoulder Reaching)
 │   ├── mission2.js                            # Engine penyiram bunga, MediaPipe hand, Mode Acak
-│   ├── adaptive-engine.js                     # Adaptive Difficulty Engine JS (PRD §6.3, Safety Ceiling)
-│   ├── adaptive-engine.test.js                # Suite unit test Adaptive Engine (10 passing tests)
+│   ├── adaptive-engine.js                     # Adaptive Difficulty Engine JS (PRD §6.3)
 │   ├── session-metrics.js                     # Perekam metrik klinis (ROM max, akurasi, kompensasi)
-│   ├── session-metrics.test.js                # Suite unit test Session Metrics (6 passing tests)
 │   ├── styles.css                             # Central Clinical Glassmorphism Design System v2.0
-│   ├── vercel.json                            # Konfigurasi header & routing frontend Vercel
-│   ├── assets/                                # Aset gambar, audio BGM, model .task MediaPipe
-│   │   ├── pose_landmarker.task               # Model MediaPipe BlazePose
-│   │   └── hand_landmarker.task               # Model MediaPipe Hand Landmarker
+│   ├── assets/                                # Audio BGM, model .task MediaPipe, background
 │   └── backend/                               # ── BACKEND API SERVICE ──
 │       ├── server.js                          # Express.js REST API, Auth JWT, Midtrans, Stats
 │       ├── package.json                       # Konfigurasi dependensi Node 22 & Prisma 7
 │       ├── railway.json                       # Deployment config untuk Railway cloud
-│       ├── lib/
-│       │   ├── clinical.js                    # Validasi klinis murni (NRS 0–10, Nordic map, resep ROM)
-│       │   └── clinical.test.js               # Suite unit test modul validasi klinis (7 passing tests)
-│       ├── prisma/
-│       │   ├── schema.prisma                  # Skema database (Therapist, Patient, Assessment, Audit)
-│       │   ├── seed.js                        # Seeder dummy therapist & 12 rekam sesi pasien
-│       │   └── migrations/                    # SQL migrations PostgreSQL
-│       └── prisma.config.ts                   # Konfigurasi Prisma 7 datasource connection
+│       ├── lib/                               # Validasi klinis & AI SOAP summary generator
+│       └── prisma/                            # Skema database, migrations, & database seeder
 │
-├── edge_pipeline.py                           # ── CORE PYTHON CV & BIOMECHANICS ──
-├── landmark_filter.py                         # One-Euro & EMA filter + 15 frame occlusion grace
-├── angle_calculator.py                        # Kalkulator sudut sendi anatomis berbasis vektor
-├── rep_state_machine.py                       # Finite State Machine siklus repetisi terapi
-├── adaptive_engine.py                         # Closed-loop Adaptive Difficulty & ROM Adjustment
-├── camera_demo.py                             # Demo kamera real-time dengan MediaPipe Tasks
-└── interactive_demo.py                        # Demo interaktif CLI untuk pengujian logika FSM
+├── scripts/                                   # ── DEV SCRIPTS & RUNNERS ──
+│   ├── README.md
+│   ├── run-dev.js                             # Unified dev runner Node.js
+│   ├── start-dev.ps1                          # PowerShell launcher
+│   └── start-dev-dual.bat                     # Windows dual-window batch launcher
+│
+├── .gitignore                                 # Aturan ignore bersih untuk OS, node, python
+├── package.json                               # Unified npm scripts (dev, test, install:all)
+├── start-dev.bat                              # 1-click Windows runner ke npm run dev
+└── vercel.json                                # Konfigurasi routing & header Vercel root
 ```
 
 ---

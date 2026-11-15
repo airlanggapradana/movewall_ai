@@ -40,3 +40,11 @@ test("retry is bounded and provider errors never store secret payloads", async (
   assert.equal(prisma.state.notifications[0].status, "FAILED"); assert.equal(prisma.state.notifications[0].attempts, 5);
   assert.equal(prisma.state.notifications[0].lastError, "Resend HTTP 503");
 });
+
+test("first approval queues an announcement email", async () => {
+  const prisma = createStore();
+  await enqueueNotification(prisma, { id: 1, name: "Rina", email: "rina@example.test" }, { id: "event-approve", fromStatus: "PENDING", toStatus: "APPROVED" });
+  const [job] = prisma.state.notifications;
+  assert.equal(job.recipient, "rina@example.test"); assert.match(job.subject, /disetujui/);
+  assert.match(job.body, /Halo Rina/); assert.match(job.body, /telah disetujui/);
+});

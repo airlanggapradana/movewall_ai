@@ -12,10 +12,14 @@ async function enqueueNotification(tx, account, decision) {
   if (!account.email) return; // Migrated legacy accounts may not have email.
   const title = decision.fromStatus === "SUSPENDED" && decision.toStatus === "APPROVED"
     ? "Akses akun dipulihkan" : titles[decision.toStatus];
+  const firstApproval = decision.fromStatus === "PENDING" && decision.toStatus === "APPROVED";
+  const loginUrl = process.env.APP_URL ? `${process.env.APP_URL.replace(/\/+$/, "")}/login.html` : "";
+  const body = firstApproval
+    ? `Halo${account.name ? ` ${account.name}` : ""},\n\nKabar baik: pengajuan akun terapis Anda di MoveWall AI telah disetujui oleh administrator.\n\nAnda sekarang dapat masuk dan menggunakan fitur terapis.${loginUrl ? `\n\nMasuk di: ${loginUrl}` : ""}\n\nPersetujuan akun tidak mengaktifkan langganan. Status terbaru tersedia di halaman status akun MoveWall AI.`
+    : `${title}.\n\n${decision.reason || "Silakan masuk untuk melihat status pengajuan Anda."}\n\nPersetujuan akun tidak mengaktifkan langganan. Status terbaru tersedia di halaman status akun MoveWall AI.`;
   await tx.notificationOutbox.create({ data: {
     eventId: decision.id, therapistId: account.id, recipient: account.email,
-    subject: `MoveWall AI: ${title}`,
-    body: `${title}.\n\n${decision.reason || "Silakan masuk untuk melihat status pengajuan Anda."}\n\nPersetujuan akun tidak mengaktifkan langganan. Status terbaru tersedia di halaman status akun MoveWall AI.`,
+    subject: `MoveWall AI: ${title}`, body,
   } });
 }
 

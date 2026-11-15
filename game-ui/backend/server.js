@@ -14,6 +14,7 @@ const crypto = require("crypto");
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { Pool } = require("pg");
+const { normalizeDatabaseUrl } = require("./lib/database-url");
 const {
   CONSENT_VERSION,
   PAIN_MOVEMENTS,
@@ -27,6 +28,10 @@ const {
 } = require("./lib/clinical");
 const { generateClinicalSummaryDraft } = require("./lib/ai-summary");
 const { createRegistrationHandler } = require("./lib/registration");
+const { createAuthentication, requireClinical, accountSelect, destination, canAccessClinical } = require("./lib/account-access");
+const { createApplicationRouter } = require("./lib/applications");
+const { rateLimit } = require("./lib/rate-limit");
+const { createResendTransport, processNotifications } = require("./lib/notifications");
 
 // ─── Midtrans Configuration ──────────────────────────────────────────────────
 const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY || "";
@@ -52,11 +57,13 @@ const SUBSCRIPTION_DURATION_DAYS = 30; // 30 hari cooldown & masa aktif
 const connectionString =
   process.env.DATABASE_URL ??
   "postgresql://user:password@localhost:5432/movewall_db";
-const pool = new Pool({ connectionString });
+const pool = new Pool({ connectionString: normalizeDatabaseUrl(connectionString) });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 const app = express();
+// Explicit hop count avoids trusting arbitrary forwarded client IP headers.
+if (/^[1-9]\d?$/.test(process.env.TRUST_PROXY_HOPS || "")) app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS));
 const PORT = process.env.PORT || 3001;
 
 // R1: tidak ada nilai fallback. Tanpa secret, token bisa dipalsukan, jadi server
@@ -69,9 +76,6 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
   );
 }
 const JWT_EXPIRES_IN = "8h";
-
-// R3: registrasi terapis hanya dengan kode undangan. Tanpa env ini, registrasi mati.
-const REGISTRATION_INVITE_CODE = process.env.REGISTRATION_INVITE_CODE || "";
 
 // R2: endpoint seed bersifat destruktif. Hanya aktif bila diminta eksplisit
 // dan tidak pernah di mode produksi.
@@ -121,22 +125,9 @@ app.use(express.json({ limit: "5mb" }));
 
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
 
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // Bearer <token>
-
-  if (!token) {
-    return res.status(401).json({ error: "Access token required" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.therapist = decoded;
-    next();
-  } catch (err) {
-    return res.status(403).json({ error: "Invalid or expired token" });
-  }
-}
+const authenticateSession = createAuthentication({ prisma, jwt, secret: JWT_SECRET });
+// Existing protected endpoints all require current clinical access, including payments.
+const authenticateToken = [authenticateSession, requireClinical];
 
 // ── Helper: Hitung status, durasi aktif, dan cooldown pembayaran 30 hari ─────
 function calculateSubscriptionMetrics(sub) {
@@ -236,11 +227,11 @@ app.get("/api/health", (req, res) => {
 
 // ── Auth: Login ───────────────────────────────────────────────────────────────
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", rateLimit({ limit: 15, windowMs: 15 * 60000 }), async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password } = req.body || {};
 
-    if (!username || !password) {
+    if (typeof username !== "string" || typeof password !== "string" || !username.trim() || !password || password.length > 200) {
       return res
         .status(400)
         .json({ error: "Username and password are required" });
@@ -248,15 +239,11 @@ app.post("/api/auth/login", async (req, res) => {
 
     // Find therapist by username
     const therapist = await prisma.therapist.findUnique({
-      where: { username },
+      where: { username: username.trim() },
     });
 
     if (!therapist) {
       return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    if (!therapist.isActive) {
-      return res.status(403).json({ error: "Account is deactivated" });
     }
 
     // Verify password
@@ -279,14 +266,8 @@ app.post("/api/auth/login", async (req, res) => {
 
     res.json({
       token,
-      therapist: {
-        id: therapist.id,
-        name: therapist.name,
-        username: therapist.username,
-        email: therapist.email,
-        specialization: therapist.specialization,
-        role: therapist.role,
-      },
+      therapist: Object.fromEntries(Object.keys(accountSelect).map(key => [key, therapist[key]])),
+      redirect: destination(therapist),
     });
   } catch (err) {
     console.error("[Login Error]", err);
@@ -294,34 +275,23 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// ── Auth: Register (hanya dengan kode undangan) ───────────────────────────────
+// ── Auth: Register (pengajuan untuk pemeriksaan admin) ───────────────────────
 
-app.post("/api/auth/register", createRegistrationHandler({
-  prisma, bcrypt, inviteCode: REGISTRATION_INVITE_CODE, safeEqual,
+app.post("/api/auth/register", rateLimit({ limit: 5, windowMs: 15 * 60000 }), createRegistrationHandler({
+  prisma, bcrypt,
 }));
 
 // ── Auth: Get current therapist (verify token) ────────────────────────────────
 
-app.get("/api/auth/me", authenticateToken, async (req, res) => {
-  try {
-    const therapist = await prisma.therapist.findUnique({
-      where: { id: req.therapist.id },
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        email: true,
-        specialization: true,
-        role: true,
-      },
-    });
-    if (!therapist)
-      return res.status(404).json({ error: "Therapist not found" });
-    res.json({ therapist });
-  } catch (err) {
-    res.status(500).json({ error: "Internal server error" });
-  }
+app.get("/api/auth/me", authenticateSession, (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ therapist: req.therapist, redirect: destination(req.therapist) });
 });
+
+const emailConfigured = Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+const adminContact = /^(https:\/\/|mailto:)/i.test(process.env.ADMIN_CONTACT_URL || "") ? process.env.ADMIN_CONTACT_URL : "";
+app.use("/api", createApplicationRouter({ prisma, authenticateSession, emailConfigured,
+  contactUrl: adminContact, reviewEstimate: process.env.APPLICATION_REVIEW_ESTIMATE || "" }));
 
 // ── Helpers: pasien, persetujuan, audit ───────────────────────────────────────
 
@@ -1238,13 +1208,17 @@ app.get("/api/home-session/:code", async (req, res) => {
       where: { homeAccessCode: code },
       include: {
         therapist: {
-          select: { name: true, licenseNumber: true, specialization: true },
+          select: { name: true, licenseNumber: true, specialization: true, role: true, isActive: true, applicationStatus: true },
         },
       },
     });
 
     if (!patient) {
       return res.status(404).json({ error: "Kode sesi latihan di rumah tidak valid atau telah kedaluwarsa" });
+    }
+
+    if (!canAccessClinical(patient.therapist)) {
+      return res.status(403).json({ error: "Sesi rumah tidak tersedia karena akses terapis dibatasi." });
     }
 
     res.json({
@@ -1255,7 +1229,7 @@ app.get("/api/home-session/:code", async (req, res) => {
         age: patient.age,
         prescription: prescriptionInfo(patient),
       },
-      therapist: patient.therapist,
+      therapist: { name: patient.therapist.name, licenseNumber: patient.therapist.licenseNumber, specialization: patient.therapist.specialization },
     });
   } catch (err) {
     console.error("[Home Session Lookup Error]", err);
@@ -1270,18 +1244,25 @@ app.post("/api/home-session/:code/assessment", async (req, res) => {
     const code = decodeURIComponent(req.params.code).trim().toUpperCase();
     const patient = await prisma.patient.findUnique({
       where: { homeAccessCode: code },
+      include: { therapist: { select: { role: true, isActive: true, applicationStatus: true } } },
     });
 
     if (!patient) {
       return res.status(404).json({ error: "Kode sesi latihan di rumah tidak ditemukan" });
     }
 
+    if (!canAccessClinical(patient.therapist)) {
+      return res.status(403).json({ error: "Sesi rumah tidak tersedia karena akses terapis dibatasi." });
+    }
     const clientSessionId = req.body.clientSessionId ? String(req.body.clientSessionId).trim() : null;
     if (clientSessionId) {
       const existing = await prisma.assessment.findUnique({
         where: { clientSessionId },
       });
       if (existing) {
+        if (existing.patientId !== patient.id || existing.therapistId !== patient.therapistId) {
+          return res.status(409).json({ error: "Identitas sesi tidak sesuai dengan pasien." });
+        }
         return res.status(200).json({
           message: "Sesi telah tersinkron sebelumnya (deduplicated)",
           assessmentId: existing.id,
@@ -2018,13 +1999,26 @@ app.use((err, req, res, next) => {
 async function main() {
   try {
     await prisma.$connect();
+    if (emailConfigured && process.env.NOTIFICATION_WORKER_ENABLED !== "false") {
+      const transport = createResendTransport({ apiKey: process.env.RESEND_API_KEY, from: process.env.EMAIL_FROM });
+      let running = false;
+      const drain = async () => {
+        if (running) return;
+        running = true;
+        try { await processNotifications({ prisma, transport }); }
+        catch { console.error("[Notifications] Antrean belum dapat diproses."); }
+        finally { running = false; }
+      };
+      setInterval(drain, 30000).unref();
+      void drain();
+    }
     console.log("[MoveWall] ✅ Connected to PostgreSQL via Prisma");
 
     app.listen(PORT, () => {
       console.log(`[MoveWall] 🚀 Backend running at http://localhost:${PORT}`);
       console.log(`[MoveWall] 📋 API endpoints:`);
       console.log(`           POST   /api/auth/login`);
-      console.log(`           POST   /api/auth/register  (kode undangan)`);
+      console.log(`           POST   /api/auth/register  (persetujuan admin)`);
       console.log(`           GET    /api/auth/me`);
       console.log(`           POST   /api/assessment`);
       console.log(`           GET    /api/assessments`);
@@ -2057,3 +2051,6 @@ process.on("SIGINT", async () => {
 
 // Export app untuk Vercel serverless handler
 module.exports = app;
+// Internal dependencies for integration tests and orderly process teardown.
+app.locals.prisma = prisma;
+app.locals.closeDatabase = async () => { await prisma.$disconnect(); await pool.end(); };

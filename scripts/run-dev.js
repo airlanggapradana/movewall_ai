@@ -59,12 +59,17 @@ function attachLogger(child, name, color) {
 
 // Deteksi binary npm sesuai OS
 const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+// Respect the caller's color preference instead of combining conflicting flags.
+const serviceEnv = { ...process.env };
+if ("NO_COLOR" in serviceEnv || "NODE_DISABLE_COLORS" in serviceEnv) {
+  delete serviceEnv.FORCE_COLOR;
+}
 
 // 1. Jalankan Backend (game-ui/backend)
 const backend = spawn(`${npmCmd} run dev`, {
   cwd: BACKEND_DIR,
   shell: true,
-  env: { ...process.env, FORCE_COLOR: "true" },
+  env: serviceEnv,
 });
 attachLogger(backend, "BACKEND ", colors.cyan);
 
@@ -72,7 +77,7 @@ attachLogger(backend, "BACKEND ", colors.cyan);
 const frontend = spawn(`${npmCmd} run dev`, {
   cwd: FRONTEND_DIR,
   shell: true,
-  env: { ...process.env, FORCE_COLOR: "true" },
+  env: serviceEnv,
 });
 attachLogger(frontend, "FRONTEND", colors.green);
 

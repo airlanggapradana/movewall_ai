@@ -108,7 +108,7 @@ function formatDateTime(isoStr) {
 
 // ── Auth Verification ─────────────────────────────────────────────────────────
 
-function checkAuth() {
+async function checkAuth() {
   currentToken = sessionStorage.getItem("mw_token");
   const storedTherapist = sessionStorage.getItem("mw_therapist");
 
@@ -128,7 +128,7 @@ function checkAuth() {
   }
 
   // Also verify with backend
-  fetch(`${API_BASE}/auth/me`, {
+  return fetch(`${API_BASE}/auth/me`, {
     headers: { Authorization: `Bearer ${currentToken}` },
   })
     .then((res) => {
@@ -137,17 +137,19 @@ function checkAuth() {
     })
     .then((data) => {
       currentTherapist = data.therapist;
+      const route = MoveWallSession.routeFor(currentTherapist);
+      if (route !== "dashboard.html") { window.location.replace(`./${route}`); return false; }
       sessionStorage.setItem("mw_therapist", JSON.stringify(data.therapist));
       therapistNameEl.textContent = currentTherapist.name || "Dr. Terapis";
       therapistSpecEl.textContent = currentTherapist.specialization || "Rehabilitasi Medik";
+      return true;
     })
     .catch(() => {
       sessionStorage.removeItem("mw_token");
       sessionStorage.removeItem("mw_therapist");
       window.location.replace("./login.html");
+      return false;
     });
-
-  return true;
 }
 
 logoutBtn.addEventListener("click", () => {
@@ -2369,13 +2371,13 @@ function initReplayModalControls() {
 
 // ── Initialize ────────────────────────────────────────────────────────────────
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   initThemeToggle();
   initShortcuts();
   initPrescriptionControls();
   initAiSummaryAndHomeControls();
   initReplayModalControls();
-  if (checkAuth()) {
+  if (await checkAuth()) {
     loadDashboardStats();
     loadPatientsDirectory();
     initSubscriptionFeature();

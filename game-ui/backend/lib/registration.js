@@ -1,36 +1,35 @@
 const { validateRegistration } = require("./registration-validation");
+const { accountSelect } = require("./account-access");
+const { enqueueNotification } = require("./notifications");
 
-function createRegistrationHandler({ prisma, bcrypt, inviteCode, safeEqual }) {
+function createRegistrationHandler({ prisma, bcrypt }) {
   return async (req, res) => {
-    if (!inviteCode) {
-      return res.status(403).json({ error: "Registrasi akun ditutup. Hubungi administrator." });
-    }
     const result = validateRegistration(req.body);
-    if (!result.inviteCode || !safeEqual(result.inviteCode, inviteCode)) {
-      return res.status(403).json({
-        error: "Kode undangan tidak valid. Periksa kembali atau hubungi administrator.",
-        errors: { inviteCode: "Kode undangan tidak valid." },
-      });
-    }
     if (Object.keys(result.errors).length) {
       return res.status(400).json({
         error: "Periksa kembali data pendaftaran Anda.", errors: result.errors,
       });
     }
     try {
-      const therapist = await prisma.therapist.create({
+      const password = await bcrypt.hash(result.data.password, 12);
+      const therapist = await prisma.$transaction(async tx => {
+        const account = await tx.therapist.create({
         data: {
           ...result.data,
-          password: await bcrypt.hash(result.data.password, 12),
+          password,
           role: "THERAPIST",
+          isActive: true,
+          applicationStatus: "PENDING",
         },
-        select: {
-          id: true, name: true, username: true, email: true,
-          specialization: true, licenseNumber: true, phoneNumber: true,
-          role: true, createdAt: true,
-        },
+        select: accountSelect,
+        });
+        const decision = await tx.applicationDecision.create({ data: {
+          therapistId: account.id, actorId: account.id, version: 0, toStatus: "PENDING", reason: "Pengajuan pendaftaran diterima untuk pemeriksaan admin.",
+        } });
+        await enqueueNotification(tx, account, decision);
+        return account;
       });
-      return res.status(201).json({ message: "Akun terapis berhasil dibuat.", therapist });
+      return res.status(201).json({ message: "Pengajuan diterima. Silakan masuk untuk melihat status pemeriksaan admin.", therapist });
     } catch (err) {
       // Handle uniqueness at insert time too, including concurrent registrations.
       if (err.code === "P2002") {

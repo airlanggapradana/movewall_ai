@@ -7,14 +7,14 @@
   const labels = {
     name: "Nama lengkap", username: "Username", email: "Email profesional",
     specialization: "Spesialisasi", licenseNumber: "Nomor SIP / lisensi",
-    phoneNumber: "Nomor telepon", inviteCode: "Kode undangan",
+    phoneNumber: "Nomor telepon", clinicName: "Klinik / instansi",
   };
 
-  function validateRegistration(body) {
+  function validateProfile(body) {
     const input = body && typeof body === "object" && !Array.isArray(body) ? body : {};
     const errors = {};
     const data = {};
-    const required = ["name", "username", "inviteCode"];
+    const required = ["name", "username", "email", "clinicName"];
     for (const [field, label] of Object.entries(labels)) {
       const value = input[field];
       if (value != null && typeof value !== "string") {
@@ -24,7 +24,8 @@
       if (required.includes(field) && !normalized && !errors[field]) {
         errors[field] = `${label} wajib diisi.`;
       }
-      if (field !== "inviteCode") data[field] = normalized || null;
+      if (normalized.length > 200) errors[field] = `${label} maksimal 200 karakter.`;
+      data[field] = normalized || null;
     }
     if (data.email) {
       data.email = data.email.toLowerCase();
@@ -32,7 +33,12 @@
         errors.email = "Masukkan alamat email yang valid.";
       }
     }
-    const password = input.password;
+    return { data, errors };
+  }
+
+  function validateRegistration(body) {
+    const { data, errors } = validateProfile(body);
+    const password = body?.password;
     if (typeof password !== "string" || password.length < 10) {
       errors.password = "Kata sandi minimal 10 karakter.";
     } else if (new TextEncoder().encode(password).length > 72) {
@@ -42,10 +48,9 @@
     data.password = typeof password === "string" ? password : "";
     return {
       data,
-      inviteCode: typeof input.inviteCode === "string" ? input.inviteCode.trim() : "",
       errors,
     };
   }
 
-  return { validateRegistration };
+  return { validateRegistration, validateProfile };
 });

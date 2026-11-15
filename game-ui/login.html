@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="id" data-theme="light">
   <head>
+    <script src="./account-session.js"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MoveWall AI — Masuk Portal Terapis</title>
@@ -268,7 +269,7 @@
       (function checkExistingSession() {
         const token = sessionStorage.getItem("mw_token");
         if (token) {
-          window.location.replace("./dashboard.html");
+          MoveWallSession.verify().then(account => window.location.replace(`./${MoveWallSession.routeFor(account)}`)).catch(() => {});
         }
       })();
 
@@ -353,7 +354,7 @@
           showSuccess(`Selamat datang, ${data.therapist.name}! Mengalihkan ke sistem...`);
 
           setTimeout(() => {
-            window.location.replace("./dashboard.html");
+            window.location.replace(`./${MoveWallSession.routeFor(data.therapist)}`);
           }, 800);
 
         } catch (err) {

@@ -15,6 +15,15 @@ datasource db {
 enum Role {
   USER
   THERAPIST
+  ADMIN
+}
+
+enum ApplicationStatus {
+  PENDING
+  NEEDS_REVISION
+  APPROVED
+  REJECTED
+  SUSPENDED
 }
 
 // ─── Therapist / User Table ──────────────────────────────────────────────────
@@ -30,6 +39,17 @@ model Therapist {
   phoneNumber     String?
   role            Role         @default(THERAPIST)
   isActive        Boolean      @default(true)
+  clinicName      String?
+  applicationStatus ApplicationStatus @default(PENDING)
+  applicationVersion Int @default(0)
+  submittedAt     DateTime @default(now())
+  reviewedAt      DateTime?
+  reviewedById    Int?
+  reviewedBy      Therapist? @relation("ApplicationReviewer", fields: [reviewedById], references: [id])
+  reviewedApplications Therapist[] @relation("ApplicationReviewer")
+  decisions       ApplicationDecision[] @relation("ApplicationOwner")
+  decisionsMade   ApplicationDecision[] @relation("DecisionActor")
+  notifications   NotificationOutbox[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -41,6 +61,47 @@ model Therapist {
   payments        Payment[]
 
   @@map("therapists")
+}
+
+model ApplicationDecision {
+  id          String @id @default(uuid())
+  therapistId Int
+  version     Int
+  therapist   Therapist @relation("ApplicationOwner", fields: [therapistId], references: [id])
+  actorId     Int
+  actor       Therapist @relation("DecisionActor", fields: [actorId], references: [id])
+  fromStatus  ApplicationStatus?
+  toStatus    ApplicationStatus
+  reason      String?
+  checklist   Json?
+  createdAt   DateTime @default(now())
+
+  @@index([therapistId, createdAt])
+  @@unique([therapistId, version])
+  @@map("application_decisions")
+}
+
+model NotificationOutbox {
+  id          String @id @default(uuid())
+  eventId     String @unique
+  therapistId Int
+  therapist   Therapist @relation(fields: [therapistId], references: [id])
+  recipient   String
+  subject     String
+  body        String
+  status      String @default("PENDING")
+  attempts    Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  firstAttemptAt DateTime?
+  lockedUntil DateTime?
+  lockToken   String?
+  providerId  String?
+  lastError   String?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([status, nextAttemptAt])
+  @@map("notification_outbox")
 }
 
 // ─── Patient Table ───────────────────────────────────────────────────────────

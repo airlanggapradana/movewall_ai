@@ -2,6 +2,7 @@ require("dotenv").config({ path: __dirname + "/.env" });
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { Pool } = require("pg");
+const { normalizeDatabaseUrl } = require("./lib/database-url");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { PrismaClient } = require("@prisma/client");
 const Kinematics = require("../kinematic-replay.js");
@@ -9,7 +10,7 @@ const Kinematics = require("../kinematic-replay.js");
 const connectionString =
   process.env.DATABASE_URL ||
   "postgresql://user:password@localhost:5432/movewall_db";
-const pool = new Pool({ connectionString });
+const pool = new Pool({ connectionString: normalizeDatabaseUrl(connectionString) });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 

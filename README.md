@@ -374,8 +374,16 @@ Layanan backend MoveWall AI menyediakan endpoints REST API terstruktur untuk int
 |:---:|---|:---:|---|
 | `GET` | `/api/health` | Publik | Status kesehatan server dan timestamp UTC |
 | `POST` | `/api/auth/login` | Publik | Autentikasi terapis; mengembalikan JWT token |
-| `POST` | `/api/auth/register` | Kode Undangan | Registrasi akun terapis baru (wajib `inviteCode` valid) |
+| `POST` | `/api/auth/register` | Publik, dibatasi frekuensinya | Mengajukan akun terapis berstatus `PENDING` untuk pemeriksaan admin |
 | `GET` | `/api/auth/me` | JWT Token | Mendapatkan profil terapis yang sedang login |
+| `GET`, `PUT` | `/api/auth/application` | JWT Token | Status dan riwayat pengajuan sendiri; perbaikan hanya saat `NEEDS_REVISION` |
+| `GET` | `/api/admin/applications` | JWT Admin | Daftar pengajuan dengan pencarian, filter status, dan pagination |
+| `GET` | `/api/admin/dashboard` | JWT Admin | Ringkasan antrean, persetujuan bulanan, durasi pemeriksaan, dan kelengkapan nomor lisensi |
+| `GET` | `/api/admin/activity` | JWT Admin | Riwayat keputusan seluruh pengajuan dengan pagination |
+| `GET` | `/api/admin/notifications` | JWT Admin | Antrean email menurut status pengiriman dengan pagination |
+| `GET` | `/api/admin/applications/:id` | JWT Admin | Profil, riwayat pemeriksaan, dan status antrean email |
+| `POST` | `/api/admin/applications/:id/decision` | JWT Admin | Setujui, minta perbaikan, tolak, tangguhkan, pulihkan, atau buka pemeriksaan ulang |
+| `POST` | `/api/admin/notifications/:id/retry` | JWT Admin | Antrekan ulang email gagal selama batas retry dan idempotensi masih tersedia |
 | `POST` | `/api/assessment` | JWT Token | Menyimpan data hasil sesi latihan, metrik ROM/akurasi/kompensasi, evaluasi nyeri 0–10 NRS, dan persetujuan UU PDP |
 | `GET` | `/api/assessments` | JWT Token | Mengambil daftar riwayat asesmen yang dibuat terapis |
 | `GET` | `/api/dashboard/stats` | JWT Token | Agregasi KPI klinik: total pasien, total sesi, rata-rata skor, ROM max, prevalensi nyeri |
@@ -393,15 +401,17 @@ Halaman `game-ui/register.html` mengirim JSON ke `POST /api/auth/register`; serv
 
 | Field | Aturan |
 |---|---|
-| `name`, `username`, `password` | Wajib; password minimal 10 karakter dan maksimal 72 byte sebelum di-hash dengan bcrypt |
-| `email` | Opsional dan unik; spasi tepi dihapus, huruf dijadikan kecil, kosong disimpan sebagai `null` |
+| `name`, `username`, `clinicName` | Wajib; spasi tepi dihapus, maksimal 200 karakter |
+| `password` | Wajib; minimal 10 karakter dan maksimal 72 byte sebelum di-hash dengan bcrypt |
+| `email` | Wajib dan unik; spasi tepi dihapus, huruf dijadikan kecil, maksimal 200 karakter |
 | `specialization`, `licenseNumber`, `phoneNumber` | Opsional; spasi tepi dihapus, kosong disimpan sebagai `null` |
-| `inviteCode` | Wajib cocok dengan environment backend `REGISTRATION_INVITE_CODE`; tidak disimpan di database |
 | `passwordConfirm` | Validasi kesamaan di browser; tidak dikirim atau disimpan |
 
-Server menetapkan `role: THERAPIST`; ID, status aktif, dan waktu pembuatan mengikuti default schema. Pendaftaran tidak membuat langganan atau pembayaran. Respons sukses `201` berisi profil tanpa password, lalu pengguna melanjutkan ke login. Validasi gagal mengembalikan `400`, undangan salah atau registrasi ditutup `403`, dan username/email duplikat `409`, dengan kesalahan per field bila tersedia.
+Server menetapkan `role: THERAPIST`, `isActive: true`, dan `applicationStatus: PENDING` tanpa menerima hak akses dari klien. Kode undangan tidak diperlukan. Pendaftaran tidak membuat langganan atau pembayaran. Respons sukses `201` berisi profil tanpa password, lalu pengguna melanjutkan ke login terbatas dan halaman status pengajuan. Validasi gagal mengembalikan `400`, username/email duplikat `409`, dan pembatasan frekuensi `429`, dengan kesalahan per field bila tersedia.
 
-Frontend dan backend dideploy terpisah. Masing-masing memiliki modul `registration-validation.js`; tes kontrak membandingkan perilaku keduanya saat checkout lengkap tersedia. Perubahan ini memakai schema yang ada dan tidak membutuhkan migrasi.
+Admin memeriksa identitas, klinik, dan informasi profesi sebelum menyetujui. SIP/lisensi belum diverifikasi otomatis. Akun `PENDING`, `NEEDS_REVISION`, `REJECTED`, dan `SUSPENDED` tidak dapat mengakses data klinis atau membuat pembayaran. Persetujuan tidak mengaktifkan langganan. Token lama dan kode sesi rumah juga mengikuti status terapis terbaru. Akun admin tidak mendapat akses klinis.
+
+Frontend dan backend dideploy terpisah. Masing-masing memiliki modul `registration-validation.js`; tes kontrak membandingkan perilaku keduanya saat checkout lengkap tersedia. Perubahan ini memerlukan migrasi `20261115000000_admin_approval`. Panduan migrasi, bootstrap admin pertama, Resend, dan pengujian tersedia di [Panduan persetujuan terapis](docs/operations/therapist-approval.md).
 
 ---
 

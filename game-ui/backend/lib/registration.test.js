@@ -8,7 +8,7 @@ const { createRegistrationHandler } = require("./registration");
 
 const valid = {
   name: "  Rina Setiawati  ", username: "  rina  ",
-  password: "  rahasia-12345  ", inviteCode: "  CLINIC-TEST  ",
+  password: "  rahasia-12345  ", email: "rina@klinik.id", clinicName: " Klinik Rina ",
 };
 
 test("independently deployed frontend and backend enforce the same registration contract", {
@@ -24,15 +24,18 @@ test("independently deployed frontend and backend enforce the same registration 
   }
 });
 
-function fixture({ code = "CLINIC-TEST", create } = {}) {
+function fixture({ create } = {}) {
   const calls = [];
   const handler = createRegistrationHandler({
-    prisma: { therapist: { async create(args) {
+    prisma: { async $transaction(fn) { return fn(this); },
+      applicationDecision: { async create({ data }) { return { id: "event-1", ...data }; } },
+      notificationOutbox: { async create() {} },
+      therapist: { async create(args) {
       calls.push(args);
       if (create) return create(args);
-      return { id: 1, name: args.data.name, username: args.data.username, role: args.data.role };
+      return { id: 1, name: args.data.name, username: args.data.username, role: args.data.role, email: args.data.email };
     } } },
-    bcrypt, inviteCode: code, safeEqual: (a, b) => a === b,
+    bcrypt,
   });
   return {
     calls,
@@ -45,13 +48,12 @@ function fixture({ code = "CLINIC-TEST", create } = {}) {
 }
 
 test("normalizes Therapist fields and leaves optional fields null", () => {
-  const { data, errors, inviteCode } = validateRegistration({ ...valid, email: "  ", role: "USER", id: 50, isActive: false });
+  const { data, errors } = validateRegistration({ ...valid, role: "ADMIN", id: 50, isActive: false });
   assert.deepEqual(errors, {});
   assert.deepEqual(data, {
     name: "Rina Setiawati", username: "rina", password: valid.password,
-    email: null, specialization: null, licenseNumber: null, phoneNumber: null,
+    email: valid.email, clinicName: "Klinik Rina", specialization: null, licenseNumber: null, phoneNumber: null,
   });
-  assert.equal(inviteCode, "CLINIC-TEST");
 });
 
 test("validates required strings, optional field types, and email before Prisma", () => {
@@ -78,9 +80,11 @@ test("creates a Therapist with hashed password, schema defaults, and a safe sele
   assert.equal(app.calls.length, 1);
   const { data, select } = app.calls[0];
   assert.equal(data.role, "THERAPIST");
-  assert.equal(data.email, null);
+  assert.equal(data.email, valid.email);
+  assert.equal(data.isActive, true);
+  assert.equal(data.applicationStatus, "PENDING");
   assert.ok(await bcrypt.compare(valid.password, data.password));
-  for (const key of ["inviteCode", "passwordConfirm", "id", "isActive", "createdAt"]) assert.equal(key in data, false);
+  for (const key of ["inviteCode", "passwordConfirm", "id", "createdAt"]) assert.equal(key in data, false);
   assert.equal(select.password, undefined);
   assert.equal(select.licenseNumber, true);
   assert.equal(select.phoneNumber, true);
@@ -97,17 +101,15 @@ test("stores all optional clinical fields as normalized strings", async () => {
   assert.equal(data.phoneNumber, "+628123456789");
 });
 
-test("closed registration and incorrect invitations never write to Prisma", async () => {
-  const closed = fixture({ code: "" });
-  assert.equal((await closed.request(valid)).statusCode, 403);
-  assert.equal(closed.calls.length, 0);
+test("registration needs email and clinic but no invitation", async () => {
   const app = fixture();
-  for (const inviteCode of [undefined, "wrong", {}]) {
-    const res = await app.request({ ...valid, inviteCode });
-    assert.equal(res.statusCode, 403);
-    assert.ok(res.body.errors.inviteCode);
+  for (const field of ["email", "clinicName"]) {
+    const res = await app.request({ ...valid, [field]: " " });
+    assert.equal(res.statusCode, 400);
+    assert.ok(res.body.errors[field]);
   }
   assert.equal(app.calls.length, 0);
+  assert.equal((await app.request(valid)).statusCode, 201);
 });
 
 test("invalid data returns field errors without a database write", async () => {

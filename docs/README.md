@@ -2,6 +2,9 @@
 
 Pusat dokumentasi arsitektur sistem, spesifikasi produk, rekam desain, dan log implementasi proyek MoveWall AI.
 
+Implementasi terbaru: [Task 7: Pendaftaran terapis dengan persetujuan admin](tasks/Task_7_Admin_Approval.md).
+Konfigurasi dan deployment: [Panduan persetujuan terapis](operations/therapist-approval.md).
+
 ---
 
 ## 📁 Struktur Dokumentasi

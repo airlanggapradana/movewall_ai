@@ -12,6 +12,7 @@ require("dotenv").config();
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { Pool } = require("pg");
+const { normalizeDatabaseUrl } = require("../lib/database-url");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
@@ -19,7 +20,7 @@ const connectionString =
   process.env.DATABASE_URL ??
   "postgresql://postgres:admin123@localhost:5432/movewall_db";
 
-const pool = new Pool({ connectionString });
+const pool = new Pool({ connectionString: normalizeDatabaseUrl(connectionString) });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
@@ -44,6 +45,8 @@ async function main() {
       phoneNumber: "+62812345678",
       role: "THERAPIST",
       isActive: true,
+      applicationStatus: "APPROVED", // Explicit demo fixture, never public registration.
+      clinicName: "Klinik Demo MoveWall",
     },
     {
       name: "Dr. Budi Santoso, Sp.OT",
@@ -55,6 +58,8 @@ async function main() {
       phoneNumber: "+62812987654",
       role: "THERAPIST",
       isActive: true,
+      applicationStatus: "APPROVED",
+      clinicName: "Klinik Demo MoveWall",
     },
   ];
 
@@ -72,8 +77,7 @@ async function main() {
         specialization: data.specialization,
         licenseNumber: data.licenseNumber,
         phoneNumber: data.phoneNumber,
-        role: data.role,
-        isActive: data.isActive,
+        // Preserve existing access, decisions, and any suspension.
       },
       create: data,
     });

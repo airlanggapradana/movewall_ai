@@ -8,7 +8,10 @@
     "start": "node server.js",
     "dev": "npx nodemon server.js",
     "seed": "node prisma/seed.js",
+    "admin:bootstrap": "node scripts/bootstrap-admin.js",
+    "notifications:drain": "node scripts/drain-notifications.js",
     "test": "node --test lib/*.test.js",
+    "test:registration": "node tests/registration-e2e.cjs",
     "build": "prisma generate",
     "postinstall": "prisma generate"
   },

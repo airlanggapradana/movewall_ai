@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Status pendaftaran — MoveWall AI</title>
+  <link rel="stylesheet" href="./styles.css" /><link rel="stylesheet" href="./account-pages.css" />
+  <script src="./account-session.js" defer></script><script src="./registration-validation.js" defer></script><script src="./application.js" defer></script>
+</head>
+<body class="account-page">
+  <header class="account-nav"><a href="./application.html" class="account-brand">MoveWall AI <span>Portal Terapis</span></a><button id="logout" type="button">Keluar</button></header>
+  <main class="account-main">
+    <p class="account-eyebrow">PENDAFTARAN TERAPIS</p><h1>Status pengajuan Anda</h1>
+    <p class="account-intro">Pantau pemeriksaan dan perbarui pengajuan ketika diminta admin.</p>
+    <p id="message" role="status" aria-live="polite">Memuat status…</p>
+    <section id="application" class="account-card hidden" aria-labelledby="statusTitle">
+      <span id="statusBadge" class="account-badge"></span><h2 id="statusTitle"></h2><p id="statusDescription"></p>
+      <p id="latestReason" class="account-reason"></p><p id="reviewEstimate" class="hidden"></p>
+      <a id="contactAdmin" class="hidden">Hubungi admin</a>
+      <p><a id="dashboardLink" href="./dashboard.html" class="account-button hidden">Buka dashboard terapis</a></p>
+      <dl id="profile" class="account-profile"></dl>
+    </section>
+    <section id="revisionSection" class="account-card hidden" aria-labelledby="revisionTitle">
+      <h2 id="revisionTitle">Perbaiki pengajuan</h2><p>Perbarui data sesuai alasan admin, lalu kirim untuk diperiksa kembali.</p>
+      <form id="revisionForm" class="account-form" novalidate>
+        <label>Nama lengkap &amp; gelar<input name="name" autocomplete="name" required maxlength="200" /></label>
+        <label>Username<input name="username" autocomplete="username" required maxlength="200" /></label>
+        <label>Email profesional<input name="email" type="email" autocomplete="email" required maxlength="200" /></label>
+        <label>Klinik / instansi<input name="clinicName" autocomplete="organization" required maxlength="200" /></label>
+        <label>Spesialisasi<input name="specialization" maxlength="200" /></label>
+        <label>Nomor SIP / lisensi (jika tersedia)<input name="licenseNumber" maxlength="200" /></label>
+        <label>Nomor telepon<input name="phoneNumber" type="tel" autocomplete="tel" maxlength="200" /></label>
+        <p id="revisionErrors" class="account-error" role="alert"></p>
+        <button id="resubmit" class="account-button" type="submit">Kirim ulang pengajuan</button>
+      </form>
+    </section>
+    <section class="account-card"><h2>Riwayat pengajuan</h2><ol id="history" class="account-history"></ol></section>
+    <button id="refresh" type="button">Perbarui status</button>
+  </main>
+</body></html>

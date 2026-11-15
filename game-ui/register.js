@@ -1,7 +1,7 @@
 /* Registration keeps the existing login API and session conventions. */
 (() => {
   if (sessionStorage.getItem("mw_token")) {
-    window.location.replace("./dashboard.html");
+    MoveWallSession.verify().then(account => window.location.replace(`./${MoveWallSession.routeFor(account)}`)).catch(() => {});
     return;
   }
   const cloudBackend = "https://movewall-backend-production.up.railway.app";
@@ -53,7 +53,7 @@
     submitting = loading;
     submit.disabled = loading;
     form.setAttribute("aria-busy", String(loading));
-    btnText.textContent = loading ? "Membuat akun…" : "Buat akun terapis";
+    btnText.textContent = loading ? "Mengirim pengajuan…" : "Ajukan pendaftaran";
     loader.classList.toggle("hidden", !loading);
     submit.querySelector(".login-btn-arrow").classList.toggle("hidden", loading);
   }
@@ -78,7 +78,7 @@
     form.querySelectorAll("input").forEach(clearFieldError);
     errorBox.classList.add("hidden");
     const raw = Object.fromEntries(new FormData(form));
-    const { data, inviteCode, errors } = MoveWallRegistration.validateRegistration(raw);
+    const { data, errors } = MoveWallRegistration.validateRegistration(raw);
     if (raw.passwordConfirm !== data.password || !raw.passwordConfirm) {
       errors.passwordConfirm = "Konfirmasi kata sandi harus sama dengan kata sandi.";
     }
@@ -93,7 +93,7 @@
       const response = await fetch(`${apiBase}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, inviteCode }),
+        body: JSON.stringify(data),
         signal: controller.signal,
       });
       const result = await response.json().catch(() => ({}));
@@ -104,12 +104,12 @@
       }
       if (!result.therapist?.username) throw new Error("invalid-response");
       document.getElementById("regSuccessText").textContent =
-        `Akun ${result.therapist.name || data.name} berhasil dibuat. Silakan masuk menggunakan username dan kata sandi Anda.`;
+        `Pengajuan ${result.therapist.name || data.name} diterima untuk pemeriksaan admin. Silakan masuk untuk melihat status dan permintaan perbaikan. Persetujuan akun tidak mengaktifkan langganan.`;
       successBox.classList.remove("hidden");
       form.classList.add("hidden");
       document.querySelector(".login-link-row").classList.add("hidden");
       document.getElementById("regSuccessLogin").classList.remove("hidden");
-      // Never persist credentials or the invitation code in browser storage.
+      // Never persist credentials in browser storage.
       form.reset();
       successBox.focus();
     } catch (error) {

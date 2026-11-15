@@ -1,7 +1,7 @@
 # Operasional pendaftaran dan persetujuan terapis
 
-Implementasi dan migrasi produksi tersedia. Penetapan admin nyata dan pengiriman
-email nyata menunggu konfigurasi pengelola. Spesifikasi dan hasil pengujian:
+Implementasi, migrasi produksi, dan akun admin produksi tersedia. Pengiriman
+email pendaftar menunggu domain pengirim pengelola. Spesifikasi dan hasil pengujian:
 [Task 7](../tasks/Task_7_Admin_Approval.md).
 
 ## Runtime dan database
@@ -53,7 +53,8 @@ npm run admin:bootstrap -- --username USERNAME_PEMILIK
 Perintah mempromosikan satu akun aktif yang sudah ada, mencatat riwayat keputusan,
 dan menolak jika admin sudah tersedia atau akun memiliki pasien. Tidak ada password
 bawaan, pembuatan akun otomatis, atau endpoint publik untuk promosi admin.
-Identitas admin nyata belum ditetapkan.
+Admin produksi pertama sudah ditetapkan atas permintaan pengelola. Perintah
+bootstrap menolak promosi admin berikutnya; jangan menjalankannya ulang.
 
 Login admin menuju `admin.html`. Cari dan pilih pengajuan, periksa identitas,
 klinik, dan informasi profesi, lalu pilih keputusan. Isian SIP/lisensi adalah
@@ -177,11 +178,13 @@ di environment backend Railway. Nilai API key tidak disimpan dalam repository.
 API Resend menerima key tersebut, tetapi daftar domain pengirim masih kosong;
 pengelola mengonfirmasi belum memiliki domain.
 
-`NOTIFICATION_WORKER_ENABLED=false` sementara dan `EMAIL_FROM` belum ditetapkan,
-sehingga antrean pendaftar tetap tersimpan tanpa percobaan pengiriman yang akan
-ditolak provider. Pengirim bawaan `onboarding@resend.dev` hanya untuk uji ke
-email pemilik akun Resend; alamat tersebut harus ditentukan pengelola sebelum
-uji pengiriman nyata. Pengiriman ke pendaftar lain memerlukan domain pengirim
+`EMAIL_FROM=MoveWall AI <onboarding@resend.dev>` dipasang untuk mode uji;
+`NOTIFICATION_WORKER_ENABLED=false` sementara sehingga antrean pendaftar tetap
+tersimpan tanpa percobaan pengiriman yang akan ditolak provider. Uji API ke
+alamat simulasi resmi `delivered@resend.dev` diterima provider (HTTP 200); ini
+bukan bukti email diterima inbox pengguna. Pengirim bawaan `onboarding@resend.dev`
+hanya dapat mengirim ke inbox email pemilik akun Resend; alamat tersebut harus
+ditentukan pengelola sebelum uji inbox nyata. Pengiriman ke pendaftar lain memerlukan domain pengirim
 sendiri yang diverifikasi. Lihat [batasan domain uji Resend](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain).
 
 Backend produksi berjalan sebagai server Railway, jadi scheduler Vercel tidak

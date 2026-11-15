@@ -1,7 +1,8 @@
 # Operasional pendaftaran dan persetujuan terapis
 
-Implementasi lokal tersedia. Migrasi produksi, penetapan admin nyata, dan
-pengiriman email nyata belum dijalankan. Spesifikasi: [Task 7](../tasks/Task_7_Admin_Approval.md).
+Implementasi dan migrasi produksi tersedia. Penetapan admin nyata dan pengiriman
+email nyata menunggu konfigurasi pengelola. Spesifikasi dan hasil pengujian:
+[Task 7](../tasks/Task_7_Admin_Approval.md).
 
 ## Runtime dan database
 
@@ -32,7 +33,9 @@ Data pasien, langganan, dan pembayaran tidak diubah oleh migrasi ini.
 
 Di Railway, root service backend adalah `game-ui/backend`, build tetap
 `npm install`, dan start `npm start`. `railway.json` menetapkan pre-deploy
-`npx prisma migrate deploy` agar migrasi berjalan sebelum versi baru aktif.
+`npx prisma migrate deploy`. Perintah `npm start` juga menjalankan migrasi yang
+idempoten sebelum server aktif, sehingga skema tetap disiapkan bila pengaturan
+pre-deploy hosting tidak dijalankan.
 Lihat [Railway pre-deploy command](https://docs.railway.com/deployments/pre-deploy-command).
 Deploy frontend setelah backend beserta migrasinya siap.
 
@@ -158,3 +161,11 @@ status, kirim ulang, konflik keputusan, token lama, kode sesi rumah, pemisahan
 persetujuan dan langganan, pembatasan pendaftaran, serta retry email. Uji staging
 Railway, bootstrap admin nyata, dan pengiriman Resend nyata masih menunggu
 konfigurasi pengelola.
+
+## Patch dependency rilis
+
+Rilis memakai Prisma Client/adapter/CLI 7.10.1 serta lockfile yang diperbarui.
+Override `qs` 6.17.1 menutup advisory pada versi yang dipatok Express 4; override
+`minimatch` 11.0.8 untuk nodemon menutup advisory glob pada dependency pengembangan.
+Audit seluruh dependency backend pada 15 November 2026 melaporkan 0 kerentanan.
+Tes unit, PostgreSQL, dan Chrome dijalankan ulang setelah patch ini.

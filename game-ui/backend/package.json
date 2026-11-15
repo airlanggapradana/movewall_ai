@@ -1,11 +1,13 @@
 {
   "name": "movewall-backend",
-    "engines": { "node": ">=22.12.0" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "version": "1.0.0",
   "description": "MoveWall AI — Backend API (Therapist Auth + Assessment Storage)",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "prisma migrate deploy && node server.js",
     "dev": "npx nodemon server.js",
     "seed": "node prisma/seed.js",
     "admin:bootstrap": "node scripts/bootstrap-admin.js",
@@ -15,13 +17,12 @@
     "build": "prisma generate",
     "postinstall": "prisma generate"
   },
-
   "prisma": {
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "7.10.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "@types/pg": "^8.23.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -30,10 +31,16 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.23.0"
   },
+  "overrides": {
+    "qs": "^6.17.1",
+    "nodemon": {
+      "minimatch": "^11.0.8"
+    }
+  },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "nodemon": "^3.1.4",
-    "prisma": "7.10.0",
+    "prisma": "7.10.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   }

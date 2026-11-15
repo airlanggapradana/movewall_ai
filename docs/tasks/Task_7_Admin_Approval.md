@@ -137,7 +137,7 @@ task ini tidak mengubah instalasi Node global.
 ## Hasil verifikasi lokal
 
 - Tes unit: 37 backend dan 42 frontend lulus (termasuk periode WITA dan filter dashboard).
-- Prisma Client berhasil dihasilkan dan schema valid dengan Prisma 7.10.0.
+- Prisma Client berhasil dihasilkan dan schema valid dengan Prisma 7.10.1.
 - Integrasi PostgreSQL terpisah lulus: migrasi akun lama, bootstrap admin uji,
   kredensial salah, isolasi admin/pemilik, semua transisi, riwayat, perbaikan,
   keputusan bersamaan, langganan, token lama, dan kode home-session.

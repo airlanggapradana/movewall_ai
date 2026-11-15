@@ -48,3 +48,13 @@ test("first approval queues an announcement email", async () => {
   assert.equal(job.recipient, "rina@example.test"); assert.match(job.subject, /disetujui/);
   assert.match(job.body, /Halo Rina/); assert.match(job.body, /telah disetujui/);
 });
+test("approval retains the applicant-visible reason and configured login link", async () => {
+  const previous = process.env.APP_URL;
+  process.env.APP_URL = "https://movewall-ai.vercel.app/";
+  try {
+    const prisma = createStore();
+    await enqueueNotification(prisma, { id: 1, name: "Rina", email: "rina@example.test" }, { id: "approval-with-note", fromStatus: "PENDING", toStatus: "APPROVED", reason: "Identitas dan klinik telah diperiksa." });
+    assert.match(prisma.state.notifications[0].body, /Catatan admin: Identitas dan klinik telah diperiksa\./);
+    assert.match(prisma.state.notifications[0].body, /Masuk di: https:\/\/movewall-ai\.vercel\.app\/login\.html/);
+  } finally { if (previous === undefined) delete process.env.APP_URL; else process.env.APP_URL = previous; }
+});

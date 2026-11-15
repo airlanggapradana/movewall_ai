@@ -169,3 +169,22 @@ Override `qs` 6.17.1 menutup advisory pada versi yang dipatok Express 4; overrid
 `minimatch` 11.0.8 untuk nodemon menutup advisory glob pada dependency pengembangan.
 Audit seluruh dependency backend pada 15 November 2026 melaporkan 0 kerentanan.
 Tes unit, PostgreSQL, dan Chrome dijalankan ulang setelah patch ini.
+
+## Konfigurasi Resend 16 November 2026
+
+`RESEND_API_KEY` dan `APP_URL=https://movewall-ai.vercel.app` sudah dipasang
+di environment backend Railway. Nilai API key tidak disimpan dalam repository.
+API Resend menerima key tersebut, tetapi daftar domain pengirim masih kosong;
+pengelola mengonfirmasi belum memiliki domain.
+
+`NOTIFICATION_WORKER_ENABLED=false` sementara dan `EMAIL_FROM` belum ditetapkan,
+sehingga antrean pendaftar tetap tersimpan tanpa percobaan pengiriman yang akan
+ditolak provider. Pengirim bawaan `onboarding@resend.dev` hanya untuk uji ke
+email pemilik akun Resend; alamat tersebut harus ditentukan pengelola sebelum
+uji pengiriman nyata. Pengiriman ke pendaftar lain memerlukan domain pengirim
+sendiri yang diverifikasi. Lihat [batasan domain uji Resend](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain).
+
+Backend produksi berjalan sebagai server Railway, jadi scheduler Vercel tidak
+diperlukan. Aktifkan worker setelah domain dan pengirim produksi siap. Scheduler
+`npm run notifications:drain` hanya diperlukan jika backend dipindahkan ke
+serverless atau worker otomatis sengaja dinonaktifkan untuk pemrosesan terjadwal.

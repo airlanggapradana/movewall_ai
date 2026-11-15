@@ -91,7 +91,7 @@ async function resubmitApplication({ prisma, id, body }) {
   });
 }
 
-function createApplicationRouter({ prisma, authenticateSession, contactUrl = "", reviewEstimate = "", emailConfigured = false }) {
+function createApplicationRouter({ prisma, authenticateSession, contactUrl = "", reviewEstimate = "", emailConfigured = false, emailProvider = "resend" }) {
   const router = express.Router();
   router.use(["/auth/application", "/admin"], authenticateSession);
   router.use(["/auth/application", "/admin"], (req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
@@ -107,7 +107,7 @@ function createApplicationRouter({ prisma, authenticateSession, contactUrl = "",
     let summary;
     try { summary = await dashboardSummary(prisma, req.query.month); }
     catch (err) { if (err.message.startsWith("Periode harus")) throw new ApplicationError(400, err.message); throw err; }
-    res.json({ ...summary, emailConfigured, contactUrl, reviewEstimate });
+    res.json({ ...summary, emailConfigured, emailProvider, contactUrl, reviewEstimate });
   }));
   router.get("/admin/activity", wrap(async (req, res) => {
     const page = Math.max(1, Math.min(10000, Number.parseInt(req.query.page, 10) || 1));
@@ -122,7 +122,7 @@ function createApplicationRouter({ prisma, authenticateSession, contactUrl = "",
   }));
   router.get("/admin/notifications", wrap(async (req, res) => {
     const status = req.query.status || "FAILED";
-    if (!["PENDING", "SENDING", "SENT", "FAILED"].includes(status)) throw new ApplicationError(400, "Status pengiriman tidak valid.");
+    if (!["PENDING", "SENDING", "SENT", "FAILED", "UNCERTAIN"].includes(status)) throw new ApplicationError(400, "Status pengiriman tidak valid.");
     const page = Math.max(1, Math.min(10000, Number.parseInt(req.query.page, 10) || 1));
     const where = { status, therapist: { role: "THERAPIST" } };
     const [notifications, total] = await Promise.all([

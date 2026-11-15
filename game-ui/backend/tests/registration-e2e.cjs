@@ -177,6 +177,14 @@ async function main() {
     assert.equal(new Set(delivered).size, delivered.length);
     assert.equal(await prisma.notificationOutbox.count({ where: { status: "SENT" } }), delivered.length);
     console.log("PASS persistent email failure/retry/idempotency with fake transport");
+    const heldEmail = await prisma.notificationOutbox.create({ data: { eventId: randomUUID(), therapistId: userId,
+      recipient: "uncertain@example.test", subject: "Test uncertain delivery", body: "Test only", status: "UNCERTAIN", attempts: 1, firstAttemptAt: new Date() } });
+    const heldList = await request("/admin/notifications?status=UNCERTAIN", { token: adminSession.token });
+    assert.equal(heldList.status, 200); assert.equal(heldList.data.notifications.some(row => row.id === heldEmail.id), true);
+    assert.equal((await request(`/admin/notifications/${heldEmail.id}/retry`, { token: adminSession.token, method: "POST" })).status, 409);
+    assert.equal((await request(`/admin/notifications/${heldEmail.id}/retry`, { token, method: "POST" })).status, 403);
+    assert.equal((await request("/admin/dashboard", { token: adminSession.token })).data.notifications.UNCERTAIN, 1);
+    console.log("PASS uncertain deliveries are visible to admin and cannot be retried blindly");
 
     if (process.env.RUN_BROWSER === "1") {
       const { chromium } = require("../../node_modules/playwright");

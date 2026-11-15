@@ -61,7 +61,7 @@ async function dashboardSummary(prisma, month, now = new Date()) {
     verificationHours: durations.find(row => row.month === range.month)?.hours ?? null,
     previousVerificationHours: durations.find(row => row.month === previousMonth)?.hours ?? null,
     license: { reported: licenseReported, total, percentage: total ? Math.round(licenseReported / total * 1000) / 10 : 0 },
-    notifications: Object.fromEntries(["PENDING", "SENDING", "SENT", "FAILED"].map(status => [status, notifications.find(row => row.status === status)?._count._all || 0])),
+    notifications: Object.fromEntries(["PENDING", "SENDING", "SENT", "FAILED", "UNCERTAIN"].map(status => [status, notifications.find(row => row.status === status)?._count._all || 0])),
     specializations: specializations.map(row => row.specialization),
   };
 }

@@ -1,7 +1,7 @@
 (async () => {
   const $ = id => document.getElementById(id);
   const names = { PENDING: "Menunggu pemeriksaan", NEEDS_REVISION: "Perlu revisi", APPROVED: "Disetujui", REJECTED: "Ditolak", SUSPENDED: "Ditangguhkan" };
-  const mailNames = { PENDING: "Menunggu pengiriman", SENDING: "Sedang dikirim", SENT: "Diterima Resend", FAILED: "Pengiriman gagal" };
+  const mailNames = { PENDING: "Menunggu pengiriman", SENDING: "Sedang dikirim", SENT: "Diterima provider", FAILED: "Pengiriman gagal", UNCERTAIN: "Perlu pemeriksaan pengiriman" };
   const actions = { PENDING: [["REJECT", "Tolak Pengajuan", "button-reject"], ["REQUEST_REVISION", "Minta Revisi", "button-soft"], ["APPROVE", "Setujui & Terbitkan Akses", "button-approve"]], APPROVED: [["SUSPEND", "Tangguhkan Akun", "button-reject"]], SUSPENDED: [["RESTORE", "Pulihkan Akses", "button-approve"]], REJECTED: [["REOPEN", "Buka Pemeriksaan Ulang", "button-indigo"]], NEEDS_REVISION: [] };
   const targetStatus = { APPROVE: "APPROVED", REQUEST_REVISION: "NEEDS_REVISION", REJECT: "REJECTED", SUSPEND: "SUSPENDED", RESTORE: "APPROVED", REOPEN: "PENDING" };
   const profileLabels = { name: "Nama lengkap", username: "Username", email: "Email", clinicName: "Klinik / instansi", specialization: "Spesialisasi", licenseNumber: "SIP / lisensi", phoneNumber: "Telepon", submittedAt: "Diajukan", reviewedAt: "Diperiksa" };
@@ -87,7 +87,7 @@
     $("metricDurationChange").textContent = hours == null ? "Belum ada keputusan pada periode ini" : previous == null ? "Rata-rata hingga keputusan pertama" : `${number(Math.abs(hours - previous))} jam ${hours <= previous ? "lebih cepat" : "lebih lama"} dari bulan sebelumnya`;
     $("metricLicense").textContent = `${number(data.license.percentage)}%`;
     $("licenseReported").textContent = `${number(data.license.reported)} diisi`; $("licenseMissing").textContent = `${number(data.license.total - data.license.reported)} belum`;
-    $("notificationDot").classList.toggle("hidden", !data.notifications.FAILED);
+    $("notificationDot").classList.toggle("hidden", !(data.notifications.FAILED || data.notifications.UNCERTAIN));
     const current = $("specialization").value;
     $("specialization").replaceChildren(new Option("Semua spesialisasi terapis", ""));
     for (const specialization of data.specializations) $("specialization").add(new Option(specialization, specialization));
@@ -179,7 +179,7 @@
   $("settingsButton").onclick = () => {
     openDialog("Informasi sistem");
     if (!summary) { $("dialogBody").append(element("p", "", "Data belum tersedia. Perbarui halaman untuk mencoba kembali.")); return; }
-    showFields({ email: "Notifikasi email", contact: "Kontak bantuan", estimate: "Estimasi pemeriksaan", timezone: "Periode pelaporan" }, { email: summary.emailConfigured ? "Terkonfigurasi" : "Belum diaktifkan", contact: summary.contactUrl || "Belum ditetapkan", estimate: summary.reviewEstimate || "Belum ditetapkan", timezone: "WITA (UTC+08)" });
+    showFields({ email: "Notifikasi email", provider: "Layanan email", contact: "Kontak bantuan", estimate: "Estimasi pemeriksaan", timezone: "Periode pelaporan" }, { email: summary.emailConfigured ? "Terkonfigurasi" : "Belum diaktifkan", provider: summary.emailProvider === "emailjs" ? "EmailJS" : "Resend", contact: summary.contactUrl || "Belum ditetapkan", estimate: summary.reviewEstimate || "Belum ditetapkan", timezone: "WITA (UTC+08)" });
     $("dialogBody").append(element("p", "inline-note", "Informasi layanan ditetapkan oleh pengelola. Persetujuan akun tidak otomatis mengaktifkan langganan."));
   };
   async function inspectFromDialog(id) { dialog.close(); await detail(id); $("detail").scrollIntoView({ behavior: "smooth", block: "start" }); $("detail").focus({ preventScroll: true }); }
@@ -210,7 +210,7 @@
     } catch (err) { if (sequence === dialogSequence) $("dialogBody").replaceChildren(element("p", "inline-error", err.message)); }
   }
   $("auditButton").onclick = () => void feed("activity");
-  $("notificationsButton").onclick = () => void feed("notifications", 1, summary?.notifications.FAILED ? "FAILED" : "PENDING");
+  $("notificationsButton").onclick = () => void feed("notifications", 1, summary?.notifications.UNCERTAIN ? "UNCERTAIN" : summary?.notifications.FAILED ? "FAILED" : "PENDING");
   async function refresh(reset = false) { if (deciding) return; await Promise.all([list(reset), loadSummary().catch(err => tell(err.message, true))]); }
   $("filters").onsubmit = event => { event.preventDefault(); if (!deciding) { page = 1; void refresh(true); } };
   for (const id of ["status", "specialization", "month"]) $(id).onchange = () => { if (!deciding) { page = 1; void refresh(true); } };

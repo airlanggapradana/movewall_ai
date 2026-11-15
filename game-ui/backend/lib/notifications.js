@@ -47,22 +47,32 @@ async function processNotifications({ prisma, transport, now = () => new Date(),
     where: { OR: [
       { status: "PENDING", nextAttemptAt: { lte: queryTime } },
       { status: "SENDING", lockedUntil: { lte: queryTime } },
-    ] }, orderBy: { createdAt: "asc" }, take: batchSize,
+    ] }, include: { therapist: { select: { name: true } } }, orderBy: { createdAt: "asc" }, take: batchSize,
   });
   for (const job of jobs) {
     const time = now();
+    // EmailJS has no documented provider idempotency key. Recovering an expired
+    // lease or switching from an attempted Resend job requires manual review.
+    const unsafeRecovery = transport.supportsIdempotency === false && job.attempts > 0 &&
+      (job.status === "SENDING" || !/^EmailJS HTTP 4(?!08)\d{2}$/.test(job.lastError || ""));
     const lockToken = randomUUID();
     const claim = await prisma.notificationOutbox.updateMany({
       where: { id: job.id, status: job.status, attempts: job.attempts,
         ...(job.status === "SENDING" ? { lockedUntil: { lte: time } } : {}) },
       data: { status: "SENDING", lockToken, lockedUntil: new Date(time.getTime() + 60000),
-        firstAttemptAt: job.firstAttemptAt || time, attempts: { increment: 1 } },
+        firstAttemptAt: job.firstAttemptAt || time, attempts: { increment: unsafeRecovery ? 0 : 1 } },
     });
     if (!claim.count) continue;
     const where = { id: job.id, lockToken };
+    if (unsafeRecovery) {
+      await prisma.notificationOutbox.updateMany({ where, data: {
+        status: "UNCERTAIN", lastError: "Hasil pengiriman sebelumnya belum pasti. Periksa riwayat provider sebelum tindakan lanjutan.", lockToken: null, lockedUntil: null,
+      } });
+      continue;
+    }
     if ((job.firstAttemptAt && time - job.firstAttemptAt >= RETRY_WINDOW_MS) || job.attempts >= MAX_ATTEMPTS) {
       await prisma.notificationOutbox.updateMany({ where, data: {
-        status: "FAILED", lastError: "Batas retry/idempotensi tercapai; periksa pengiriman di Resend sebelum tindakan lanjutan.",
+        status: "FAILED", lastError: "Batas retry/idempotensi tercapai; periksa pengiriman di provider sebelum tindakan lanjutan.",
         lockToken: null, lockedUntil: null,
       } });
       continue;
@@ -74,8 +84,9 @@ async function processNotifications({ prisma, transport, now = () => new Date(),
       } });
     } catch (error) {
       await prisma.notificationOutbox.updateMany({ where, data: {
-        status: error.permanent || job.attempts + 1 >= MAX_ATTEMPTS ? "FAILED" : "PENDING",
-        lastError: /^Resend HTTP \d+$/.test(error.message) ? error.message : "Pengiriman gagal atau respons tidak diterima.",
+        status: error.uncertain ? "UNCERTAIN" : error.permanent || job.attempts + 1 >= MAX_ATTEMPTS ? "FAILED" : "PENDING",
+        lastError: /^(Resend|EmailJS) HTTP \d+$/.test(error.message) ? error.message : error.uncertain
+          ? "Hasil pengiriman belum pasti. Periksa riwayat provider; email tidak dikirim ulang otomatis." : "Pengiriman gagal atau respons tidak diterima.",
         nextAttemptAt: new Date(time.getTime() + Math.pow(2, job.attempts) * 60000),
         lockedUntil: null, lockToken: null,
       } });

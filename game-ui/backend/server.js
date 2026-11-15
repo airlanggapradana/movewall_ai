@@ -31,7 +31,8 @@ const { createRegistrationHandler } = require("./lib/registration");
 const { createAuthentication, requireClinical, accountSelect, destination, canAccessClinical } = require("./lib/account-access");
 const { createApplicationRouter } = require("./lib/applications");
 const { rateLimit } = require("./lib/rate-limit");
-const { createResendTransport, processNotifications } = require("./lib/notifications");
+const { processNotifications } = require("./lib/notifications");
+const { emailConfiguration, createEmailTransport } = require("./lib/email-transport");
 
 // ─── Midtrans Configuration ──────────────────────────────────────────────────
 const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY || "";
@@ -288,9 +289,10 @@ app.get("/api/auth/me", authenticateSession, (req, res) => {
   res.json({ therapist: req.therapist, redirect: destination(req.therapist) });
 });
 
-const emailConfigured = Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+const emailConfig = emailConfiguration();
+const emailConfigured = emailConfig.configured;
 const adminContact = /^(https:\/\/|mailto:)/i.test(process.env.ADMIN_CONTACT_URL || "") ? process.env.ADMIN_CONTACT_URL : "";
-app.use("/api", createApplicationRouter({ prisma, authenticateSession, emailConfigured,
+app.use("/api", createApplicationRouter({ prisma, authenticateSession, emailConfigured, emailProvider: emailConfig.provider,
   contactUrl: adminContact, reviewEstimate: process.env.APPLICATION_REVIEW_ESTIMATE || "" }));
 
 // ── Helpers: pasien, persetujuan, audit ───────────────────────────────────────
@@ -2000,7 +2002,7 @@ async function main() {
   try {
     await prisma.$connect();
     if (emailConfigured && process.env.NOTIFICATION_WORKER_ENABLED !== "false") {
-      const transport = createResendTransport({ apiKey: process.env.RESEND_API_KEY, from: process.env.EMAIL_FROM });
+      const transport = createEmailTransport();
       let running = false;
       const drain = async () => {
         if (running) return;

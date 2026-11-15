@@ -4,6 +4,7 @@ Pusat dokumentasi arsitektur sistem, spesifikasi produk, rekam desain, dan log i
 
 Implementasi terbaru: [Task 7: Pendaftaran terapis dengan persetujuan admin](tasks/Task_7_Admin_Approval.md).
 Konfigurasi dan deployment: [Panduan persetujuan terapis](operations/therapist-approval.md).
+Pengiriman melalui Gmail: [Konfigurasi EmailJS](operations/emailjs.md).
 
 ---
 

@@ -1,12 +1,14 @@
 # Task 7: Pendaftaran terapis dengan persetujuan admin
 
-Status: implementasi dan verifikasi lokal selesai pada 15 November 2026;
-verifikasi staging dan penerapan produksi belum dilakukan.
+Status: implementasi, pengujian lokal terisolasi, migrasi database produksi,
+dan deployment Vercel/Railway selesai pada 15 November 2026. Bootstrap admin
+produksi serta pengiriman email nyata menunggu konfigurasi pengelola.
 
 Panduan konfigurasi: [Operasional persetujuan terapis](../operations/therapist-approval.md).
 Checkbox di bawah mencatat implementasi dan pengujian lokal. Identitas admin nyata,
-domain pengirim, kontak bantuan, dan environment staging masih perlu ditetapkan
-pengelola sebelum tahap operasional.
+domain pengirim, kontak bantuan, dan environment staging hosting masih perlu
+ditetapkan pengelola. Pengujian pra-rilis memakai database PostgreSQL terpisah
+dan server HTTP lokal terisolasi.
 
 ## Ruang lingkup
 
@@ -149,7 +151,7 @@ task ini tidak mengubah instalasi Node global.
 - Pembatasan frekuensi pendaftaran, login, dan pengiriman ulang pengajuan lulus
   pada HTTP nyata.
 - PostgreSQL sementara hanya berisi data uji; database uji acak dihapus oleh
-  skrip setelah selesai. Database produksi tidak dimigrasikan.
+  skrip setelah selesai. Data uji tidak disalin ke produksi.
 
 ## Informasi yang dibutuhkan saat pelaksanaan
 
@@ -172,3 +174,22 @@ Referensi berisi contoh STR, KTP, PDF, dan persentase validitas. Implementasi
 memakai data yang benar-benar dikumpulkan: identitas, nomor SIP/lisensi, dan
 informasi profesi. Kelengkapan nomor tidak diklaim sebagai validitas dokumen;
 checklist pemeriksaan manusia tetap wajib sebelum persetujuan/pemulihan.
+
+## Rilis produksi 15 November 2026
+
+- Sumber implementasi: `1daa6cd`; patch dependency dan startup: `8fbdb6a`.
+- Vercel: https://movewall-ai.vercel.app/admin,
+  deployment `dpl_2KM4q1xZqCeeVNnSsevZwi4uYfdV`, status READY.
+- Railway: deployment `3b373a77-ef11-437f-a714-b85f791c0cb5`, status SUCCESS.
+  Backend: https://movewall-backend-production.up.railway.app.
+- Migrasi `20261115000000_admin_approval` berhasil diterapkan pada database
+  produksi. Startup rilis terakhir memverifikasi tidak ada migrasi tertunda.
+- Audit seluruh dependency backend: 0 kerentanan; 79 tes unit dan pengujian
+  PostgreSQL/Chrome lulus setelah patch dependency.
+- Verifikasi produksi: hash HTML/CSS/JS admin cocok dengan sumber teruji,
+  health API dan login demo lama berhasil, akun lama berstatus APPROVED,
+  endpoint admin menolak token terapis, browser mengarahkan pengunjung tanpa
+  sesi ke login dan mencegah terapis membuka halaman admin.
+- Identitas admin produksi belum dipilih. Akun `admin-demo` tetap hanya di
+  database demo lokal. Resend belum dikonfigurasi; antrean persisten dan halaman
+  status tetap berfungsi. Tidak ada email nyata yang dikirim oleh pengujian.

@@ -3,6 +3,7 @@
   const names = { PENDING: "Menunggu pemeriksaan", NEEDS_REVISION: "Perlu revisi", APPROVED: "Disetujui", REJECTED: "Ditolak", SUSPENDED: "Ditangguhkan" };
   const mailNames = { PENDING: "Menunggu pengiriman", SENDING: "Sedang dikirim", SENT: "Diterima Resend", FAILED: "Pengiriman gagal" };
   const actions = { PENDING: [["REJECT", "Tolak Pengajuan", "button-reject"], ["REQUEST_REVISION", "Minta Revisi", "button-soft"], ["APPROVE", "Setujui & Terbitkan Akses", "button-approve"]], APPROVED: [["SUSPEND", "Tangguhkan Akun", "button-reject"]], SUSPENDED: [["RESTORE", "Pulihkan Akses", "button-approve"]], REJECTED: [["REOPEN", "Buka Pemeriksaan Ulang", "button-indigo"]], NEEDS_REVISION: [] };
+  const targetStatus = { APPROVE: "APPROVED", REQUEST_REVISION: "NEEDS_REVISION", REJECT: "REJECTED", SUSPEND: "SUSPENDED", RESTORE: "APPROVED", REOPEN: "PENDING" };
   const profileLabels = { name: "Nama lengkap", username: "Username", email: "Email", clinicName: "Klinik / instansi", specialization: "Spesialisasi", licenseNumber: "SIP / lisensi", phoneNumber: "Telepon", submittedAt: "Diajukan", reviewedAt: "Diperiksa" };
   let selected, admin, summary, page = 1, listSequence = 0, detailSequence = 0, summarySequence = 0, dialogSequence = 0, deciding = false;
   const element = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; };
@@ -29,6 +30,13 @@
     }
   }
   function clearDetail() { selected = null; detailSequence++; $("detail").classList.add("hidden"); $("historyCard").classList.add("hidden"); $("emptyDetail").classList.remove("hidden"); }
+  function renderDecisionState() {
+    $("statusBadge").textContent = names[selected.applicationStatus]; $("statusBadge").dataset.status = selected.applicationStatus;
+    $("decisionForm").reset(); $("decisionError").textContent = ""; $("decisionActions").replaceChildren();
+    const available = actions[selected.applicationStatus] || [];
+    for (const [action, label, style] of available) { const button = element("button", `button ${style}`, label); button.type = "submit"; button.dataset.action = action; button.disabled = deciding; $("decisionActions").append(button); }
+    $("decisionForm").classList.toggle("hidden", !available.length); $("noDecision").classList.toggle("hidden", available.length > 0);
+  }
   async function list(resetSelection = false) {
     const sequence = ++listSequence;
     if (resetSelection) clearDetail();
@@ -97,16 +105,12 @@
     if (sequence !== detailSequence) return;
     selected = data.application; highlight();
     $("emptyDetail").classList.add("hidden"); $("detail").classList.remove("hidden"); $("historyCard").classList.remove("hidden");
-    $("statusBadge").textContent = names[selected.applicationStatus]; $("statusBadge").dataset.status = selected.applicationStatus;
+    renderDecisionState();
     $("applicationRef").textContent = `# ${ref(selected)}`; $("clinicName").textContent = selected.clinicName || "Belum diisi";
     $("detailTitle").textContent = selected.name; $("applicantAvatar").textContent = initials(selected.name);
     $("applicantSpecialization").textContent = `Spesialisasi: ${selected.specialization || "Belum diisi"}`;
     $("applicantEmail").textContent = selected.email || "Email belum diisi"; $("applicantPhone").textContent = selected.phoneNumber || "Telepon belum diisi";
     $("credentialIdentity").textContent = selected.name; $("credentialLicense").textContent = selected.licenseNumber || "Belum dicantumkan"; $("credentialProfession").textContent = selected.specialization || "Belum dicantumkan";
-    $("decisionForm").reset(); $("decisionError").textContent = ""; $("decisionActions").replaceChildren();
-    const available = actions[selected.applicationStatus] || [];
-    for (const [action, label, style] of available) { const button = element("button", `button ${style}`, label); button.type = "submit"; button.dataset.action = action; $("decisionActions").append(button); }
-    $("decisionForm").classList.toggle("hidden", !available.length); $("noDecision").classList.toggle("hidden", available.length > 0);
     $("history").replaceChildren();
     for (const event of data.history) {
       const li = element("li"), time = element("time", "", date(event.createdAt)); time.dateTime = event.createdAt;
@@ -129,13 +133,32 @@
     const checklistRequired = ["APPROVE", "RESTORE"].includes(action);
     for (const input of $("reviewChecklist").querySelectorAll("input")) input.required = checklistRequired;
     if (!event.target.reportValidity()) return;
-    const id = selected.id, form = new FormData(event.target);
+    const id = selected.id, expectedVersion = selected.applicationVersion, form = new FormData(event.target);
+    let saved = false;
     deciding = true; $("decisionError").textContent = "";
     for (const button of $("decisionActions").querySelectorAll("button")) button.disabled = true;
     try {
-      await MoveWallSession.request(`/admin/applications/${id}/decision`, { method: "POST", body: JSON.stringify({ action, reason: form.get("reason"), expectedVersion: selected.applicationVersion, checklist: { identity: form.has("identity"), clinic: form.has("clinic"), profession: form.has("profession") } }) });
+      const result = await MoveWallSession.request(`/admin/applications/${id}/decision`, { method: "POST", body: JSON.stringify({ action, reason: form.get("reason"), expectedVersion, checklist: { identity: form.has("identity"), clinic: form.has("clinic"), profession: form.has("profession") } }) });
+      saved = true; selected = result.application; renderDecisionState();
       await detail(id); await Promise.all([list(), loadSummary()]); tell("Keputusan tersimpan. Pendaftar dapat melihat status dan alasan terbaru.");
-    } catch (err) { if (err.status === 409) await detail(id).catch(() => {}); $("decisionError").textContent = err.message; tell(err.message, true); }
+    } catch (err) {
+      if (saved) {
+        tell("Keputusan tersimpan. Pembaruan tampilan belum selesai; klik Perbarui data untuk memuat riwayat terbaru.");
+      } else if (err.code === "NETWORK_ERROR" || [502, 503, 504].includes(err.status)) {
+        // Never resend a decision automatically: the first request may have committed.
+        let current = false;
+        try { await detail(id); current = true; } catch { /* Keep the last known state until refresh succeeds. */ }
+        if (current && selected.applicationVersion === expectedVersion + 1 && selected.applicationStatus === targetStatus[action]) {
+          tell(`Status terbaru pengajuan: ${names[selected.applicationStatus]}. Respons keputusan sempat terputus; status sudah diperiksa kembali.`);
+          await Promise.allSettled([list(), loadSummary()]);
+        } else {
+          const message = current && selected.applicationVersion === expectedVersion
+            ? "Belum ada perubahan status. Periksa koneksi, lalu coba kembali jika diperlukan."
+            : "Hasil keputusan belum dapat dipastikan. Klik Perbarui data sebelum mengambil keputusan lagi.";
+          $("decisionError").textContent = message; tell(message, true);
+        }
+      } else { if (err.status === 409) await detail(id).catch(() => {}); $("decisionError").textContent = err.message; tell(err.message, true); }
+    }
     finally { deciding = false; for (const button of $("decisionActions").querySelectorAll("button")) button.disabled = false; }
   };
   const dialog = $("adminDialog");

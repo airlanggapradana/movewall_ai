@@ -8,11 +8,17 @@
     if (account?.role === "THERAPIST" && account.isActive && account.applicationStatus === "APPROVED") return "dashboard.html";
     return "application.html";
   }
-  if (!win) return { routeFor };
-  const local = ["localhost", "127.0.0.1"].includes(win.location.hostname);
-  const origin = sessionStorage.getItem("mw_backend_url") || win.MOVEWALL_BACKEND_URL ||
-    (local && sessionStorage.getItem("mw_use_local_backend") !== "false" ? "http://localhost:3001" : "https://movewall-backend-production.up.railway.app");
-  const apiBase = `${origin.replace(/\/$/, "")}/api`;
+  function apiBaseFor({ hostname, origin, override, configured, useLocal }) {
+    const local = ["localhost", "127.0.0.1"].includes(hostname);
+    const backend = override || configured || (local
+      ? (useLocal !== "false" ? "http://localhost:3001" : "https://movewall-backend-production.up.railway.app")
+      : origin);
+    return `${backend.replace(/\/$/, "")}/api`;
+  }
+  if (!win) return { routeFor, apiBaseFor };
+  const apiBase = apiBaseFor({ hostname: win.location.hostname, origin: win.location.origin,
+    override: sessionStorage.getItem("mw_backend_url"), configured: win.MOVEWALL_BACKEND_URL,
+    useLocal: sessionStorage.getItem("mw_use_local_backend") });
   const originalFetch = win.fetch.bind(win);
   function logout() {
     sessionStorage.removeItem("mw_token");
@@ -34,10 +40,18 @@
   async function request(path, options = {}) {
     const token = sessionStorage.getItem("mw_token");
     if (!token) { logout(); throw new Error("Silakan masuk terlebih dahulu."); }
-    const response = await win.fetch(`${apiBase}${path}`, {
-      ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...options.headers },
-    });
-    const data = await response.json();
+    let response;
+    try {
+      response = await win.fetch(`${apiBase}${path}`, {
+        cache: "no-store", ...options,
+        headers: { ...(options.body ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${token}`, ...options.headers },
+      });
+    } catch {
+      throw Object.assign(new Error("Koneksi ke server terputus. Perbarui status untuk memastikan hasil permintaan."), { code: "NETWORK_ERROR" });
+    }
+    let data;
+    try { data = await response.json(); }
+    catch { throw Object.assign(new Error("Respons server belum dapat dibaca. Perbarui status sebelum mencoba kembali."), { code: "NETWORK_ERROR", status: response.status }); }
     if (!response.ok) throw Object.assign(new Error(data.error || "Permintaan belum dapat diproses."), { status: response.status, errors: data.errors });
     return data;
   }

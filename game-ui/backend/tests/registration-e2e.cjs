@@ -218,8 +218,26 @@ async function main() {
       await adminPage.locator("#applications").getByText("Tidak ada pengajuan yang sesuai dengan filter ini.", { exact: true }).waitFor();
       await adminPage.locator("#search").fill(""); await adminPage.locator("#filters").getByRole("button", { name: "Tampilkan" }).click();
       await adminPage.getByRole("button", { name: /Terapis Browser/ }).click();
+      const browserApplicant = await prisma.therapist.findUnique({ where: { username: "browser-user" } });
+      const decisionUrl = `${origin}/api/admin/applications/${browserApplicant.id}/decision`;
+      let approvalPosts = 0;
+      await adminPage.route(decisionUrl, async route => {
+        if (route.request().postDataJSON().action === "APPROVE") {
+          approvalPosts++;
+          const response = await route.fetch(); assert.equal(response.status(), 200);
+          await route.abort("failed"); // Database committed, but the browser lost its response.
+        } else await route.continue();
+      });
+      const detailUrl = `${origin}/api/admin/applications/${browserApplicant.id}`;
+      let dropDetail = true;
+      await adminPage.route(detailUrl, async route => {
+        if (dropDetail) { dropDetail = false; await route.abort("failed"); }
+        else await route.continue();
+      });
       await adminPage.locator("#reason").fill("Lengkapi nama klinik Anda."); await adminPage.locator('[data-action="REQUEST_REVISION"]').click();
       await adminPage.locator("#statusBadge").filter({ hasText: "Perlu revisi" }).waitFor();
+      await adminPage.locator("#message").filter({ hasText: "Keputusan tersimpan. Pembaruan tampilan belum selesai" }).waitFor();
+      await adminPage.unroute(detailUrl);
       await page.locator("#refresh").click(); await page.locator("#revisionSection:not(.hidden)").waitFor();
       await page.locator("#revisionForm [name=clinicName]").fill("Klinik Browser Diperbaiki"); await page.locator("#resubmit").click();
       await page.getByRole("heading", { name: "Menunggu pemeriksaan", exact: true }).waitFor();
@@ -227,6 +245,10 @@ async function main() {
       for (const name of ["identity", "clinic", "profession"]) await adminPage.locator(`[name=${name}]`).check();
       await adminPage.screenshot({ path: path.join(artifactDir, "admin-review.png"), fullPage: true });
       await adminPage.locator('[data-action="APPROVE"]').click(); await adminPage.locator("#statusBadge").filter({ hasText: "Disetujui" }).waitFor();
+      await adminPage.locator("#message").filter({ hasText: "Status terbaru pengajuan: Disetujui" }).waitFor();
+      assert.equal(approvalPosts, 1);
+      assert.equal(await prisma.applicationDecision.count({ where: { therapistId: browserApplicant.id, fromStatus: "PENDING", toStatus: "APPROVED" } }), 1);
+      await adminPage.unroute(decisionUrl);
       await page.locator("#refresh").click(); await page.locator("#dashboardLink:not(.hidden)").waitFor();
       await page.screenshot({ path: path.join(artifactDir, "approved-status-mobile.png"), fullPage: true });
       // Approval grants dashboard entry; the paid clinical features still require a subscription.
